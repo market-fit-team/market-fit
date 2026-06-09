@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { useErrorBoundary } from "react-error-boundary"
 import { authClient } from "@/features/auth/lib/auth-client"
-import { useSuspenseEchoQuery } from "@/features/playground/api/get-echo.client"
-import { useSuspenseProfileQuery } from "@/features/playground/api/get-profile.client"
+import { useGetEchoSuspense } from "@/shared/api/generated/echo/endpoints/echo/echo"
+import { useGetMeSuspense } from "@/shared/api/generated/profile/endpoints/profile/profile"
 import { Button } from "@/shared/components/ui/button"
 import {
   Card,
@@ -27,11 +27,16 @@ export default function PlaygroundClient({
 
   // 서버에서 prefetch된 캐시를 Hydration 받아 즉시 렌더링됩니다.
   // 네트워크 지연 없이 화면에 바로 출력됩니다.
-  const { data: profile } = useSuspenseProfileQuery(
-    gatewayBase,
-    serverJwt || ""
-  )
-  const { data: echo } = useSuspenseEchoQuery(gatewayBase, serverJwt || "")
+  const { data: profile } = useGetMeSuspense({
+    fetch: {
+      headers: { Authorization: `Bearer ${serverJwt || ""}` },
+    },
+  })
+  const { data: echo } = useGetEchoSuspense({
+    fetch: {
+      headers: { Authorization: `Bearer ${serverJwt || ""}` },
+    },
+  })
 
   const issueJwtClient = async (): Promise<string | null> => {
     const tokenResult = await authClient.token()

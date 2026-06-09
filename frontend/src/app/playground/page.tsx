@@ -8,13 +8,19 @@ import {
   dehydrate,
 } from "@tanstack/react-query"
 import { getServerSession } from "@/features/auth/lib/server-session"
-import { prefetchEcho } from "@/features/playground/api/get-echo.server"
-import { prefetchProfile } from "@/features/playground/api/get-profile.server"
 import PlaygroundClient from "@/features/playground/components/playground-client"
 import {
   PlaygroundErrorFallback,
   PlaygroundSuspenseFallback,
 } from "@/features/playground/components/playground-fallback"
+import {
+  getGetEchoSuspenseQueryOptions,
+  prefetchGetEchoQuery,
+} from "@/shared/api/generated/echo/endpoints/echo/echo"
+import {
+  getGetMeSuspenseQueryOptions,
+  prefetchGetMeQuery,
+} from "@/shared/api/generated/profile/endpoints/profile/profile"
 
 export const dynamic = "force-dynamic"
 
@@ -77,8 +83,18 @@ export default async function PlaygroundPage() {
   // 서버 사이드에서 데이터 미리 패칭 (prefetch)
   if (jwt) {
     await Promise.all([
-      prefetchProfile(queryClient, GATEWAY_BASE, jwt),
-      prefetchEcho(queryClient, GATEWAY_BASE, jwt),
+      prefetchGetMeQuery(queryClient, {
+        fetch: {
+          headers: { Authorization: `Bearer ${jwt}` },
+          cache: "no-store",
+        },
+      }),
+      prefetchGetEchoQuery(queryClient, {
+        fetch: {
+          headers: { Authorization: `Bearer ${jwt}` },
+          cache: "no-store",
+        },
+      }),
     ])
   }
 
@@ -86,10 +102,10 @@ export default async function PlaygroundPage() {
 
   // SSR 단계에서 서버용 캐시값을 꺼내 확인용 UI에 렌더링
   const serverProfile = jwt
-    ? queryClient.getQueryData(["profile", GATEWAY_BASE])
+    ? queryClient.getQueryData(getGetMeSuspenseQueryOptions().queryKey)
     : null
   const serverEcho = jwt
-    ? queryClient.getQueryData(["echo", GATEWAY_BASE])
+    ? queryClient.getQueryData(getGetEchoSuspenseQueryOptions().queryKey)
     : null
 
   return (
