@@ -32,7 +32,7 @@
 | Method | Path                  | Auth     | 설명                    |
 | ------ | --------------------- | -------- | ----------------------- |
 | `GET`  | `/api/v1/auth/csrf`   | public   | CSRF token cookie 발급  |
-| `GET`  | `/api/v1/auth/me`     | required | 현재 로그인 사용자 조회 |
+
 | `POST` | `/api/v1/auth/logout` | required | 세션 로그아웃           |
 
 ### CSRF 사용 방식

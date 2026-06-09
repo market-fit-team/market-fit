@@ -5,8 +5,6 @@ const OPENAPI_GATEWAY_ORIGIN =
 
 const GENERATED_ROOT = "src/shared/api/generated"
 
-
-
 const createProject = ({
   name,
   inputPath,
@@ -37,6 +35,8 @@ const createProject = ({
       override: {
         query: {
           useSuspenseQuery: true,
+          useSuspenseInfiniteQuery: true,
+          useInfiniteQueryParam: "cursor",
           usePrefetch: true,
           useInvalidate: true,
           useSetQueryData: true,
