@@ -1,14 +1,25 @@
 [project]
-name = "simple-agent-template"
+name = "pickle-agent-service"
 version = "0.1.0"
-description = "Minimal LangChain agent template for LangSmith/LangGraph deployment"
+description = "Native LangGraph Agent Server for Pickle chat graph/model/eval migration"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "fastapi>=0.136.1",
+    "google-genai",
+    "httpx",
     "langchain>=1.0.0",
-    "langchain-anthropic>=1.0.0",
+    "langchain-google-genai",
+    "langchain-openai",
+    "langchain-ollama",
     "langgraph>=1.0.0",
+    "langgraph-sdk",
+    "ollama>=0.6.2",
+    "pydantic-settings",
+    "pyjwt[crypto]>=2.10.1",
     "python-dotenv>=1.0.1",
+    "pyyaml",
+    "qdrant-client",
 ]
 
 [build-system]
@@ -20,9 +31,24 @@ dev = [
     "anyio>=4.7.0",
     "langgraph-cli[inmem]>=0.4.10",
     "pytest>=9.0.3",
+    "pytest-asyncio",
+    "pytest-cov",
     "ruff>=0.8.0",
 ]
 
+[tool.pytest.ini_options]
+addopts = "-p no:cacheprovider"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["src"]
+filterwarnings = [
+    "ignore:.*_UnionGenericAlias.*:DeprecationWarning:google.genai.types",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
 [tool.uv.build-backend]
-module-name = "simple_agent"
-source-include = ["langgraph.json", ".env.example", "Makefile", "tests/**"]
+module-name = "agent"
+source-include = ["langgraph.json", ".env.example", "Makefile", "docs/**", "evals/**", "scripts/**", "tests/**"]

@@ -74,5 +74,11 @@ export default defineConfig((): Config => {
       inputPath: "/api/echo/v3/api-docs",
       runtimeBasePath: "/api/proxy/echo",
     }),
+
+    "agent-api": createProject({
+      name: "agent",
+      inputPath: "/api/agent/openapi.json",
+      runtimeBasePath: "/api/proxy/agent",
+    }),
   }
 })

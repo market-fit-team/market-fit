@@ -1,18 +1,14 @@
 from langgraph.pregel import Pregel
 
-from simple_agent.graph import calculator, graph, utc_now
+from agent.services.chat.graph import chat_graph
+from agent.services.chat.toolkits.chat_toolkit import list_chat_tools
 
 
 def test_graph_compiles() -> None:
-    assert isinstance(graph, Pregel)
+    assert isinstance(chat_graph, Pregel)
 
 
-def test_calculator_tool() -> None:
-    result = calculator.invoke({"expression": "2 + 3 * 4"})
-    assert result == "14"
-
-
-def test_utc_now_tool() -> None:
-    result = utc_now.invoke({})
-    assert isinstance(result, str)
-    assert "T" in result
+def test_tool_catalog_is_not_empty() -> None:
+    tools = list_chat_tools()
+    assert tools
+    assert {tool["name"] for tool in tools} >= {"add", "subtract", "multiply", "divide"}

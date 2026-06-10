@@ -3,8 +3,14 @@
   "python_version": "3.13",
   "dependencies": ["."],
   "graphs": {
-    "agent": "simple_agent.graph:graph"
+    "chat": "./src/agent/services/chat/graph.py:chat_graph"
   },
   "env": ".env",
+  "http": {
+    "app": "./src/agent/webapp.py:app"
+  },
+  "auth": {
+    "path": "src/agent/security/auth.py:auth"
+  },
   "image_distro": "wolfi"
 }

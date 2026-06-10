@@ -1,102 +1,83 @@
-# Simple Agent Template
+# Pickle Agent Service
 
-아래의 명령어로 생성한 AGENT SERVER 입니다.
+LangGraph native Agent Server로 실행되는 chat graph 서비스입니다. 기존 `tracked_files`의 graph/model/tool/eval/RAG 코드는 `src/agent/**`로 이식했고, FastAPI 기반 LangGraph 호환 adapter는 제거했습니다.
 
-```
-uvx --from langgraph-cli@latest langgraph new \
-  경로명 \
-  --template agent-python
-```
-
-ㅇㅋ 복사용으로 다시 정리.
-
-## Agent Server 자체
-
-* [**Agent Server 개념**](https://docs.langchain.com/langsmith/agent-server) — assistants / threads / runs / persistence / task queue 설명
-* [**Agent Server changelog**](https://docs.langchain.com/langsmith/agent-server-changelog) — Agent Server가 API platform이라고 명확히 설명됨
-* [**LangSmith Deployment**](https://docs.langchain.com/langsmith/deployment) — 배포 후 Agent Server 실행 모델
-
-## CLI / 템플릿 / 로컬 실행
-
-* [**LangGraph CLI**](https://docs.langchain.com/langsmith/cli) — Agent Server를 로컬에서 build/run하는 공식 CLI
-* [**Local development & testing**](https://docs.langchain.com/langsmith/local-dev-testing) — `langgraph dev` vs `langgraph up`
-* [**Python: Run a local server**](https://docs.langchain.com/oss/python/langgraph/local-server) — `langgraph new`, `langgraph dev`, `/docs`, `/runs/stream`
-* [**JavaScript: Run a local server**](https://docs.langchain.com/oss/javascript/langgraph/local-server) — JS/TS 템플릿과 Agent Server 실행
-* [**Application structure**](https://docs.langchain.com/langsmith/application-structure) — `langgraph.json`, `graphs`, `env`, dependencies 구조
-* [**LangGraph Studio**](https://docs.langchain.com/oss/python/langgraph/studio) — `langgraph dev`가 local development server / Agent Server를 띄움
-
-## React / SDK 연동
-
-* [**Frontend overview**](https://docs.langchain.com/oss/python/langchain/frontend/overview) — `useStream`, `apiUrl`, `assistantId` 설명
-* [**Streaming frontend**](https://docs.langchain.com/oss/python/langchain/streaming/frontend) — React 앱에서 LangGraph SDK / `useStream` 연결
-* [**JavaScript LangGraph frontend overview**](https://docs.langchain.com/oss/javascript/langgraph/frontend/overview) — JS/TS 쪽 `@langchain/react` + `useStream`
-* [**JavaScript streaming**](https://docs.langchain.com/oss/javascript/langgraph/streaming) — `@langchain/langgraph-sdk/react`의 `useStream` 언급
-* [**LangGraph.js API Reference**](https://langchain-ai.github.io/langgraphjs/reference/) — `@langchain/langgraph-sdk` API 레퍼런스
-
-## 운영 / 보안
-
-* [**Authentication & access control**](https://docs.langchain.com/langsmith/auth) — Agent Server 인증/권한 개념
-* [**Add custom authentication**](https://docs.langchain.com/langsmith/custom-auth) — custom auth 적용
-* [**Set up custom authentication**](https://docs.langchain.com/langsmith/set-up-custom-auth) — 튜토리얼형 auth 세팅
-* [**Custom routes**](https://docs.langchain.com/langsmith/custom-routes) — Agent Server에 커스텀 route 추가
-* [**MCP endpoint in Agent Server**](https://docs.langchain.com/langsmith/server-mcp) — Agent Server의 `/mcp` 엔드포인트
-
-
-Minimal deployment template for a LangChain agent built with `create_agent(...)`.
-
-## What this template gives you
-
-- A deployable LangGraph entrypoint at `src/simple_agent/graph.py`.
-- Two small tools (`utc_now`, `calculator`) for predictable local behavior.
-- `langgraph.json` configured for LangSmith/LangGraph deployment.
-- A `uv`-managed local workflow with a small `Makefile` wrapper and starter tests.
-
-## Quickstart
-
-1. Sync the project with `uv`:
-
-```bash
-uv sync --dev
-```
-
-2. Configure environment:
+## 실행
 
 ```bash
 cp .env.example .env
+uv sync
+uv run langgraph dev --host 0.0.0.0 --port 2024 --no-browser
 ```
 
-3. Run locally:
+Docker compose에서는 프로젝트 루트에서 실행합니다.
 
 ```bash
-uv run langgraph dev
+docker compose up -d --build qdrant agent-service nginx
 ```
 
-Optional `make` wrappers:
+## graph id
 
-```bash
-make dev
-make run
+`langgraph.json`의 graph id는 `chat`입니다.
+
+```json
+"graphs": {
+  "chat": "./src/agent/services/chat/graph.py:chat_graph"
+}
 ```
 
-## Tests and lint
+프론트의 `assistantId`도 `chat`으로 맞춰져 있습니다.
 
-```bash
-make test
-make integration-tests
-make lint
-make format
+## JWT 경계
+
+Agent Server custom auth는 Next.js BFF가 발급해 붙인 Better Auth RS256 JWT를 검증합니다.
+
+```text
+Browser cookie
+  -> Next.js /api/proxy/agent
+  -> /api/auth/token
+  -> Authorization: Bearer <JWT>
+  -> Nginx /api/agent
+  -> Agent Server custom auth
 ```
 
-Integration tests are skipped unless `ANTHROPIC_API_KEY` is set.
+필수 환경 변수:
 
-## Deploy to LangSmith
+```env
+JWKS_URL=http://host.docker.internal:3000/api/auth/jwks
+JWT_ISSUER=http://localhost:3000
+JWT_AUDIENCE=frontend-api
+JWT_ALGORITHM=RS256
+```
 
-1. Push this template to a Git repository.
-2. In LangSmith, create a new Deployment from that repo.
-3. Set required environment variables (`ANTHROPIC_API_KEY`, optionally `LANGSMITH_API_KEY`).
-4. Deploy using `langgraph.json` defaults.
+## Custom routes
 
-## Reference docs
+LangGraph native threads/runs API는 그대로 사용하고, 기존 UI가 필요로 하는 catalog만 custom route로 제공합니다.
 
-- LangChain quickstart: https://docs.langchain.com/oss/python/langchain/quickstart
-- LangChain deployment: https://docs.langchain.com/oss/python/langchain/deploy
+```text
+GET /api/v1/llm/models
+GET /api/v1/llm/tools
+```
+
+Nginx/Next 경유 시 프론트에서는 다음 경로가 됩니다.
+
+```text
+GET /api/proxy/agent/api/v1/llm/models
+GET /api/proxy/agent/api/v1/llm/tools
+```
+
+## 기존 adapter 제외
+
+이식하지 않은 기존 adapter 경계:
+
+```text
+src/services/chat/langgraph_protocol/**
+src/schemas/langgraph.py
+src/api/endpoints/v1/langgraph.py
+```
+
+native Agent Server에서는 `@langchain/langgraph-sdk/react`의 `useStream`이 threads/runs/stream 계약을 직접 사용합니다.
+
+## 장애 확인
+
+자세한 적용/장애 확인 순서는 프로젝트 루트의 `docs/AGENT_SERVER_MIGRATION.md`를 보세요.

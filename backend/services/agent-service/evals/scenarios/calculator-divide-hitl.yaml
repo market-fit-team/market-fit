@@ -1,0 +1,33 @@
+# 시나리오 구조(shape)는 Goose Open Model Gym suite/scenarios/*.yaml 을 각색함:
+# https://github.com/aaif-goose/goose/blob/ba16de9738ec5bc319adbddeb9dd6523475fc7c0/evals/open-model-gym/suite/scenarios/multi-turn-edit.yaml
+#
+# 로컬 확장: resume.decision은 이 저장소의 LangGraph HITL 인터럽트 페이로드로부터
+# Command(resume=...) 결정을 자동으로 빌드합니다.
+
+name: calculator-divide-hitl
+description: divide 도구 실행이 인터럽트되고, 승인된 후, 실행 및 스트리밍되는지 검증합니다.
+tags:
+  - calculator
+  - hitl
+prompt: |
+  divide 도구를 사용하여 10 / 2를 계산하세요. 그리고 결과로 답변을 작성하세요.
+allowed_tools: [add, subtract, multiply]
+interrupt_on:
+  divide:
+    allowed_decisions: [approve, reject]
+resume:
+  decision: approve
+  allowed_tools: [add, subtract, multiply, divide]
+validate:
+  - type: no_error
+  - type: interrupt_required
+    action_names: [divide]
+  - type: tool_called
+    tool: divide
+    args:
+      a: "10"
+      b: "2"
+  - type: final_text_matches
+    regex: "\\b5\\b"
+  - type: done
+

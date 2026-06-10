@@ -1,0 +1,26 @@
+# 시나리오 구조(shape)는 Goose Open Model Gym suite/scenarios/*.yaml 을 각색함:
+# https://github.com/aaif-goose/goose/blob/ba16de9738ec5bc319adbddeb9dd6523475fc7c0/evals/open-model-gym/suite/scenarios/file-editing.yaml
+#
+# 로컬 검증기들은 이 llm 서비스의 SSE 규약에 특화되어 있습니다.
+
+name: calculator-add-tool
+description: 채팅 에이전트가 add 계산기 도구를 호출하고 SSE 스트림을 완료하는지 검증합니다.
+tags:
+  - calculator
+  - tool
+prompt: |
+  add 도구를 사용하여 2 + 3을 계산하세요. 그리고 결과로 답변을 작성하세요.
+allowed_tools: [add, subtract, multiply, divide]
+validate:
+  - type: no_error
+  - type: event_seen
+    event: on_chat_model_stream
+  - type: tool_called
+    tool: add
+    args:
+      a: "2"
+      b: "3"
+  - type: final_text_matches
+    regex: "\\b5\\b"
+  - type: done
+

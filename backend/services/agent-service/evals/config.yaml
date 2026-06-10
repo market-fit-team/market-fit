@@ -1,0 +1,30 @@
+# 기본 llm eval suite (평가 스위트).
+#
+# Goose Open Model Gym의 config.yaml 구조를 각색함:
+# https://github.com/aaif-goose/goose/blob/ba16de9738ec5bc319adbddeb9dd6523475fc7c0/evals/open-model-gym/config.yaml
+#
+# 로컬 변경 사항: "runners"는 Goose/OpenCode/Pi CLI 러너가 아닌,
+# 이 FastAPI llm 서비스를 위한 HTTP/SSE 타겟입니다.
+
+run:
+  repetitions: 1
+  output_dir: reports
+  workdir: .workdir
+  fail_fast: true
+
+scenarios_dir: scenarios
+
+runners:
+  - name: local-llm
+    type: http_sse
+    base_url: http://localhost:8000
+    api_key_env: API_KEY
+    api_key_header: X-API-Key
+    timeout_seconds: 180
+    label: 로컬 FastAPI llm 서버
+
+matrix:
+  - scenario: calculator-add-tool
+    runners: [local-llm]
+  - scenario: calculator-divide-hitl
+    runners: [local-llm]
