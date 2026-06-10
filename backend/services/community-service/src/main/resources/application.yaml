@@ -58,7 +58,17 @@ spring:
     oauth2:
       resourceserver:
         jwt:
+          # NOTE: Next.js Better Auth JWT plugin exposes this JWKS endpoint.
+          # community-service validates incoming Bearer tokens with the same public key set.
           jwk-set-uri: ${JWKS_URL:http://host.docker.internal:3000/api/auth/jwks}
+
+app:
+  auth:
+    jwt:
+      # NOTE: frontend/src/features/auth/lib/auth.ts 의 jwt({ issuer }) 값과 동일해야 합니다.
+      issuer: ${JWT_ISSUER:http://localhost:3000}
+      # NOTE: frontend/src/features/auth/lib/auth.ts 의 jwt({ audience }) 값과 동일해야 합니다.
+      audience: ${JWT_AUDIENCE:frontend-api}
 
 springdoc:
   # Source: https://springdoc.org/core-properties.html
@@ -78,3 +88,8 @@ storage:
 server:
   port: 8080
   forward-headers-strategy: framework # NOTE: 프록시 서버(Nginx 등) 뒤에 있을 때 헤더 처리를 위함
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: TRACE

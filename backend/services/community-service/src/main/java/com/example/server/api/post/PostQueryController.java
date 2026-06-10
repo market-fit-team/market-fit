@@ -38,7 +38,9 @@ public class PostQueryController {
             @RequestParam(defaultValue = "20") int size,
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
     ) {
-        User currentUser = currentUserService.getRequiredUser(jwt);
+        // NOTE: 게시글 조회는 SecurityConfig에서 permitAll입니다.
+        // 비로그인 사용자는 null로 전달하고, 로그인 사용자는 likedByMe 계산을 위해 User를 사용합니다.
+        User currentUser = currentUserService.getOptionalUser(jwt).orElse(null);
         return postQueryService.findOffsetPage(page, size, currentUser);
     }
 
@@ -49,7 +51,8 @@ public class PostQueryController {
             @RequestParam(defaultValue = "20") int size,
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
     ) {
-        User currentUser = currentUserService.getRequiredUser(jwt);
+        // NOTE: 공개 피드는 비로그인 접근을 허용합니다. 로그인 사용자는 개인화 필드(likedByMe)에만 사용됩니다.
+        User currentUser = currentUserService.getOptionalUser(jwt).orElse(null);
         return postQueryService.findCursorPage(cursor, size, currentUser);
     }
 
@@ -59,7 +62,8 @@ public class PostQueryController {
             @PathVariable Long id,
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
     ) {
-        User currentUser = currentUserService.getRequiredUser(jwt);
+        // NOTE: 단건 조회도 공개 조회입니다. currentUser가 없으면 likedByMe 등 개인화 값은 false/null 기준으로 처리됩니다.
+        User currentUser = currentUserService.getOptionalUser(jwt).orElse(null);
         return postQueryService.findById(id, currentUser);
     }
 
@@ -71,7 +75,8 @@ public class PostQueryController {
             @RequestParam(defaultValue = "20") int size,
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
     ) {
-        User currentUser = currentUserService.getRequiredUser(jwt);
+        // NOTE: 답글 조회는 공개 조회입니다. 로그인 사용자인 경우에만 DB session user id를 설정합니다.
+        User currentUser = currentUserService.getOptionalUser(jwt).orElse(null);
         return postQueryService.findRepliesCursorPage(postId, cursor, size, currentUser);
     }
 
@@ -82,7 +87,8 @@ public class PostQueryController {
             @RequestParam(defaultValue = "20") int size,
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
     ) {
-        User currentUser = currentUserService.getRequiredUser(jwt);
+        // NOTE: 스레드 조회는 공개 조회입니다. 로그인 사용자인 경우에만 개인화 필드를 계산합니다.
+        User currentUser = currentUserService.getOptionalUser(jwt).orElse(null);
         return postQueryService.findThread(postId, size, currentUser);
     }
 }

@@ -1,10 +1,12 @@
 .PHONY: dev
 
 dev:
-	@echo "Starting Docker Compose services (if not already running)..."
-	@docker compose up -d
-	@echo "Waiting for database to be ready..."
-	@sleep 3
+	@echo "Starting Docker Compose services..."
+	@docker compose up -d --build
+	@echo "Waiting for database and openapi to be ready..."
+	@sleep 10
+	@echo "restarting nginx..."
+	@docker compose restart nginx
 	@echo "Running database migrations..."
 	@cd frontend && npm run db:migrate
 	@echo "Starting development server..."

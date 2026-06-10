@@ -19,7 +19,7 @@ export function PostList() {
             {page.data.items?.map((post) => (
               <div key={post.id}>
                 <p>{post.content}</p>
-                <small>{new Date(post.createdAt!).toLocaleString()}</small>
+                <small suppressHydrationWarning>{new Date(post.createdAt!).toLocaleString("ko-KR")}</small>
               </div>
             ))}
           </div>

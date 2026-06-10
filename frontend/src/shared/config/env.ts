@@ -16,9 +16,22 @@ const EnvSchema = z.object({
   GOOGLE_CLIENT_SECRET: z
     .string()
     .min(1, "[env] GOOGLE_CLIENT_SECRET is required"),
+
   JWT_ISSUER: z.string().min(1, "[env] JWT_ISSUER is required"),
   JWT_AUDIENCE: z.string().min(1, "[env] JWT_AUDIENCE is required"),
   JWT_EXPIRATION: z.string().min(1, "[env] JWT_EXPIRATION is required"),
+
+  // NOTE:
+  // Better Auth JWT plugin의 keyPairConfig.alg 설정값.
+  // Spring Security/Nimbus 쪽 JWT header alg는 일반적으로 "RS256"을 기대한다.
+  //
+  // 근거:
+  // - Better Auth JWT plugin: keyPairConfig.alg 옵션, 기본 EdDSA/Ed25519, RS256 지원
+  //   https://better-auth.com/docs/plugins/jwt
+  // - Spring Security NimbusJwtDecoder 기본 trusted algorithm: RS256
+  //   https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html
+  JWT_ALGORITHM: z.enum(["RS256"]).default("RS256"),
+
   UPSTREAM_API_BASE_URL: z.string().optional(),
 })
 
@@ -32,6 +45,7 @@ const createEnv = () => {
     JWT_ISSUER: process.env.JWT_ISSUER,
     JWT_AUDIENCE: process.env.JWT_AUDIENCE,
     JWT_EXPIRATION: process.env.JWT_EXPIRATION,
+    JWT_ALGORITHM: process.env.JWT_ALGORITHM,
     UPSTREAM_API_BASE_URL: process.env.UPSTREAM_API_BASE_URL,
   }
 

@@ -49,7 +49,7 @@ public class PostQueryService {
 
     @Cacheable(value = "post", key = "#id")
     public PostResponse findById(Long id, User currentUser) {
-        dbSessionContext.setCurrentUserId(currentUser.getId());
+        setCurrentUserIdIfAuthenticated(currentUser);
 
         Post post = postRepository.findWithUserById(id)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -67,7 +67,7 @@ public class PostQueryService {
     }
 
     public Page<PostSummaryResponse> findOffsetPage(int page, int size, User currentUser) {
-        dbSessionContext.setCurrentUserId(currentUser.getId());
+        setCurrentUserIdIfAuthenticated(currentUser);
 
         Pageable pageable = PageRequest.of(
                 Math.max(page, 0),
@@ -83,7 +83,7 @@ public class PostQueryService {
     }
 
     public CursorPageResponse<PostSummaryResponse> findCursorPage(String cursor, int size, User currentUser) {
-        dbSessionContext.setCurrentUserId(currentUser.getId());
+        setCurrentUserIdIfAuthenticated(currentUser);
 
         int normalizedSize = normalizeSize(size);
         PostCursorCodec.CursorToken token = postCursorCodec.decode(cursor);
@@ -97,7 +97,7 @@ public class PostQueryService {
     }
 
     public CursorPageResponse<PostSummaryResponse> findRepliesCursorPage(Long postId, String cursor, int size, User currentUser) {
-        dbSessionContext.setCurrentUserId(currentUser.getId());
+        setCurrentUserIdIfAuthenticated(currentUser);
 
         int normalizedSize = normalizeSize(size);
         PostCursorCodec.CursorToken token = postCursorCodec.decode(cursor);
@@ -111,7 +111,7 @@ public class PostQueryService {
     }
 
     public PostThreadResponse findThread(Long postId, int replySize, User currentUser) {
-        dbSessionContext.setCurrentUserId(currentUser.getId());
+        setCurrentUserIdIfAuthenticated(currentUser);
 
         PostSummaryView center = postSummaryRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글을 찾을 수 없습니다. id=" + postId));
@@ -137,6 +137,19 @@ public class PostQueryService {
         CursorPageResponse<PostSummaryResponse> replies = findRepliesCursorPage(postId, null, replySize, currentUser);
 
         return new PostThreadResponse(ancestors, centerResponse, replies);
+    }
+
+
+    private void setCurrentUserIdIfAuthenticated(User currentUser) {
+        /**
+         * NOTE: posts 조회 API는 공개 API입니다.
+         * 비로그인 요청에서는 currentUser가 null이고, 이때 DB session variable을 설정하지 않습니다.
+         * PostgreSQL app_current_user_id()는 설정값이 없으면 null을 반환하므로 liked_by_me는 자연스럽게 false가 됩니다.
+         * 로그인 요청에서는 현재 user id를 transaction-local 값으로 설정해 RLS/likedByMe 계산에 사용합니다.
+         */
+        if (currentUser != null) {
+            dbSessionContext.setCurrentUserId(currentUser.getId());
+        }
     }
 
     private CursorPageResponse<PostSummaryResponse> toCursorResponse(List<PostSummaryView> rows, int size) {
@@ -176,4 +189,3 @@ public class PostQueryService {
         return Math.min(size, MAX_SIZE);
     }
 }
-

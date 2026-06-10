@@ -23,11 +23,12 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY) // NOTE: [JPA] 기본 키 생성을 DB에 위임 (자동 증가)
     private Long id;
 
-    // 예: google
+    // 예: better-auth, google
+    // NOTE: 인증 provider 이름입니다. 현재 런타임은 Next.js Better Auth JWT를 사용하므로 better-auth가 기본입니다.
     @Column(nullable = false, length = 50) // NOTE: [JPA] DB 컬럼 설정 (null 불가, 길이 50)
     private String provider;
 
-    // Google JWT subject. 이메일보다 안정적인 로그인 식별자.
+    // NOTE: provider 안에서 유일한 사용자 식별자입니다. Better Auth JWT 기준으로는 jwt.sub = user.id 입니다.
     @Column(name = "provider_subject", nullable = false, length = 100) // NOTE: [JPA] DB 컬럼 설정
     private String providerSubject;
 
@@ -65,8 +66,13 @@ public class User {
         this.role = UserRole.USER; // NOTE: 기본 권한은 USER로 설정
     }
 
-    // NOTE: [Java] Google 사용자를 위한 정적 팩토리 메서드
-    public static User createGoogleUser(
+    /**
+     * NOTE: [Auth Migration]
+     * 외부 인증 시스템에서 검증된 사용자를 community-service 내부 User로 생성합니다.
+     * 현재 운영 흐름은 Better Auth JWT를 사용하므로 provider="better-auth", providerSubject=jwt.sub 형태로 저장합니다.
+     */
+    public static User createExternalUser(
+            String provider,
             String providerSubject,
             String email,
             boolean emailVerified,
@@ -74,6 +80,28 @@ public class User {
             String pictureUrl
     ) {
         return new User(
+                provider,
+                providerSubject,
+                email,
+                emailVerified,
+                name,
+                pictureUrl
+        );
+    }
+
+    /**
+     * NOTE: [Backward Compatibility]
+     * 기존 테스트/시드 코드가 Google user 생성 메서드를 사용하고 있어 유지합니다.
+     * 런타임 인증 매핑은 CurrentUserService에서 createExternalUser("better-auth", ...)를 사용합니다.
+     */
+    public static User createGoogleUser(
+            String providerSubject,
+            String email,
+            boolean emailVerified,
+            String name,
+            String pictureUrl
+    ) {
+        return createExternalUser(
                 "google",
                 providerSubject,
                 email,
@@ -83,8 +111,8 @@ public class User {
         );
     }
 
-    // NOTE: [Java] 프로필 정보 갱신을 위한 메서드
-    public void updateGoogleProfile(
+    // NOTE: [Java] 외부 인증 프로필 정보 갱신을 위한 범용 메서드
+    public void updateExternalProfile(
             String email,
             boolean emailVerified,
             String name,
@@ -94,5 +122,18 @@ public class User {
         this.emailVerified = emailVerified;
         this.name = name;
         this.pictureUrl = pictureUrl;
+    }
+
+    /**
+     * NOTE: [Backward Compatibility]
+     * 기존 Google 기준 호출부를 깨지 않기 위한 위임 메서드입니다.
+     */
+    public void updateGoogleProfile(
+            String email,
+            boolean emailVerified,
+            String name,
+            String pictureUrl
+    ) {
+        updateExternalProfile(email, emailVerified, name, pictureUrl);
     }
 }

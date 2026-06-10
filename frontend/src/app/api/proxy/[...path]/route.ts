@@ -27,30 +27,33 @@ const handler = async (req: NextRequest, ctx: Ctx) => {
   const session = await auth.api.getSession({
     headers: req.headers,
   })
-  if (!session) {
-    return Response.json({ error: "UNAUTHORIZED" }, { status: 401 })
-  }
 
-  // 2) JWT 발급 (JWT plugin endpoint)
-  // - 쿠키 기반 세션이므로 cookie를 그대로 전달하면 됨
-  const cookie = req.headers.get("cookie") ?? ""
-  const tokenRes = await fetch(new URL("/api/auth/token", req.nextUrl.origin), {
-    method: "GET",
-    headers: { cookie },
-    cache: "no-store",
-  })
+  // NOTE:
+  // 이 route handler는 인가 정책을 판단하지 않는다.
+  // 세션이 있으면 Better Auth JWT를 붙여 upstream으로 전달하고,
+  // 세션이 없으면 Authorization 없이 그대로 upstream으로 전달한다.
+  // 최종 인증/인가는 각 backend service의 Spring Security가 담당한다.
+  let accessToken: string | undefined
 
-  if (!tokenRes.ok) {
-    const text = await tokenRes.text().catch(() => "")
-    return Response.json(
-      { error: "FAILED_TO_ISSUE_JWT", detail: text },
-      { status: 500 }
-    )
-  }
+  if (session) {
+    const tokenRes = await fetch(new URL("/api/auth/token", req.nextUrl.origin), {
+      method: "GET",
+      headers: {
+        cookie: req.headers.get("cookie") ?? "",
+      },
+      cache: "no-store",
+    })
 
-  const { token } = (await tokenRes.json()) as { token: string }
-  if (!token) {
-    return Response.json({ error: "EMPTY_JWT" }, { status: 500 })
+    if (!tokenRes.ok) {
+      const text = await tokenRes.text().catch(() => "")
+      return Response.json(
+        { error: "FAILED_TO_ISSUE_JWT", detail: text },
+        { status: 500 }
+      )
+    }
+
+    const tokenJson = (await tokenRes.json()) as { token?: string }
+    accessToken = tokenJson.token
   }
 
   // 3) upstream URL 구성
@@ -61,29 +64,59 @@ const handler = async (req: NextRequest, ctx: Ctx) => {
 
   // 4) 헤더 정리 + 신뢰 가능한 user context 주입
   const upstreamHeaders = new Headers(req.headers)
+  
+  // NOTE:
+  // hop-by-hop/header mismatch 방지.
+  // 특히 host/content-length는 proxy가 그대로 넘기면 upstream fetch에서 꼬일 수 있다.
   upstreamHeaders.delete("cookie")
   upstreamHeaders.delete("host")
-  upstreamHeaders.delete("connection")
   upstreamHeaders.delete("content-length")
+  upstreamHeaders.delete("connection")
 
-  // 기존 Authorization 제거 후, 검증된 JWT로 재주입 (spoofing 방지)
+  // NOTE:
+  // 클라이언트가 임의로 보낸 Authorization은 신뢰하지 않고,
+  // 세션이 있을 때 BFF가 발급받은 JWT로만 교체한다.
   upstreamHeaders.delete("authorization")
-  upstreamHeaders.set("authorization", `Bearer ${token}`)
 
-  // 내부 서비스가 편하게 쓰도록 user context를 헤더로도 넣어줌(선택)
-  upstreamHeaders.set("x-user-id", session.user.id)
-  upstreamHeaders.set("x-user-email", session.user.email)
+  if (accessToken) {
+    upstreamHeaders.set("authorization", `Bearer ${accessToken}`)
+  }
 
-  // 5) 바디 전달 (GET/HEAD는 body 금지)
+  if (session) {
+    // 내부 서비스가 편하게 쓰도록 user context를 헤더로도 넣어줌(선택)
+    upstreamHeaders.set("x-user-id", session.user.id)
+    upstreamHeaders.set("x-user-email", session.user.email)
+  }
+
+  // 5) 바디 전달
   const method = req.method.toUpperCase()
-  const body = method === "GET" || method === "HEAD" ? undefined : req.body
 
-  const upstreamRes = await fetch(upstream, {
+  // NOTE:
+  // req.body ReadableStream을 그대로 upstream fetch에 넘기면
+  // Next/Undici 런타임에서 "expected non-null body source"가 날 수 있다.
+  // 그래서 non-GET/HEAD 요청은 body를 ArrayBuffer로 읽어서 안정적으로 전달한다.
+  // JSON뿐 아니라 multipart/form-data도 content-type만 유지되면 그대로 전달 가능하다.
+  const requestBody =
+    method === "GET" || method === "HEAD"
+      ? undefined
+      : await req.arrayBuffer()
+
+  const upstreamCtx: RequestInit = {
     method,
     headers: upstreamHeaders,
-    body,
     redirect: "manual",
-  })
+  }
+
+  // NOTE:
+  // 빈 body를 억지로 넣지 않는다.
+  // POST라도 body가 0 byte면 undefined로 보내는 게 안전하다.
+  if (requestBody && requestBody.byteLength > 0) {
+    upstreamCtx.body = requestBody
+  }
+
+  // NOTE:
+  // ArrayBuffer body는 ReadableStream이 아니므로 duplex 옵션이 필요 없다.
+  const upstreamRes = await fetch(upstream, upstreamCtx)
 
   // 6) 응답 그대로 반환 (헤더는 최소한만 복사)
   const resHeaders = new Headers(upstreamRes.headers)

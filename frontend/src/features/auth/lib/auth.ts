@@ -48,12 +48,41 @@ export const auth = betterAuth({
 
   plugins: [
     jwt({
+      jwks: {
+        keyPairConfig: {
+          // NOTE:
+          // Better Auth 기본 key pair algorithm은 EdDSA/Ed25519.
+          // 현재 Spring community-service에서 EdDSA 토큰 검증 시
+          // "Another algorithm expected, or no matching key(s) found"가 발생했다.
+          //
+          // Spring Security NimbusJwtDecoder는 기본적으로 RS256을 신뢰하므로,
+          // Better Auth 발급 키를 RS256으로 변경한다.
+          //
+          // 근거:
+          // - Better Auth JWT plugin: keyPairConfig.alg, RS256 지원
+          //   https://better-auth.com/docs/plugins/jwt
+          // - Spring Security Resource Server JWT: NimbusJwtDecoder 기본 trusted alg는 RS256
+          //   https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/jwt.html
+          alg: env.JWT_ALGORITHM,
+
+          // NOTE:
+          // Better Auth RS256 옵션.
+          // 문서상 기본값도 2048.
+          // https://better-auth.com/docs/plugins/jwt
+          modulusLength: 2048,
+        },
+      },
+
       jwt: {
         issuer: env.JWT_ISSUER,
         audience: env.JWT_AUDIENCE,
         expirationTime: env.JWT_EXPIRATION,
         // 기본은 user 전체가 payload에 들어가므로, 꼭 필요한 것만 남기는 게 안전합니다.
         // https://better-auth.com/docs/plugins/jwt :contentReference[oaicite:23]{index=23}
+        // NOTE:
+        // Better Auth JWT의 subject 기본값은 user id.
+        // community-service의 app_users.provider_subject도 이 sub 기준으로 맞춘다.
+        // https://better-auth.com/docs/plugins/jwt
         definePayload: ({ user }) => ({
           id: user.id,
           email: user.email,

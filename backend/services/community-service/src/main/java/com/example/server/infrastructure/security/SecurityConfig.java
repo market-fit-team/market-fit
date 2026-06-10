@@ -1,21 +1,31 @@
 package com.example.server.infrastructure.security;
 
 import java.io.IOException;
+import java.util.Collection;
 
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
-import org.springframework.security.config.http.SessionCreationPolicy;
 import lombok.RequiredArgsConstructor;
 
 @Configuration // NOTE: [Spring] 설정 클래스로 지정
@@ -72,6 +82,38 @@ public class SecurityConfig {
                 )
 
                 .build();
+    }
+
+    @Bean
+    public JwtDecoder jwtDecoder(
+            @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}") String jwkSetUri,
+            @Value("${app.auth.jwt.issuer}") String issuer,
+            @Value("${app.auth.jwt.audience}") String audience
+    ) {
+        /**
+         * NOTE: [Auth Migration]
+         * community-service도 profile-service와 동일하게 Better Auth JWT를 검증합니다.
+         * - jwkSetUri: Next.js Better Auth의 /api/auth/jwks 공개키
+         * - issuer:   frontend .env의 JWT_ISSUER와 동일해야 함
+         * - audience: frontend .env의 JWT_AUDIENCE와 동일해야 함
+         *
+         * Spring Boot의 jwk-set-uri 기본 설정은 서명/만료 검증에는 충분하지만,
+         * issuer/audience까지 명시적으로 맞춰야 다른 issuer의 토큰이 섞이는 문제를 막을 수 있습니다.
+         */
+        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+
+        OAuth2TokenValidator<Jwt> issuerValidator = JwtValidators.createDefaultWithIssuer(issuer);
+        OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<Collection<String>>(
+                JwtClaimNames.AUD,
+                audiences -> audiences != null && audiences.contains(audience)
+        );
+
+        jwtDecoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                issuerValidator,
+                audienceValidator
+        ));
+
+        return jwtDecoder;
     }
 
     private AuthenticationEntryPoint apiAuthenticationEntryPoint() {

@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3001
 const JWKS_URL = process.env.JWKS_URL // e.g. http://host.docker.internal:3000/api/auth/jwks
 const JWT_ISSUER = process.env.JWT_ISSUER // must match token "iss"
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE // must match token "aud"
-const JWT_ALGS = (process.env.JWT_ALGS ?? "EdDSA")
+const JWT_ALGS = (process.env.JWT_ALGS ?? "RS256")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean)
