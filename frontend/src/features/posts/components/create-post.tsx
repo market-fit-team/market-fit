@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCreatePost } from "@/shared/api/generated/community/endpoints/posts/posts";
+import { useCreatePost, invalidateGetPostsByCursorSuspenseInfinite } from "@/shared/api/generated/community/endpoints/posts/posts";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { ImageUpload } from "@/features/media/components/image-upload";
@@ -19,9 +19,7 @@ export function CreatePost() {
         setContent("");
         setMediaAttachmentIds([]);
         // invalidate post list
-        void queryClient.invalidateQueries({
-          predicate: (query) => query.queryKey.includes("/api/v1/posts"),
-        });
+        void invalidateGetPostsByCursorSuspenseInfinite(queryClient);
         toast.success("게시글 작성 완료");
       },
       onError: (error) => {

@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation"
 import { authClient } from "@/features/auth/lib/auth-client"
 import { Button } from "@/shared/components/ui/button"
 
-export default function UserNav() {
+export function UserNav() {
   const router = useRouter()
   const { data: session, isPending } = authClient.useSession()
 

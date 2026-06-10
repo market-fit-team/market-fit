@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCreateScheduledPost } from "@/shared/api/generated/community/endpoints/scheduled-posts/scheduled-posts";
+import { useCreateScheduledPost, getGetScheduledPostsQueryKey } from "@/shared/api/generated/community/endpoints/scheduled-posts/scheduled-posts";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Input } from "@/shared/components/ui/input";
@@ -21,8 +21,9 @@ export function CreateScheduledPost() {
         setContent("");
         setScheduledAt("");
         setMediaAttachmentIds([]);
+        // Post 요청에 특정 파라미터가 Required일 때에 getQueryKey로 우회할 수 있다.
         void queryClient.invalidateQueries({
-          predicate: (query) => query.queryKey.includes("/api/v1/scheduled-posts"),
+          queryKey: getGetScheduledPostsQueryKey(),
         });
         toast.success("예약게시글 작성 완료");
       },

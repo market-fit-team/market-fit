@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import Link from "next/link"
-import UserNav from "@/features/auth/components/user-nav"
+import { UserNav } from "@/features/auth/components/user-nav"
+import { Toaster } from "@/shared/components/ui/sonner"
 import { Providers } from "./providers"
 import "./globals.css"
 
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/community/scheduled-posts">예약 게시글 작성</Link>
           </nav>
           <div>{children}</div>
+          <Toaster />
         </Providers>
       </body>
     </html>
