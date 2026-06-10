@@ -1,8 +1,5 @@
 import type { ChatModelSelection } from "@/features/llm-chat/types/chat-model-selection"
 import type { ToolPolicyState } from "@/features/llm-chat/types/tool-policy-state"
-import { CHAT_STREAM_MODES } from "@/features/llm-chat/lib/langgraph/stream-modes"
-
-export const DEFAULT_LANGGRAPH_STREAM_MODE = CHAT_STREAM_MODES
 
 export type LangGraphChatContext = {
   model: string
@@ -15,6 +12,11 @@ export const buildSubmitContext = (
   modelSelection: ChatModelSelection,
   toolPolicy: ToolPolicyState
 ): LangGraphChatContext => ({
+  // Protocol V2 @langchain/react submit/respond는 run.start/input.respond command의
+  // config.configurable로 실행 context를 전달합니다. 서버 graph는 Runtime.context에서 이 값을 읽습니다.
+  // 근거:
+  // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
+  // https://reference.langchain.com/python/langgraph/runtime/Runtime
   model: modelSelection.model,
   reasoning_effort: modelSelection.reasoningEffort,
   allowed_tools: toolPolicy.allowedTools,

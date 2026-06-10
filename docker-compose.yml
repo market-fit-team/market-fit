@@ -146,6 +146,12 @@ services:
       - ./backend/services/agent-service/.env
     environment:
       - LANGGRAPH_CLI_NO_ANALYTICS=1
+      # Protocol V2 event streaming endpoint(/stream/events, /commands)를 활성화합니다.
+      # tools 채널은 legacy /runs/stream이 아니라 이 V2 endpoint에서 구독해야 합니다.
+      # 근거:
+      # https://docs.langchain.com/langsmith/agent-server-changelog
+      # https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
+      - FF_V2_EVENT_STREAMING=true
       - JWKS_URL=http://host.docker.internal:3000/api/auth/jwks
       - JWT_ISSUER=http://localhost:3000
       - JWT_AUDIENCE=frontend-api

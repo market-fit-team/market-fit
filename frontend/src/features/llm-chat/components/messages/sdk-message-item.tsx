@@ -1,11 +1,7 @@
 import { useEffect, useRef } from "react"
 import { ChevronDown } from "lucide-react"
-import type {
-  AIMessage,
-  DefaultToolCall,
-  Message,
-  ToolProgress,
-} from "@langchain/langgraph-sdk"
+import type { BaseMessage } from "@langchain/core/messages"
+import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
 import { SdkMessageContent } from "@/features/llm-chat/components/messages/sdk-message-content"
 import { SdkToolCallCard } from "@/features/llm-chat/components/messages/sdk-tool-call-card"
 import {
@@ -14,23 +10,27 @@ import {
   CollapsibleTrigger,
 } from "@/shared/components/ui/collapsible"
 import { buildToolCallViewModels } from "@/features/llm-chat/lib/langgraph/build-tool-call-view-model"
-import { getMessageText, getThinkingText } from "@/features/llm-chat/lib/langgraph/message-content"
+import {
+  getMessageText,
+  getMessageType,
+  getThinkingText,
+  type LangGraphMessage,
+} from "@/features/llm-chat/lib/langgraph/message-content"
 import { cn } from "@/shared/utils"
 
 interface SdkMessageItemProps {
-  message: Message<DefaultToolCall>
-  messages: Message<DefaultToolCall>[]
-  toolProgress: ToolProgress[]
+  message: BaseMessage
+  messages: BaseMessage[]
+  toolCalls: AssembledToolCall[]
   isLastMessage?: boolean
   onSizeChange?: (force?: boolean) => void
 }
 
-const isAiMessage = (
-  message: Message<DefaultToolCall>
-): message is AIMessage<DefaultToolCall> => message.type === "ai"
+const isAiMessage = (message: BaseMessage): message is LangGraphMessage =>
+  getMessageType(message) === "ai"
 
-const getLabel = (message: Message<DefaultToolCall>) => {
-  switch (message.type) {
+const getLabel = (message: BaseMessage) => {
+  switch (getMessageType(message)) {
     case "human":
       return "사용자"
     case "ai":
@@ -43,13 +43,15 @@ const getLabel = (message: Message<DefaultToolCall>) => {
       return "함수"
     case "remove":
       return "삭제됨"
+    default:
+      return "메시지"
   }
 }
 
 export function SdkMessageItem({
   message,
   messages,
-  toolProgress,
+  toolCalls,
   isLastMessage,
   onSizeChange,
 }: SdkMessageItemProps) {
@@ -84,13 +86,13 @@ export function SdkMessageItem({
     }
   }, [isLastMessage, onSizeChange])
 
-  if (message.type === "tool") {
+  if (getMessageType(message) === "tool") {
     return null
   }
 
-  const isUser = message.type === "human"
-  const toolCalls = isAiMessage(message)
-    ? buildToolCallViewModels(message, messages, toolProgress)
+  const isUser = getMessageType(message) === "human"
+  const renderedToolCalls = isAiMessage(message)
+    ? buildToolCallViewModels(message, messages, toolCalls)
     : []
   const textContent = getMessageText(message)
   const thinkingContent = getThinkingText(message)
@@ -135,9 +137,9 @@ export function SdkMessageItem({
         </div>
       )}
 
-      {toolCalls.length > 0 && (
+      {renderedToolCalls.length > 0 && (
         <div className="w-full max-w-[86%] space-y-3">
-          {toolCalls.map((toolCall) => (
+          {renderedToolCalls.map((toolCall) => (
             <SdkToolCallCard key={toolCall.id} toolCall={toolCall} />
           ))}
         </div>

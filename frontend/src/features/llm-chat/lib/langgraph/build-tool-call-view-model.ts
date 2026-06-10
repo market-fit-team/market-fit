@@ -1,11 +1,10 @@
-import type {
-  AIMessage,
-  DefaultToolCall,
-  Message,
-  ToolMessage,
-  ToolProgress,
-} from "@langchain/langgraph-sdk"
-import { getMessageText } from "@/features/llm-chat/lib/langgraph/message-content"
+import type { BaseMessage } from "@langchain/core/messages"
+import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
+import {
+  getMessageText,
+  getMessageType,
+  type LangGraphMessage,
+} from "@/features/llm-chat/lib/langgraph/message-content"
 
 export type SdkToolCallViewModel = {
   id: string
@@ -16,48 +15,49 @@ export type SdkToolCallViewModel = {
   state: "pending" | "completed" | "error"
 }
 
-const isToolMessage = (
-  message: Message<DefaultToolCall>
-): message is ToolMessage => message.type === "tool"
+const isToolMessage = (message: BaseMessage): message is LangGraphMessage =>
+  getMessageType(message) === "tool"
 
-const findToolResult = (
-  messages: Message<DefaultToolCall>[],
-  toolCallId: string
-) =>
+const findToolResult = (messages: BaseMessage[], toolCallId: string) =>
   messages.find(
-    (message): message is ToolMessage =>
+    (message): message is LangGraphMessage =>
       isToolMessage(message) && message.tool_call_id === toolCallId
   )
 
-const findToolProgress = (
-  toolProgress: ToolProgress[],
+const findAssembledToolCall = (
+  toolCalls: AssembledToolCall[],
   toolCallId: string
-) => toolProgress.find((progress) => progress.toolCallId === toolCallId)
+) => toolCalls.find((toolCall) => toolCall.callId === toolCallId || toolCall.id === toolCallId)
 
 const getToolOutput = (
-  result: ToolMessage | undefined,
-  progress?: ToolProgress
+  result: LangGraphMessage | undefined,
+  assembled?: AssembledToolCall
 ) => {
   if (result) {
     return getMessageText(result)
   }
 
-  return progress?.result ?? progress?.data
+  return assembled?.output
 }
 
 export const buildToolCallViewModels = (
-  aiMessage: AIMessage<DefaultToolCall>,
-  messages: Message<DefaultToolCall>[],
-  toolProgress: ToolProgress[]
+  aiMessage: LangGraphMessage,
+  messages: BaseMessage[],
+  toolCalls: AssembledToolCall[]
 ): SdkToolCallViewModel[] => {
+  // Protocol V2에서는 tools 채널이 @langchain/react의 stream.toolCalls projection으로 조립됩니다.
+  // AIMessage.tool_calls는 values/messages snapshot에서 온 호출 선언이고, assembled tool call은 실행 상태/결과입니다.
+  // 근거:
+  // https://reference.langchain.com/javascript/langchain-react/use-stream
+  // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
   return (aiMessage.tool_calls ?? []).map((call, index) => {
     const id = call.id ?? `${aiMessage.id ?? "ai"}-${index}`
     const result = findToolResult(messages, id)
-    const progress = findToolProgress(toolProgress, id)
+    const assembled = findAssembledToolCall(toolCalls, id)
     const state =
-      result?.status === "error" || progress?.state === "error"
+      result?.status === "error" || assembled?.status === "error"
         ? "error"
-        : result || progress?.state === "completed"
+        : result || assembled?.status === "finished"
           ? "completed"
           : "pending"
 
@@ -65,8 +65,8 @@ export const buildToolCallViewModels = (
       id,
       name: call.name,
       input: call.args,
-      output: getToolOutput(result, progress),
-      error: progress?.error,
+      output: getToolOutput(result, assembled),
+      error: assembled?.error,
       state,
     }
   })

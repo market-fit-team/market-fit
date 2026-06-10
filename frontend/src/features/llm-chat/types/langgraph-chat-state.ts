@@ -1,10 +1,7 @@
-import type {
-  DefaultToolCall,
-  Message,
-} from "@langchain/langgraph-sdk"
+import type { BaseMessage } from "@langchain/core/messages"
 
 export type LlmChatGraphState = {
-  messages: Message<DefaultToolCall>[]
+  messages: BaseMessage[]
 }
 
 export type LlmChatStreamStatus = "idle" | "streaming"

@@ -11,7 +11,7 @@ export function ChatMessagesPanel() {
     localNotice,
     messages,
     resume,
-    toolProgress,
+    toolCalls,
   } = useLangGraphChatStream()
 
   return (
@@ -20,7 +20,7 @@ export function ChatMessagesPanel() {
         <EmptyChatState />
       ) : (
         <div className="h-full">
-          <SdkMessageList messages={messages} toolProgress={toolProgress}>
+          <SdkMessageList messages={messages} toolCalls={toolCalls}>
             {(localNotice || hitlInterrupts?.length > 0) && (
               <div className="space-y-3 pb-4">
                 {localNotice && (

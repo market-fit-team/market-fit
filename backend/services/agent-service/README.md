@@ -1,11 +1,11 @@
 # Pickle Agent Service
 
-> 중요: 현재 langgraph-api 0.9.0은 `tools/lifecycle` StreamMode를 런타임 타입에는 포함하지만 bundled `openapi.json` validator enum에서 누락한다.
-> 그래서 `useStream().toolProgress`를 쓰려면 `uv sync` 이후 `scripts/patch_langgraph_api_openapi_stream_modes.py`를 반드시 한 번 실행해야 한다.
-> Docker image는 Dockerfile에서 이 vendor schema patch를 빌드 시점에 자동 실행한다.
-> 로컬 개발에서는 `uv sync && uv run python scripts/patch_langgraph_api_openapi_stream_modes.py` 순서를 지킨다.
-> 이 패치는 런타임 monkey patch가 아니라 설치된 `langgraph_api/openapi.json`만 보정하는 임시 호환 패치다.
-> upstream stable에서 validator가 수정되면 이 스크립트와 Dockerfile RUN 라인을 삭제한다.
+> 중요: 이 서비스는 Protocol V2 event streaming을 기준으로 동작한다.
+> `tools` 채널은 legacy `/threads/{thread_id}/runs/stream`이 아니라 `/threads/{thread_id}/stream/events`에서만 구독한다.
+> Docker/Compose 환경에는 `FF_V2_EVENT_STREAMING=true`가 반드시 필요하다.
+> 프론트는 커스텀 SSE 파서가 아니라 공식 `@langchain/react` `useStream`의 built-in SSE transport를 사용한다.
+> `sitecustomize.py` 및 `langgraph_api/openapi.json` vendor patch는 제거 대상이다.
+> 근거: https://docs.langchain.com/langsmith/agent-server-changelog, https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
 
 LangGraph native Agent Server로 실행되는 chat graph 서비스입니다. 기존 `tracked_files`의 graph/model/tool/eval/RAG 코드는 `src/agent/**`로 이식했고, FastAPI 기반 LangGraph 호환 adapter는 제거했습니다.
 
@@ -83,7 +83,7 @@ src/schemas/langgraph.py
 src/api/endpoints/v1/langgraph.py
 ```
 
-native Agent Server에서는 `@langchain/langgraph-sdk/react`의 `useStream`이 threads/runs/stream 계약을 직접 사용합니다.
+native Agent Server에서는 공식 `@langchain/react` `useStream`이 Protocol V2 `/stream/events` + `/commands` 계약을 직접 사용합니다.
 
 ## 장애 확인
 

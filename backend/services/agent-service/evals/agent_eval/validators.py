@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from evals.agent_eval.models import StreamRecord, ValidationResult, ValidationRule
-from evals.agent_eval.sse import collect_model_text, interrupt_values
+from evals.agent_eval.sse import collect_model_text, interrupt_values, protocol_v2_tool_started
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,7 +117,25 @@ def _command_succeeds(rule: ValidationRule, context: ValidationContext) -> Valid
 
 def _tool_called(rule: ValidationRule, context: ValidationContext) -> ValidationResult:
     tool_name = str(rule.get("tool", ""))
-    matching = [event for event in context.events if event.event == "on_tool_start" and event.data.get("name") == tool_name]
+
+    # Protocol V2에서는 tools 채널의 tool-started 이벤트가 도구 실행 시작을 나타냅니다.
+    # 기존 eval 시나리오와 호환되도록 legacy on_tool_start와 V2 tools 이벤트를 모두 인정합니다.
+    # 근거:
+    # https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
+    # https://docs.langchain.com/oss/python/langgraph/event-streaming
+    matching: list[tuple[StreamRecord, dict[str, Any]]] = []
+    for event in context.events:
+        if event.event == "on_tool_start" and event.data.get("name") == tool_name:
+            args = event.data.get("data", {}).get("input", {})
+            matching.append((event, args if isinstance(args, dict) else {}))
+            continue
+
+        started = protocol_v2_tool_started(event)
+        if started is not None:
+            name, args = started
+            if name == tool_name:
+                matching.append((event, args))
+
     if not matching:
         return _result(rule, False, f"Tool not called: {tool_name}")
 
@@ -127,10 +145,7 @@ def _tool_called(rule: ValidationRule, context: ValidationContext) -> Validation
     if not isinstance(expected_args, dict):
         return _result(rule, False, "tool_called args must be a mapping")
 
-    for event in matching:
-        args = event.data.get("data", {}).get("input", {})
-        if not isinstance(args, dict):
-            continue
+    for _event, args in matching:
         if all(_matches_expected(args.get(key), expected) for key, expected in expected_args.items()):
             return _result(rule, True)
 

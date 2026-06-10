@@ -1,8 +1,8 @@
-import type { Message } from "@langchain/langgraph-sdk"
+import type { BaseMessage } from "@langchain/core/messages"
 import { getMessageText } from "@/features/llm-chat/lib/langgraph/message-content"
 
 interface SdkMessageContentProps {
-  message: Message
+  message: BaseMessage
 }
 
 export function SdkMessageContent({ message }: SdkMessageContentProps) {

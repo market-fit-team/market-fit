@@ -1,9 +1,6 @@
 import { createContext } from "react"
-import type {
-  DefaultToolCall,
-  Message,
-  ToolProgress,
-} from "@langchain/langgraph-sdk"
+import type { BaseMessage } from "@langchain/core/messages"
+import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
 import type { ChatModelOption, ChatModelSelection } from "@/features/llm-chat/types/chat-model-selection"
 import type {
   HitlDecision,
@@ -32,8 +29,13 @@ export type LangGraphChatStreamContextValue = {
   modelSelection: ChatModelSelectionControls
   toolPolicy: ToolPolicyControls
   threadId: string | null
-  messages: Message<DefaultToolCall>[]
-  toolProgress: ToolProgress[]
+  messages: BaseMessage[]
+  // Protocol V2 공식 React hook(@langchain/react)은 tools 채널을 stream.toolCalls projection으로 제공합니다.
+  // 기존 legacy SDK의 toolProgress는 /runs/stream 전제라 제거합니다.
+  // 근거:
+  // https://reference.langchain.com/javascript/langchain-react/use-stream
+  // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
+  toolCalls: AssembledToolCall[]
   hitlInterrupts: HitlInterrupt[]
   localNotice: string | null
   isBusy: boolean

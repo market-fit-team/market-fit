@@ -1,22 +1,19 @@
 import { useEffect } from "react"
-import type {
-  DefaultToolCall,
-  Message,
-  ToolProgress,
-} from "@langchain/langgraph-sdk"
+import type { BaseMessage } from "@langchain/core/messages"
+import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
 import { SdkMessageItem } from "@/features/llm-chat/components/messages/sdk-message-item"
 import { useAutoScroll } from "@/features/llm-chat/hooks/use-auto-scroll"
 import { ScrollArea } from "@/shared/components/ui/scroll-area"
 
 interface SdkMessageListProps {
-  messages: Message<DefaultToolCall>[]
-  toolProgress: ToolProgress[]
+  messages: BaseMessage[]
+  toolCalls: AssembledToolCall[]
   children?: React.ReactNode
 }
 
 export function SdkMessageList({
   messages,
-  toolProgress,
+  toolCalls,
   children,
 }: SdkMessageListProps) {
   const { viewportRef, onScroll, scrollToBottom } = useAutoScroll()
@@ -36,10 +33,10 @@ export function SdkMessageList({
           const isLastMessage = index === messages.length - 1
           return (
             <SdkMessageItem
-              key={message.id ?? `${message.type}-${index}`}
+              key={message.id ?? `${message._getType()}-${index}`}
               message={message}
               messages={messages}
-              toolProgress={toolProgress}
+              toolCalls={toolCalls}
               isLastMessage={isLastMessage}
               onSizeChange={scrollToBottom}
             />

@@ -8,7 +8,7 @@ Cline 코드를 각색함:
 
 로컬 변경 사항:
 - 코딩 에이전트 CLI 대신 이 저장소의 FastAPI 채팅 스트림 API를 실행합니다.
-- ``POST /chat/threads/{thread_id}/resume`` 를 통해 LangGraph HITL 인터럽트를 처리합니다.
+- Protocol V2 ``/stream/events`` + ``/commands`` 를 통해 LangGraph HITL 인터럽트를 처리합니다.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from evals.agent_eval.models import (
     TurnResult,
 )
 from evals.agent_eval.reports import build_report, write_report
-from evals.agent_eval.sse import interrupt_values
+from evals.agent_eval.sse import interrupt_requests
 from evals.agent_eval.validators import ValidationContext, validate_all
 
 
@@ -137,10 +137,16 @@ async def _run_turn(
 
     if turn.resume is not None:
         resume_payload = _build_resume_payload(events, turn.resume)
-        if resume_payload["decisions"]:
-            resume_events = await client.stream_run(
+        if resume_payload["decisions"] and resume_payload["interrupt_id"]:
+            resume_context = dict(context)
+            if turn.resume.allowed_tools is not None:
+                resume_context["allowed_tools"] = turn.resume.allowed_tools
+            resume_events = await client.stream_response(
                 thread_id=thread_id,
-                payload={"command": {"resume": resume_payload["decisions"]}},
+                interrupt_id=resume_payload["interrupt_id"],
+                namespace=resume_payload["namespace"],
+                response_value={"decisions": resume_payload["decisions"]},
+                context=resume_context,
             )
 
     combined_events = [*events, *resume_events]
@@ -156,10 +162,20 @@ async def _run_turn(
 
 def _build_resume_payload(events: list[StreamRecord], resume: ResumeConfig) -> dict[str, Any]:
     decisions: list[dict[str, Any]] = []
-    for value in interrupt_values(events):
-        action_requests = value.get("action_requests", [])
+    interrupt_id = ""
+    namespace: list[str] = []
+
+    for request in interrupt_requests(events):
+        value = request.get("value", {})
+        action_requests = value.get("action_requests", []) if isinstance(value, dict) else []
         if not isinstance(action_requests, list):
             continue
+
+        interrupt_id = str(request.get("interrupt_id") or interrupt_id)
+        request_namespace = request.get("namespace")
+        if isinstance(request_namespace, list):
+            namespace = [str(item) for item in request_namespace]
+
         for action in action_requests:
             if not isinstance(action, dict):
                 continue
@@ -168,7 +184,7 @@ def _build_resume_payload(events: list[StreamRecord], resume: ResumeConfig) -> d
                 decision["message"] = resume.message
             decisions.append(decision)
 
-    return {"decisions": decisions}
+    return {"interrupt_id": interrupt_id, "namespace": namespace, "decisions": decisions}
 
 
 def _prepare_workdir(scenario: Scenario, base_workdir: Path, runner_name: str, attempt: int) -> Path:
