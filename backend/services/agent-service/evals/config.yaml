@@ -4,7 +4,7 @@
 # https://github.com/aaif-goose/goose/blob/ba16de9738ec5bc319adbddeb9dd6523475fc7c0/evals/open-model-gym/config.yaml
 #
 # 로컬 변경 사항: "runners"는 Goose/OpenCode/Pi CLI 러너가 아닌,
-# 이 FastAPI llm 서비스를 위한 HTTP/SSE 타겟입니다.
+# LangGraph Agent Server Protocol V2 HTTP/SSE 타겟입니다.
 
 run:
   repetitions: 1
@@ -15,16 +15,16 @@ run:
 scenarios_dir: scenarios
 
 runners:
-  - name: local-llm
+  - name: local-agent-server
     type: http_sse
-    base_url: http://localhost:8000
+    base_url: http://localhost:2024
     api_key_env: API_KEY
     api_key_header: X-API-Key
     timeout_seconds: 180
-    label: 로컬 FastAPI llm 서버
+    label: 로컬 LangGraph Agent Server
 
 matrix:
   - scenario: calculator-add-tool
-    runners: [local-llm]
+    runners: [local-agent-server]
   - scenario: calculator-divide-hitl
-    runners: [local-llm]
+    runners: [local-agent-server]

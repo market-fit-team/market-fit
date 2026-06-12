@@ -5,7 +5,9 @@ Goose Open Model Gym 코드를 각색함:
 - ``tool_called`` 인자 매칭 동작은 Goose의 정규 표현식 및 대소문자 구분 없는 부분 문자열 시맨틱(semantics)을 따릅니다.
 
 로컬 변경 사항:
-- 이 저장소를 위한 SSE 기반 검증기들을 추가했습니다: ``event_seen``, ``event_absent``, ``no_error``, ``done``, ``interrupt_required``, ``final_text_contains``, ``final_text_matches``.
+- 이 저장소를 위한 Protocol V2 검증기들을 추가했습니다: ``event_seen``, ``event_absent``,
+  ``no_error``, ``run_completed``, ``interrupt_required``, ``final_text_contains``,
+  ``final_text_matches``.
 """
 
 from __future__ import annotations
@@ -17,7 +19,12 @@ from pathlib import Path
 from typing import Any
 
 from evals.agent_eval.models import StreamRecord, ValidationResult, ValidationRule
-from evals.agent_eval.sse import collect_model_text, interrupt_values, protocol_v2_tool_started
+from evals.agent_eval.sse import (
+    collect_model_text,
+    interrupt_values,
+    protocol_v2_tool_call,
+    terminal_lifecycle_status,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,8 +63,8 @@ def validate_rule(rule: ValidationRule, context: ValidationContext) -> Validatio
         return _event_absent(rule, context)
     if rule_type == "no_error":
         return _no_error(rule, context)
-    if rule_type == "done":
-        return _done(rule, context)
+    if rule_type == "run_completed":
+        return _run_completed(rule, context)
     if rule_type == "interrupt_required":
         return _interrupt_required(rule, context)
     if rule_type == "final_text_contains":
@@ -118,21 +125,11 @@ def _command_succeeds(rule: ValidationRule, context: ValidationContext) -> Valid
 def _tool_called(rule: ValidationRule, context: ValidationContext) -> ValidationResult:
     tool_name = str(rule.get("tool", ""))
 
-    # Protocol V2에서는 tools 채널의 tool-started 이벤트가 도구 실행 시작을 나타냅니다.
-    # 기존 eval 시나리오와 호환되도록 legacy on_tool_start와 V2 tools 이벤트를 모두 인정합니다.
-    # 근거:
-    # https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
-    # https://docs.langchain.com/oss/python/langgraph/event-streaming
     matching: list[tuple[StreamRecord, dict[str, Any]]] = []
     for event in context.events:
-        if event.event == "on_tool_start" and event.data.get("name") == tool_name:
-            args = event.data.get("data", {}).get("input", {})
-            matching.append((event, args if isinstance(args, dict) else {}))
-            continue
-
-        started = protocol_v2_tool_started(event)
-        if started is not None:
-            name, args = started
+        tool_call = protocol_v2_tool_call(event)
+        if tool_call is not None:
+            name, args = tool_call
             if name == tool_name:
                 matching.append((event, args))
 
@@ -166,12 +163,19 @@ def _event_absent(rule: ValidationRule, context: ValidationContext) -> Validatio
 
 def _no_error(rule: ValidationRule, context: ValidationContext) -> ValidationResult:
     errors = [event for event in context.events if event.event == "error"]
-    return _result(rule, not errors, None if not errors else f"Stream error events found: {len(errors)}")
+    failed = terminal_lifecycle_status(context.events) == "failed"
+    passed = not errors and not failed
+    return _result(
+        rule,
+        passed,
+        None if passed else f"Stream errors found: events={len(errors)}, lifecycle_failed={failed}",
+    )
 
 
-def _done(rule: ValidationRule, context: ValidationContext) -> ValidationResult:
-    passed = bool(context.events) and context.events[-1].event == "done"
-    return _result(rule, passed, None if passed else "Last SSE event was not done")
+def _run_completed(rule: ValidationRule, context: ValidationContext) -> ValidationResult:
+    status = terminal_lifecycle_status(context.events)
+    passed = status == "completed"
+    return _result(rule, passed, None if passed else f"Run lifecycle ended with: {status}")
 
 
 def _interrupt_required(rule: ValidationRule, context: ValidationContext) -> ValidationResult:
@@ -222,4 +226,3 @@ def _path(rule: ValidationRule, context: ValidationContext) -> Path:
 
 def _result(rule: ValidationRule, passed: bool, message: str | None = None) -> ValidationResult:
     return ValidationResult(rule=rule, passed=passed, message=message)
-

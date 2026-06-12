@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useCallback, useMemo, useState } from "react"
 import { useStream } from "@langchain/react"
 import {
   LangGraphChatStreamContext,
@@ -42,13 +42,14 @@ export function LangGraphChatStreamProvider({
   toolPolicy,
 }: LangGraphChatStreamProviderProps) {
   const [threadId, setThreadId] = useState<string | null>(null)
-  const [localNotice, setLocalNotice] = useState<string | null>(null)
 
   const apiUrl = useMemo(() => {
     const AGENT_PROXY_PATH = "/api/proxy/agent"
     const origin =
       process.env.NEXT_PUBLIC_APP_ORIGIN ??
-      (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
+      (typeof window !== "undefined"
+        ? window.location.origin
+        : "http://localhost:3000")
 
     // @langchain/react의 agent-server branch는 절대 URL을 기준으로
     // Protocol V2 /threads/{thread_id}/stream/events 및 /commands를 호출합니다.
@@ -79,22 +80,15 @@ export function LangGraphChatStreamProvider({
     transport: "sse",
     threadId,
     onThreadId: setThreadId,
-    onCreated: () => {
-      setLocalNotice(null)
-    },
-    onCompleted: () => {
-      setLocalNotice(null)
-    },
   })
 
-  useEffect(() => {
-    if (!stream.error) {
-      return
-    }
-
-    const message = stream.error instanceof Error ? stream.error.message : String(stream.error)
-    setLocalNotice(`오류: ${message}`)
-  }, [stream.error])
+  const localNotice = stream.error
+    ? `오류: ${
+        stream.error instanceof Error
+          ? stream.error.message
+          : String(stream.error)
+      }`
+    : null
 
   const sendMessage = useCallback(
     async (
@@ -161,7 +155,6 @@ export function LangGraphChatStreamProvider({
       await stream.stop({ cancel: true })
     }
     setThreadId(null)
-    setLocalNotice(null)
     toolPolicy.resetToDefault()
   }, [stream, toolPolicy])
 

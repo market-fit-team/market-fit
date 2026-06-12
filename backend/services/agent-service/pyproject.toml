@@ -29,6 +29,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "anyio>=4.7.0",
+    "langgraph-api>=0.10.0",
     "langgraph-cli[inmem]>=0.4.10",
     "pytest>=9.0.3",
     "pytest-asyncio",
@@ -52,3 +53,8 @@ target-version = "py313"
 [tool.uv.build-backend]
 module-name = "agent"
 source-include = ["langgraph.json", ".env.example", "Makefile", "docs/**", "evals/**", "scripts/**", "tests/**"]
+
+[tool.pyright]
+include = ["src", "evals", "tests"]
+extraPaths = ["."]
+

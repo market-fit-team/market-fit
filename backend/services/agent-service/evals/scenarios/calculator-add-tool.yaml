@@ -14,7 +14,7 @@ allowed_tools: [add, subtract, multiply, divide]
 validate:
   - type: no_error
   - type: event_seen
-    event: on_chat_model_stream
+    event: messages
   - type: tool_called
     tool: add
     args:
@@ -22,5 +22,4 @@ validate:
       b: "3"
   - type: final_text_matches
     regex: "\\b5\\b"
-  - type: done
-
+  - type: run_completed

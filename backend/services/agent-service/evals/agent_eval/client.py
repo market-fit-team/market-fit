@@ -36,6 +36,7 @@ class LlmEvalClient:
         self._runner = runner
         self._api_key = os.environ.get(runner.api_key_env)
         self._client = httpx.AsyncClient(base_url=runner.base_url, timeout=runner.timeout_seconds)
+        self._last_seq_by_thread: dict[str, int] = {}
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -46,7 +47,7 @@ class LlmEvalClient:
             payload["thread_id"] = thread_id
 
         response = await self._client.post(
-            "/api/v1/langgraph/threads",
+            "/threads",
             headers=self._headers(accept="application/json"),
             json=payload,
         )
@@ -92,28 +93,43 @@ class LlmEvalClient:
         # https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
         async with self._client.stream(
             "POST",
-            f"/api/v1/langgraph/threads/{thread_id}/stream/events",
+            f"/threads/{thread_id}/stream/events",
             headers=self._headers(accept="text/event-stream"),
-            json={"channels": PROTOCOL_V2_CHANNELS, "namespaces": [[]], "depth": 20, "since": 0},
+            json={
+                "channels": PROTOCOL_V2_CHANNELS,
+                "namespaces": [[]],
+                "depth": 20,
+                "since": self._last_seq_by_thread.get(thread_id, 0),
+            },
         ) as response:
             response.raise_for_status()
             command_task = asyncio.create_task(self._send_command(thread_id=thread_id, command=command))
 
             async for chunk in response.aiter_text():
-                records.extend(parser.feed(chunk))
+                parsed = parser.feed(chunk)
+                records.extend(parsed)
+                self._advance_cursor(thread_id, parsed)
                 if any(is_terminal_protocol_event(record) for record in records):
                     break
 
             await command_task
 
-        records.extend(parser.flush())
-        if not records or records[-1].event != "done":
-            records.append(StreamRecord(event="done", data={}, raw=""))
+        flushed = parser.flush()
+        records.extend(flushed)
+        self._advance_cursor(thread_id, flushed)
         return records
+
+    def _advance_cursor(self, thread_id: str, records: list[StreamRecord]) -> None:
+        latest = self._last_seq_by_thread.get(thread_id, 0)
+        for record in records:
+            seq = record.data.get("seq")
+            if isinstance(seq, int):
+                latest = max(latest, seq)
+        self._last_seq_by_thread[thread_id] = latest
 
     async def _send_command(self, *, thread_id: str, command: dict[str, Any]) -> dict[str, Any]:
         response = await self._client.post(
-            f"/api/v1/langgraph/threads/{thread_id}/commands",
+            f"/threads/{thread_id}/commands",
             headers=self._headers(accept="application/json"),
             json=command,
         )

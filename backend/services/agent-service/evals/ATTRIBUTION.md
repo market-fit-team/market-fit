@@ -43,6 +43,7 @@
 
 다음 파일들은 이 저장소의 고유한 파일입니다:
 
-- `agent_eval/client.py`: `POST /api/v1/langgraph/threads`, Protocol V2 SSE `POST /stream/events`, `POST /commands`, 및 HITL `input.respond` 검증용 HTTP 클라이언트.
+- `agent_eval/client.py`: Agent Server 네이티브 `POST /threads`, Protocol V2 SSE
+  `POST /stream/events`, `POST /commands`, 및 HITL `input.respond` 검증용 HTTP 클라이언트.
 - `agent_eval/sse.py`: eval 하네스에서 Protocol V2 SSE frame을 검증하기 위한 파서 및 헬퍼 함수. 프로덕션 프론트엔드는 공식 `@langchain/react` transport를 사용합니다.
 - `agent_eval/__main__.py`, `agent_eval/__init__.py`, `__init__.py`.

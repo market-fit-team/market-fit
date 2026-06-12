@@ -1,6 +1,11 @@
 import { useEffect, useRef } from "react"
 import { ChevronDown } from "lucide-react"
-import type { BaseMessage } from "@langchain/core/messages"
+import {
+  AIMessage,
+  type BaseMessage,
+  HumanMessage,
+  ToolMessage,
+} from "@langchain/core/messages"
 import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
 import { SdkMessageContent } from "@/features/llm-chat/components/messages/sdk-message-content"
 import { SdkToolCallCard } from "@/features/llm-chat/components/messages/sdk-tool-call-card"
@@ -9,13 +14,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/shared/components/ui/collapsible"
-import { buildToolCallViewModels } from "@/features/llm-chat/lib/langgraph/build-tool-call-view-model"
-import {
-  getMessageText,
-  getMessageType,
-  getThinkingText,
-  type LangGraphMessage,
-} from "@/features/llm-chat/lib/langgraph/message-content"
 import { cn } from "@/shared/utils"
 
 interface SdkMessageItemProps {
@@ -26,11 +24,8 @@ interface SdkMessageItemProps {
   onSizeChange?: (force?: boolean) => void
 }
 
-const isAiMessage = (message: BaseMessage): message is LangGraphMessage =>
-  getMessageType(message) === "ai"
-
 const getLabel = (message: BaseMessage) => {
-  switch (getMessageType(message)) {
+  switch (message.type) {
     case "human":
       return "사용자"
     case "ai":
@@ -65,14 +60,15 @@ export function SdkMessageItem({
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         // 가능하면 borderBoxSize를 사용하고, 없으면 bounding rect 높이를 사용
-        const currentHeight = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
-        
+        const currentHeight =
+          entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height
+
         if (currentHeight > maxSeenHeight.current) {
           maxSeenHeight.current = currentHeight
           // 마크다운 렌더링 시 높이가 줄어들며 널뛰는 현상(Jittering)을 막기 위해 쪼그라듦 방지 잠금(Lock) 적용
           element.style.minHeight = `${currentHeight}px`
         }
-        
+
         // 크기가 변할 때마다 하단으로 자동 스크롤 트리거
         onSizeChange?.()
       }
@@ -86,16 +82,22 @@ export function SdkMessageItem({
     }
   }, [isLastMessage, onSizeChange])
 
-  if (getMessageType(message) === "tool") {
+  if (ToolMessage.isInstance(message)) {
     return null
   }
 
-  const isUser = getMessageType(message) === "human"
-  const renderedToolCalls = isAiMessage(message)
-    ? buildToolCallViewModels(message, messages, toolCalls)
+  const isUser = HumanMessage.isInstance(message)
+  const renderedToolCalls = AIMessage.isInstance(message)
+    ? (message.tool_calls ?? [])
     : []
-  const textContent = getMessageText(message)
-  const thinkingContent = getThinkingText(message)
+  const textContent = message.text
+  const thinkingContent = AIMessage.isInstance(message)
+    ? message.contentBlocks
+        .flatMap((block) =>
+          block.type === "reasoning" ? [block.reasoning] : []
+        )
+        .join("")
+    : ""
   const hasContent = Boolean(textContent) || Boolean(thinkingContent)
 
   return (
@@ -118,7 +120,7 @@ export function SdkMessageItem({
           <div className="mb-2 text-xs font-medium opacity-70">
             {getLabel(message)}
           </div>
-          
+
           <div className="space-y-3">
             {thinkingContent && (
               <Collapsible defaultOpen>
@@ -126,12 +128,12 @@ export function SdkMessageItem({
                   <ChevronDown className="size-3 transition-transform group-data-[state=closed]:-rotate-90" />
                   thinking
                 </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2 rounded-lg border border-border/70 bg-muted/40 p-3 text-sm leading-6 text-muted-foreground whitespace-pre-wrap">
+                <CollapsibleContent className="mt-2 rounded-lg border border-border/70 bg-muted/40 p-3 text-sm leading-6 whitespace-pre-wrap text-muted-foreground">
                   {thinkingContent}
                 </CollapsibleContent>
               </Collapsible>
             )}
-            
+
             <SdkMessageContent message={message} />
           </div>
         </div>
@@ -139,9 +141,31 @@ export function SdkMessageItem({
 
       {renderedToolCalls.length > 0 && (
         <div className="w-full max-w-[86%] space-y-3">
-          {renderedToolCalls.map((toolCall) => (
-            <SdkToolCallCard key={toolCall.id} toolCall={toolCall} />
-          ))}
+          {renderedToolCalls.map((call, index) => {
+            const callId = call.id
+            const assembled = callId
+              ? toolCalls.find(
+                  (toolCall) =>
+                    toolCall.callId === callId || toolCall.id === callId
+                )
+              : undefined
+            const result = callId
+              ? messages.find(
+                  (candidate): candidate is ToolMessage =>
+                    ToolMessage.isInstance(candidate) &&
+                    candidate.tool_call_id === callId
+                )
+              : undefined
+
+            return (
+              <SdkToolCallCard
+                key={callId ?? `${message.id ?? "ai"}-${index}`}
+                call={call}
+                assembled={assembled}
+                result={result}
+              />
+            )
+          })}
         </div>
       )}
     </article>

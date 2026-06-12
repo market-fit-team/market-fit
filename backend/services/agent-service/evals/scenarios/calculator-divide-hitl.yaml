@@ -29,5 +29,4 @@ validate:
       b: "2"
   - type: final_text_matches
     regex: "\\b5\\b"
-  - type: done
-
+  - type: run_completed

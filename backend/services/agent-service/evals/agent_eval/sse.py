@@ -23,11 +23,14 @@ class SseParser:
 
     def feed(self, chunk: str) -> list[StreamRecord]:
         self._buffer += chunk
+        self._buffer = self._buffer.replace("\r\n", "\n")
         records: list[StreamRecord] = []
         while "\n\n" in self._buffer:
             raw, self._buffer = self._buffer.split("\n\n", 1)
             if raw.strip():
-                records.append(parse_sse_frame(raw + "\n\n"))
+                record = parse_sse_frame(raw + "\n\n")
+                if record is not None:
+                    records.append(record)
         return records
 
     def flush(self) -> list[StreamRecord]:
@@ -36,17 +39,23 @@ class SseParser:
             return []
         raw = self._buffer
         self._buffer = ""
-        return [parse_sse_frame(raw)]
+        record = parse_sse_frame(raw)
+        return [record] if record is not None else []
 
 
-def parse_sse_frame(raw: str) -> StreamRecord:
+def parse_sse_frame(raw: str) -> StreamRecord | None:
     event = "message"
     data_lines: list[str] = []
+    has_event_field = False
     for line in raw.splitlines():
         if line.startswith("event:"):
+            has_event_field = True
             event = line.split(":", 1)[1].strip()
         elif line.startswith("data:"):
             data_lines.append(line.split(":", 1)[1].lstrip())
+
+    if not has_event_field and not data_lines:
+        return None
 
     data_text = "\n".join(data_lines)
     data: dict[str, Any]
@@ -66,25 +75,9 @@ def parse_sse_frames(text: str) -> list[StreamRecord]:
 def collect_model_text(events: list[StreamRecord]) -> str:
     chunks: list[str] = []
     for event in events:
-        if event.event == "on_chat_model_stream":
-            content = _extract_chunk_content(event.data.get("data", {}).get("chunk"))
-            if content:
-                chunks.append(content)
-            continue
-
-        if event.event == "on_tool_start":
-            name = event.data.get("name", "unknown")
-            args = event.data.get("data", {}).get("input", {})
-            chunks.append(f"\n\n[Tool Call: {name}]\n> Arguments: {args}\n\n")
-            continue
-
         message_text = _extract_protocol_v2_message_text(event)
         if message_text:
             chunks.append(message_text)
-
-        tool_text = _extract_protocol_v2_tool_text(event)
-        if tool_text:
-            chunks.append(tool_text)
 
     return "".join(chunks).strip()
 
@@ -96,18 +89,6 @@ def interrupt_values(events: list[StreamRecord]) -> list[dict[str, Any]]:
 def interrupt_requests(events: list[StreamRecord]) -> list[dict[str, Any]]:
     values: list[dict[str, Any]] = []
     for event in events:
-        if event.event == "on_chain_stream":
-            chunk = event.data.get("data", {}).get("chunk", {})
-            interrupts = chunk.get("__interrupt__") if isinstance(chunk, dict) else None
-            if not isinstance(interrupts, list):
-                continue
-            for interrupt in interrupts:
-                if isinstance(interrupt, dict):
-                    value = interrupt.get("value")
-                    if isinstance(value, dict):
-                        values.append({"interrupt_id": "", "namespace": [], "value": value})
-            continue
-
         if event.event == "input.requested":
             params = event.data.get("params", {})
             data = params.get("data", {}) if isinstance(params, dict) else {}
@@ -126,8 +107,6 @@ def interrupt_requests(events: list[StreamRecord]) -> list[dict[str, Any]]:
 
 
 def is_terminal_protocol_event(event: StreamRecord) -> bool:
-    if event.event == "done":
-        return True
     if event.event != "lifecycle":
         return False
 
@@ -135,6 +114,14 @@ def is_terminal_protocol_event(event: StreamRecord) -> bool:
     data = params.get("data", {}) if isinstance(params, dict) else {}
     status = data.get("event") if isinstance(data, dict) else None
     return status in {"completed", "failed", "interrupted"}
+
+
+def terminal_lifecycle_status(events: list[StreamRecord]) -> str | None:
+    for event in reversed(events):
+        if not is_terminal_protocol_event(event):
+            continue
+        return str(event.data["params"]["data"]["event"])
+    return None
 
 
 def protocol_v2_tool_started(event: StreamRecord) -> tuple[str, dict[str, Any]] | None:
@@ -146,6 +133,29 @@ def protocol_v2_tool_started(event: StreamRecord) -> tuple[str, dict[str, Any]] 
         return None
     name = data.get("tool_name")
     args = data.get("input", {})
+    if not isinstance(name, str):
+        return None
+    return name, args if isinstance(args, dict) else {}
+
+
+def protocol_v2_tool_call(event: StreamRecord) -> tuple[str, dict[str, Any]] | None:
+    started = protocol_v2_tool_started(event)
+    if started is not None:
+        return started
+    if event.event != "messages":
+        return None
+
+    params = event.data.get("params", {})
+    data = params.get("data", {}) if isinstance(params, dict) else {}
+    if not isinstance(data, dict) or data.get("event") != "content-block-finish":
+        return None
+
+    content = data.get("content", {})
+    if not isinstance(content, dict) or content.get("type") not in {"tool_call", "tool_use"}:
+        return None
+
+    name = content.get("name")
+    args = content.get("args", content.get("input", {}))
     if not isinstance(name, str):
         return None
     return name, args if isinstance(args, dict) else {}
@@ -168,49 +178,4 @@ def _extract_protocol_v2_message_text(event: StreamRecord) -> str:
             if delta.get("type") == "reasoning-delta":
                 return ""
 
-    if data.get("event") in {"content-block-start", "content-block-finish"}:
-        content = data.get("content", {})
-        if isinstance(content, dict) and content.get("type") == "text":
-            text = content.get("text")
-            return text if isinstance(text, str) else ""
-
     return ""
-
-
-def _extract_protocol_v2_tool_text(event: StreamRecord) -> str:
-    started = protocol_v2_tool_started(event)
-    if started is not None:
-        name, args = started
-        return f"\n\n[Tool Call: {name}]\n> Arguments: {args}\n\n"
-    return ""
-
-
-def _extract_chunk_content(chunk: Any) -> str:
-    if chunk is None:
-        return ""
-    if isinstance(chunk, str):
-        return chunk
-    if isinstance(chunk, dict):
-        direct = chunk.get("content")
-        if isinstance(direct, str):
-            return direct
-        kwargs = chunk.get("kwargs")
-        if isinstance(kwargs, dict):
-            content = kwargs.get("content")
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                return _join_content_parts(content)
-    return ""
-
-
-def _join_content_parts(parts: list[Any]) -> str:
-    text: list[str] = []
-    for part in parts:
-        if isinstance(part, str):
-            text.append(part)
-        elif isinstance(part, dict):
-            value = part.get("text") or part.get("content")
-            if isinstance(value, str):
-                text.append(value)
-    return "".join(text)
