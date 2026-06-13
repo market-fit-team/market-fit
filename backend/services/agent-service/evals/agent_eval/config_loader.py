@@ -100,8 +100,6 @@ def _parse_runner(data: Any) -> RunnerConfig:
         name=_require_str(mapping, "name"),
         type=str(mapping.get("type", "http_sse")),
         base_url=_require_str(mapping, "base_url").rstrip("/"),
-        api_key_env=str(mapping.get("api_key_env", "API_KEY")),
-        api_key_header=str(mapping.get("api_key_header", "X-API-Key")),
         timeout_seconds=float(mapping.get("timeout_seconds", 180)),
         label=_optional_str(mapping.get("label")),
     )

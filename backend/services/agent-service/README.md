@@ -7,7 +7,7 @@
 > `sitecustomize.py` 및 `langgraph_api/openapi.json` vendor patch는 제거 대상이다.
 > 근거: https://docs.langchain.com/langsmith/agent-server-changelog, https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
 
-LangGraph native Agent Server로 실행되는 chat graph 서비스입니다. 기존 `tracked_files`의 graph/model/tool/eval/RAG 코드는 `src/agent/**`로 이식했고, FastAPI 기반 LangGraph 호환 adapter는 제거했습니다.
+LangGraph native Agent Server로 실행되는 chat graph 서비스입니다. 기존 `tracked_files`의 graph/model/tool/eval 코드는 `src/agent/**`로 이식했고, FastAPI 기반 LangGraph 호환 adapter는 제거했습니다.
 
 ## 실행
 
@@ -20,7 +20,7 @@ uv run langgraph dev --host 0.0.0.0 --port 2024 --no-browser
 Docker compose에서는 프로젝트 루트에서 실행합니다.
 
 ```bash
-docker compose up -d --build qdrant agent-service nginx
+docker compose up -d --build agent-service nginx
 ```
 
 ## graph id

@@ -4,7 +4,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "My Harness API"
     app_version: str = "0.1.0"
-    api_key: str | None = None
 
     jwks_url: str = "http://host.docker.internal:3000/api/auth/jwks"
     jwt_issuer: str = "http://localhost:3000"
@@ -19,15 +18,6 @@ class Settings(BaseSettings):
     opencode_zen_base_url: str = "https://opencode.ai/zen/v1"
 
     gemini_api_key: str | None = None
-    embedding_model: str = "gemini-embedding-2"
-    embedding_dimension: int = 768
-
-    qdrant_url: str = "http://localhost:6333"
-    qdrant_collection: str = "pickle_rag_embeddings_gemini2_768_v1"
-    qdrant_collection_alias: str = "pickle_rag_embeddings_current"
-    qdrant_distance: str = "COSINE"
-
-    media_fetch_timeout_seconds: float = 10.0
     health_show_timestamp: bool = True
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 

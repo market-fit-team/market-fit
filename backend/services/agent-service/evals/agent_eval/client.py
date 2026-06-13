@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 
 import httpx
@@ -34,7 +33,6 @@ PROTOCOL_V2_CHANNELS = [
 class LlmEvalClient:
     def __init__(self, runner: RunnerConfig) -> None:
         self._runner = runner
-        self._api_key = os.environ.get(runner.api_key_env)
         self._client = httpx.AsyncClient(base_url=runner.base_url, timeout=runner.timeout_seconds)
         self._last_seq_by_thread: dict[str, int] = {}
 
@@ -157,7 +155,4 @@ class LlmEvalClient:
         }
 
     def _headers(self, *, accept: str) -> dict[str, str]:
-        headers = {"Accept": accept}
-        if self._api_key:
-            headers[self._runner.api_key_header] = self._api_key
-        return headers
+        return {"Accept": accept}

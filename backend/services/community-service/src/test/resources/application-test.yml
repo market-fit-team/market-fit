@@ -32,14 +32,3 @@ app:
     jwt:
       issuer: http://localhost:3000
       audience: frontend-api
-  post:
-    semantic:
-      related-default-limit: 10
-      related-max-limit: 20
-      related-cache-ttl: P3D
-
-llm:
-  gateway:
-    base-url: http://localhost:18000
-    api-key:
-    semantic-timeout: 5s

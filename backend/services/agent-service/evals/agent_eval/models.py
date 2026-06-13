@@ -34,8 +34,6 @@ class RunnerConfig:
     name: str
     type: str
     base_url: str
-    api_key_env: str = "API_KEY"
-    api_key_header: str = "X-API-Key"
     timeout_seconds: float = 180.0
     label: str | None = None
 
