@@ -16,6 +16,7 @@ import com.example.server.core.postlike.PostLikeCommandService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 @RequestMapping("/api/v1/posts")
 @RequiredArgsConstructor
 @Tag(name = "post-likes")
+@SecurityRequirement(name = "bearerAuth")
 public class PostLikeController {
 
     private final PostLikeCommandService postLikeService;

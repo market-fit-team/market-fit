@@ -15,6 +15,7 @@ import com.example.server.core.user.User;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/scheduled-posts")
 @Tag(name = "scheduled-posts")
+@SecurityRequirement(name = "bearerAuth")
 public class ScheduledPostQueryController {
 
     private final ScheduledPostQueryService scheduledPostQueryService;

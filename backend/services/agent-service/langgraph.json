@@ -7,10 +7,26 @@
   },
   "env": ".env",
   "http": {
-    "app": "./src/agent/webapp.py:app"
+    "app": "./src/agent/webapp.py:app",
+    "enable_custom_route_auth": true
   },
   "auth": {
-    "path": "src/agent/security/auth.py:auth"
+    "path": "src/agent/security/auth.py:auth",
+    "openapi": {
+      "securitySchemes": {
+        "bearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT",
+          "description": "Better Auth JWT를 Authorization: Bearer <token> 헤더로 전달합니다."
+        }
+      },
+      "security": [
+        {
+          "bearerAuth": []
+        }
+      ]
+    }
   },
   "image_distro": "wolfi"
 }
