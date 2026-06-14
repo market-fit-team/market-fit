@@ -11,30 +11,31 @@ export const GET = (req: NextRequest) => handler.GET(req)
 export const POST = (req: NextRequest) => handler.POST(req)
 ```
 
-이 route는 gateway가 아니다. Keycloak OAuth callback과 Better Auth session cookie만 처리한다.
+이 route는 gateway가 아니다. authentik OAuth callback과 Better Auth session cookie만 처리한다.
 
 ```text
 Browser
   -> /api/auth/sign-in/oauth2
-  -> Keycloak
-  -> /api/auth/oauth2/callback/keycloak
+  -> authentik
+  -> /api/auth/oauth2/callback/authentik
   -> Better Auth session cookie
 ```
 
-## Keycloak provider
+## authentik provider
 
-`src/features/auth/lib/auth.ts`는 `genericOAuth`와 `keycloak` helper를 사용한다.
+`src/features/auth/lib/auth.ts`는 Better Auth `genericOAuth` 설정 객체로 authentik OIDC provider를 붙인다.
 
 ```ts
 plugins: [
   genericOAuth({
     config: [
-      keycloak({
-        clientId: env.KEYCLOAK_CLIENT_ID,
-        clientSecret: env.KEYCLOAK_CLIENT_SECRET,
-        issuer: env.KEYCLOAK_ISSUER,
+      {
+        providerId: "authentik",
+        clientId: env.AUTHENTIK_CLIENT_ID,
+        clientSecret: env.AUTHENTIK_CLIENT_SECRET,
+        discoveryUrl: env.AUTHENTIK_DISCOVERY_URL,
         scopes: ["openid", "profile", "email"],
-      }),
+      },
     ],
   }),
   nextCookies(),
@@ -48,11 +49,11 @@ Better Auth의 `jwt()` plugin은 없다.
 /api/auth/jwks  ❌
 ```
 
-Keycloak이 access token과 JWKS를 제공한다.
+authentik이 access token과 JWKS를 제공한다.
 
 ```text
-http://localhost:8180/realms/pickle
-http://localhost:8180/realms/pickle/protocol/openid-connect/certs
+http://localhost:9000/application/o/pickle-web/
+http://localhost:9000/application/o/pickle-web/jwks/
 ```
 
 ## Server Component
@@ -67,12 +68,12 @@ export const getServerSession = async () => {
 }
 ```
 
-`src/features/auth/lib/server-access-token.ts`는 같은 session cookie로 Keycloak provider access token을 가져온다.
+`src/features/auth/lib/server-access-token.ts`는 같은 session cookie로 authentik provider access token을 가져온다.
 
 ```ts
-export const getServerKeycloakAccessToken = async () => {
+export const getServerOidcAccessToken = async () => {
   const result = await auth.api.getAccessToken({
-    body: { providerId: "keycloak" },
+    body: { providerId: "authentik" },
     headers: await headers(),
   })
 
@@ -94,7 +95,7 @@ export const authClient = createAuthClient({
 
 ```ts
 await authClient.signIn.oauth2({
-  providerId: "keycloak",
+  providerId: "authentik",
   callbackURL,
   errorCallbackURL: "/sign-in?error=oauth",
   scopes: ["openid", "profile", "email"],
@@ -107,17 +108,17 @@ await authClient.signIn.oauth2({
 
 ```ts
 const result = await authClient.getAccessToken({
-  providerId: "keycloak",
+  providerId: "authentik",
 })
 ```
 
-브라우저에서 Authorization header가 없으면 Keycloak access token을 붙인다.
+브라우저에서 Authorization header가 없으면 authentik access token을 붙인다.
 
 ```text
 Browser
   -> Traefik http://localhost:8088/api/{service}/...
   -> backend service
-  -> Keycloak JWT 검증
+  -> authentik JWT 검증
 ```
 
 ## Drizzle 테이블
@@ -148,17 +149,17 @@ verification
 - https://better-auth.com/docs/integrations/next
 - https://better-auth.com/docs/plugins/generic-oauth
 - https://better-auth.com/docs/concepts/oauth
-- https://www.keycloak.org/securing-apps/oidc-layers
+- https://www.authentik.org/securing-apps/oidc-layers
 
 
-## Keycloak Google Identity Provider
+## authentik Google Identity Provider
 
-Google OAuth credentials are now registered in Keycloak, not directly in Better Auth. Keep `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` only in the repo root `.env` for `docker compose`.
+Google OAuth credentials are now registered in authentik, not directly in Better Auth. Keep `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` only in the repo root `.env` for `docker compose`.
 
 Google Cloud Console redirect URI:
 
 ```text
-http://localhost:8180/realms/pickle/broker/google/endpoint
+http://localhost:9000/source/oauth/callback/google/
 ```
 
-Better Auth still talks to Keycloak using the `keycloak` provider. Keycloak then brokers Google login.
+Better Auth still talks to authentik using the `authentik` provider. authentik then brokers Google login.

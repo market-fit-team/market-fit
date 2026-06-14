@@ -137,7 +137,7 @@ const origin =
   process.env.NEXT_PUBLIC_APP_ORIGIN ??
   (typeof window !== "undefined"
     ? window.location.origin
-    : "http://localhost:8180/realms/pickle")
+    : "http://localhost:9000/application/o/pickle-web/")
 
 const apiUrl = new URL(AGENT_PROXY_PATH, origin).toString()
 

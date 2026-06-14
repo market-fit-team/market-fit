@@ -9,9 +9,9 @@
 LANGGRAPH_CLI_NO_ANALYTICS=1
 LANGSMITH_TRACING=false
 
-JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-JWT_ISSUER=http://localhost:8180/realms/pickle
-JWT_AUDIENCE=pickle-api
+JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+JWT_AUDIENCE=pickle-web
 JWT_ALGORITHM=RS256
 
 OLLAMA_API_KEY=
@@ -68,9 +68,9 @@ FF_V2_EVENT_STREAMING=true uv run langgraph dev \
 기본 설정에서는 프론트가 발급한 JWT가 필요하다.
 
 ```text
-JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-JWT_ISSUER=http://localhost:8180/realms/pickle
-JWT_AUDIENCE=pickle-api
+JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+JWT_AUDIENCE=pickle-web
 JWT_ALGORITHM=RS256
 ```
 
@@ -96,9 +96,9 @@ agent-service:
   environment:
     - LANGGRAPH_CLI_NO_ANALYTICS=1
     - FF_V2_EVENT_STREAMING=true
-    - JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-    - JWT_ISSUER=http://localhost:8180/realms/pickle
-    - JWT_AUDIENCE=pickle-api
+    - JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+    - JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+    - JWT_AUDIENCE=pickle-web
     - JWT_ALGORITHM=RS256
   extra_hosts:
     - "host.docker.internal=host-gateway"
@@ -136,4 +136,4 @@ docker compose up -d --build agent-service traefik
 - Agent Server Protocol V2 event stream SSE: https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
 - Agent Server Protocol V2 command: https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
 - Better Auth Next.js integration: https://www.better-auth.com/docs/integrations/next
-- Keycloak access token plugin: https://better-auth.com/docs/plugins/jwt
+- Better Auth Generic OAuth: https://better-auth.com/docs/plugins/generic-oauth

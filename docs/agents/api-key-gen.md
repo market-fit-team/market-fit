@@ -17,8 +17,8 @@
   - 참조 파일: `backend/services/agent-service/.env.example`
   - 적용 파일: `backend/services/agent-service/.env` (`OLLAMA_API_KEY`)
 - **Google Cloud (Google OAuth)**: `https://console.cloud.google.com/apis/credentials?project={프로젝트-ID}`에 접속하여 **웹 애플리케이션** 유형으로 OAuth 2.0 클라이언트 자격증명을 생성한다.
-  - **승인된 JavaScript 원본**: `http://localhost:8180`
-  - **승인된 리디렉션 URI**: `http://localhost:8180/realms/pickle/broker/google/endpoint`
+  - **승인된 JavaScript 원본**: `http://localhost:9000`
+  - **승인된 리디렉션 URI**: `http://localhost:9000/source/oauth/callback/google/`
   - 자격증명 값 매핑:
     - 콘솔의 **클라이언트 ID** 값을 `GOOGLE_CLIENT_ID`에 저장한다.
     - 콘솔의 **클라이언트 보안 비밀번호** 값을 `GOOGLE_CLIENT_SECRET`에 저장한다.

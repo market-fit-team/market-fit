@@ -1,7 +1,7 @@
 // src/features/auth/lib/auth.ts
 import { betterAuth } from "better-auth"
 import { nextCookies } from "better-auth/next-js"
-import { genericOAuth, keycloak } from "better-auth/plugins"
+import { genericOAuth } from "better-auth/plugins"
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { env } from "@/shared/config/env"
 import { db } from "@/shared/db"
@@ -20,12 +20,13 @@ export const auth = betterAuth({
   plugins: [
     genericOAuth({
       config: [
-        keycloak({
-          clientId: env.KEYCLOAK_CLIENT_ID,
-          clientSecret: env.KEYCLOAK_CLIENT_SECRET,
-          issuer: env.KEYCLOAK_ISSUER,
+        {
+          providerId: "authentik",
+          clientId: env.AUTHENTIK_CLIENT_ID,
+          clientSecret: env.AUTHENTIK_CLIENT_SECRET,
+          discoveryUrl: env.AUTHENTIK_DISCOVERY_URL,
           scopes: ["openid", "profile", "email"],
-        }),
+        },
       ],
     }),
 

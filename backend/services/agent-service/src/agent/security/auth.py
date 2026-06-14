@@ -37,7 +37,7 @@ def _extract_bearer_token(authorization: str | None) -> str:
 
 
 async def _fetch_jwks(*, force_refresh: bool = False) -> dict[str, Any]:
-    """Keycloak JWKS를 async로 가져오고 짧게 cache한다."""
+    """authentik JWKS를 async로 가져오고 짧게 cache한다."""
 
     global _jwks_cache, _jwks_cache_expires_at
 
@@ -110,7 +110,7 @@ async def _get_signing_key(token: str) -> Any:
     try:
         jwk_dict = _find_jwk_by_kid(jwks, kid)
     except JwtAuthError:
-        # Keycloak key rotation 직후일 수 있으므로 kid miss 때만 한 번 강제 refresh한다.
+        # authentik key rotation 직후일 수 있으므로 kid miss 때만 한 번 강제 refresh한다.
         jwks = await _fetch_jwks(force_refresh=True)
         jwk_dict = _find_jwk_by_kid(jwks, kid)
 
@@ -124,7 +124,7 @@ async def _decode_token(token: str) -> dict[str, Any]:
     signing_key = await _get_signing_key(token)
 
     # issuer/audience/algorithm을 모두 고정 검증한다.
-    # 현재 프로젝트의 Keycloak JWT 계약과 맞아야 한다.
+    # 현재 프로젝트의 authentik JWT 계약과 맞아야 한다.
     # PyJWT decode API 문서:
     # https://pyjwt.readthedocs.io/en/stable/api.html
     payload = jwt.decode(

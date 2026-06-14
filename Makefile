@@ -3,7 +3,7 @@
 infra:
 	@echo "Starting Docker Compose infrastructure..."
 	@docker compose up -d --build
-	@echo "Waiting for Keycloak and Traefik..."
+	@echo "Waiting for authentik and Traefik..."
 	@sleep 8
 
 api-catalog:
@@ -18,9 +18,13 @@ frontend:
 	@echo "Running Better Auth database migrations..."
 	@cd frontend && npm run db:migrate
 	@echo "Starting Next.js outside the compose network..."
+	@echo "If you encounter a 'Service Unavailable' error from Authentik, please terminate this terminal (Ctrl+C) and restart only the frontend by running 'make frontend'."
 	@cd frontend && npm run dev
 
 dev: infra frontend
+
+down:
+	@docker compose down
 
 clean:
 	@docker compose down -v

@@ -12,8 +12,8 @@ class PostTest {
     @Test
     void 작성자_id가_같으면_true를_반환한다() {
         User user = User.createExternalUser(
-                "keycloak",
-                "better-auth-user-alice",
+                "authentik",
+                "authentik-user-alice",
                 "alice@example.com",
                 true,
                 "Alice",

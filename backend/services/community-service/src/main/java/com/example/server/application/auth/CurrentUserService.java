@@ -19,11 +19,11 @@ import lombok.RequiredArgsConstructor;
 public class CurrentUserService {
 
     /**
-     * NOTE: [Keycloak Migration]
-     * jwt.getSubject()는 Keycloak realm user id입니다.
-     * Better Auth는 Next.js session facade로만 남고, backend user identity provider는 keycloak으로 고정합니다.
+     * NOTE: [authentik OIDC]
+     * jwt.getSubject()는 authentik user id입니다.
+     * Better Auth는 Next.js session facade로만 남고, backend user identity provider는 authentik으로 고정합니다.
      */
-    private static final String KEYCLOAK_PROVIDER = "keycloak";
+    private static final String AUTHENTIK_PROVIDER = "authentik";
 
     private final UserRepository userRepository;
 
@@ -43,7 +43,7 @@ public class CurrentUserService {
             );
         }
 
-        return findOrCreateKeycloakUser(jwt);
+        return findOrCreateExternalUser(jwt);
     }
 
     /**
@@ -58,17 +58,17 @@ public class CurrentUserService {
             return Optional.empty();
         }
 
-        return Optional.of(findOrCreateKeycloakUser(jwt));
+        return Optional.of(findOrCreateExternalUser(jwt));
     }
 
-    private User findOrCreateKeycloakUser(Jwt jwt) {
+    private User findOrCreateExternalUser(Jwt jwt) {
         String providerSubject = requireSubject(jwt);
 
         return userRepository
-                .findByProviderAndProviderSubject(KEYCLOAK_PROVIDER, providerSubject)
+                .findByProviderAndProviderSubject(AUTHENTIK_PROVIDER, providerSubject)
                 .map(existingUser -> updateProfileIfNeeded(existingUser, jwt))
                 .orElseGet(() -> userRepository.save(User.createExternalUser(
-                        KEYCLOAK_PROVIDER,
+                        AUTHENTIK_PROVIDER,
                         providerSubject,
                         requireEmail(jwt),
                         true,
@@ -79,7 +79,7 @@ public class CurrentUserService {
 
     private User updateProfileIfNeeded(User user, Jwt jwt) {
         /**
-         * NOTE: Keycloak 프로필 정보가 바뀌었을 때 community DB도 최신 표시명을 따라가도록 갱신합니다.
+         * NOTE: authentik 프로필 정보가 바뀌었을 때 community DB도 최신 표시명을 따라가도록 갱신합니다.
          * provider/providerSubject는 로그인 식별자이므로 변경하지 않습니다.
          */
         user.updateExternalProfile(
@@ -128,7 +128,7 @@ public class CurrentUserService {
 
     private String resolvePictureUrl(Jwt jwt) {
         /**
-         * NOTE: Keycloak profile/userinfo mapper가 picture 또는 image claim을 넣을 수 있으므로 양쪽 키를 허용합니다.
+         * NOTE: authentik profile/userinfo mapper가 picture 또는 image claim을 넣을 수 있으므로 양쪽 키를 허용합니다.
          */
         String picture = jwt.getClaimAsString("picture");
         if (picture != null && !picture.isBlank()) {

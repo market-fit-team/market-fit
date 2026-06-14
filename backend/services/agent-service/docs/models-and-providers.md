@@ -280,9 +280,9 @@ async for event in model.astream_events(prompt, version="v2"):
 
 ```py
 class Settings(BaseSettings):
-    jwks_url: str = "http://keycloak:8080/realms/pickle/protocol/openid-connect/certs"
-    jwt_issuer: str = "http://localhost:8180/realms/pickle"
-    jwt_audience: str = "pickle-api"
+    jwks_url: str = "http://authentik-server:9000/application/o/pickle-web/jwks/"
+    jwt_issuer: str = "http://localhost:9000/application/o/pickle-web/"
+    jwt_audience: str = "pickle-web"
     jwt_algorithm: str = "RS256"
 
     ollama_api_key: str | None = None
@@ -295,9 +295,9 @@ class Settings(BaseSettings):
 ```
 
 ```text
-JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-JWT_ISSUER=http://localhost:8180/realms/pickle
-JWT_AUDIENCE=pickle-api
+JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+JWT_AUDIENCE=pickle-web
 JWT_ALGORITHM=RS256
 
 OLLAMA_API_KEY=

@@ -6,7 +6,7 @@ import {
   QueryClient,
   dehydrate,
 } from "@tanstack/react-query"
-import { getServerKeycloakAccessToken } from "@/features/auth/lib/server-access-token"
+import { getServerOidcAccessToken } from "@/features/auth/lib/server-access-token"
 import { getServerSession } from "@/features/auth/lib/server-session"
 import PlaygroundClient from "@/features/playground/components/playground-client"
 import {
@@ -29,7 +29,7 @@ const AUTH_BASE = process.env.BETTER_AUTH_URL ?? "http://localhost:3000"
 
 export default async function PlaygroundPage() {
   const session = await getServerSession()
-  const accessToken = await getServerKeycloakAccessToken()
+  const accessToken = await getServerOidcAccessToken()
 
   const queryClient = new QueryClient()
 
@@ -77,7 +77,7 @@ export default async function PlaygroundPage() {
         <h3>서버 세션</h3>
         <pre>{JSON.stringify(session ?? null, null, 2)}</pre>
 
-        <h3>서버에서 가져온 Keycloak access token</h3>
+        <h3>서버에서 가져온 OIDC access token</h3>
         <pre>
           {accessToken
             ? `${accessToken.slice(0, 32)}…`

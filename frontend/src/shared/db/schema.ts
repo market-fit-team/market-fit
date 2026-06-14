@@ -1,6 +1,6 @@
 // src/shared/db/schema.ts
-// Better Auth는 Next.js의 Keycloak session facade로만 사용한다.
-// JWT issuer/JWKS 역할은 Keycloak으로 이동했으므로 jwks 테이블은 쓰지 않는다.
+// Better Auth는 Next.js의 OIDC session facade로 사용한다.
+// JWT issuer/JWKS 역할은 authentik이 담당하므로 jwks 테이블은 쓰지 않는다.
 import {
   boolean,
   index,

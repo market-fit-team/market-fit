@@ -30,9 +30,9 @@ public JwtDecoder jwtDecoder(
 }
 ```
 
-- **jwk-set-uri**: Keycloak realm certs endpoint(`http://keycloak:8080/realms/pickle/protocol/openid-connect/certs`)
-- **issuer**: 토큰 발급자(`http://localhost:8180/realms/pickle`)
-- **audience**: 대상 서비스(`pickle-api`)
+- **jwk-set-uri**: authentik OIDC JWKS endpoint(`http://authentik-server:9000/application/o/pickle-web/jwks/`)
+- **issuer**: 토큰 발급자(`http://localhost:9000/application/o/pickle-web/`)
+- **audience**: 대상 서비스(`pickle-web`)
 
 ## API 엔드포인트 권한
 

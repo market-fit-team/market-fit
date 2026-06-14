@@ -18,46 +18,70 @@ services:
       timeout: 3s
       retries: 20
 
-  keycloak-db:
+
+  authentik-db:
     image: postgres:17-alpine
-    container_name: keycloak-db
+    container_name: authentik-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: keycloak
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak
+      POSTGRES_DB: authentik
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: ${PG_PASS:-authentik}
       TZ: Asia/Seoul
     volumes:
-      - keycloak_postgres_data:/var/lib/postgresql/data
+      - authentik_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
       interval: 3s
       timeout: 3s
       retries: 20
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.4
-    container_name: keycloak
-    entrypoint: ["/bin/sh", "/opt/keycloak/import-template/render-realm.sh"]
-    command: ["start-dev", "--import-realm"]
+  authentik-server:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.5}
+    container_name: authentik-server
+    restart: unless-stopped
+    command: server
     ports:
-      - "8180:8080"
+      - "${AUTHENTIK_HTTP_PORT:-9000}:9000"
     environment:
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloak
-      KC_HOSTNAME_STRICT: "false"
-      KC_HTTP_ENABLED: "true"
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
-      PICKLE_WEB_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-pickle-web-secret}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-CHANGE_ME}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-CHANGE_ME}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-dev-authentik-secret-key-change-me-please-32chars}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: ${AUTHENTIK_ERROR_REPORTING__ENABLED:-false}
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS:-authentik}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-admin@example.com}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-authentik}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:-dev-authentik-bootstrap-token-change-me}
     volumes:
-      - ./backend/keycloak/import:/opt/keycloak/import-template:ro
+      - ./backend/authentik/blueprints/pickle-web.yaml:/blueprints/pickle-web.yaml:ro
     depends_on:
-      keycloak-db:
+      authentik-db:
+        condition: service_healthy
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:${AUTHENTIK_TAG:-2026.5}
+    container_name: authentik-worker
+    restart: unless-stopped
+    command: worker
+    env_file:
+      - .env
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-dev-authentik-secret-key-change-me-please-32chars}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: ${AUTHENTIK_ERROR_REPORTING__ENABLED:-false}
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS:-authentik}
+      AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./backend/authentik/blueprints/pickle-web.yaml:/blueprints/pickle-web.yaml:ro
+    depends_on:
+      authentik-db:
         condition: service_healthy
 
   traefik:
@@ -87,9 +111,9 @@ services:
     container_name: profile-service
     environment:
       PORT: "3001"
-      JWKS_URL: "http://keycloak:8080/realms/pickle/protocol/openid-connect/certs"
-      JWT_ISSUER: "http://localhost:8180/realms/pickle"
-      JWT_AUDIENCE: "pickle-api"
+      JWKS_URL: "http://authentik-server:9000/application/o/pickle-web/jwks/"
+      JWT_ISSUER: "http://localhost:9000/application/o/pickle-web/"
+      JWT_AUDIENCE: "pickle-web"
       JWT_ALGS: "RS256"
     expose:
       - "3001"
@@ -199,9 +223,9 @@ services:
     environment:
       - LANGGRAPH_CLI_NO_ANALYTICS=1
       - FF_V2_EVENT_STREAMING=true
-      - JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-      - JWT_ISSUER=http://localhost:8180/realms/pickle
-      - JWT_AUDIENCE=pickle-api
+      - JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+      - JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+      - JWT_AUDIENCE=pickle-web
       - JWT_ALGORITHM=RS256
     expose:
       - "2024"
@@ -218,7 +242,7 @@ services:
       - app.api.openapiPath=/openapi.json
       - app.api.schemasType=typescript
     depends_on:
-      - keycloak
+      - authentik-server
 
   community-service:
     build: ./backend/services/community-service
@@ -232,16 +256,16 @@ services:
         condition: service_started
       minio-init:
         condition: service_completed_successfully
-      keycloak:
+      authentik-server:
         condition: service_started
     environment:
       - DB_HOST=community-db
       - REDIS_HOST=redis
       - RABBITMQ_HOST=rabbitmq
       - S3_ENDPOINT=http://minio:8900
-      - JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-      - JWT_ISSUER=http://localhost:8180/realms/pickle
-      - JWT_AUDIENCE=pickle-api
+      - JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+      - JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+      - JWT_AUDIENCE=pickle-web
     expose:
       - "8080"
     labels:
@@ -259,7 +283,7 @@ services:
 
 volumes:
   postgres_data:
-  keycloak_postgres_data:
+  authentik_postgres_data:
   community_postgres_data:
   redis_data:
   minio_data:

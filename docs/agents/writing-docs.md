@@ -133,7 +133,7 @@ export const config = {
 
 예시:
 
-- Better Auth JWT plugin: `https://better-auth.com/docs/plugins/jwt`
+- Better Auth Generic OAuth: `https://better-auth.com/docs/plugins/generic-oauth`
 - Next.js Route Handlers: `https://nextjs.org/docs/app/getting-started/route-handlers`
 
 ## 내용 선택 기준

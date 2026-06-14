@@ -2,7 +2,7 @@
 
 `langgraph.json`의 `chat` graph가 이 서비스의 기본 진입점이다.  
 `src/agent/webapp.py`는 native Agent Server 위에 `/api/v1/llm/models`와 `/api/v1/llm/tools`를 붙인다.  
-`src/agent/security/auth.py`는 Keycloak access token를 검증한다.  
+`src/agent/security/auth.py`는 authentik access token를 검증한다.  
 `evals/`는 Protocol V2 HTTP/SSE 평가 하네스를 둔다.
 
 ## langgraph.json
@@ -100,9 +100,9 @@ divide
 `src/agent/security/auth.py`는 `JWKS_URL`로 JWKS를 가져와 `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_ALGORITHM`을 고정 검증한다.
 
 ```env
-JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-JWT_ISSUER=http://localhost:8180/realms/pickle
-JWT_AUDIENCE=pickle-api
+JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+JWT_AUDIENCE=pickle-web
 JWT_ALGORITHM=RS256
 ```
 
@@ -167,4 +167,4 @@ uv run python -m evals.agent_eval --config evals/config.yaml
 - Agent Server Protocol V2 event stream SSE: https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
 - Agent Server Protocol V2 command: https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
 - Better Auth Next.js integration: https://www.better-auth.com/docs/integrations/next
-- Keycloak access token plugin: https://better-auth.com/docs/plugins/jwt
+- Better Auth Generic OAuth: https://better-auth.com/docs/plugins/generic-oauth

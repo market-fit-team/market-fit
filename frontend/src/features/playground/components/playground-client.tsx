@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useErrorBoundary } from "react-error-boundary"
 import { authClient } from "@/features/auth/lib/auth-client"
-import { KEYCLOAK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
+import { AUTHENTIK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
 import { useGetEchoSuspense } from "@/shared/api/generated/echo/endpoints/echo/echo"
 import { useGetMeSuspense } from "@/shared/api/generated/profile/endpoints/profile/profile"
 import { Button } from "@/shared/components/ui/button"
@@ -52,9 +52,9 @@ export default function PlaygroundClient({
       : undefined,
   })
 
-  const getKeycloakAccessTokenClient = async (): Promise<string | null> => {
+  const getOidcAccessTokenClient = async (): Promise<string | null> => {
     const result = (await authClient.getAccessToken({
-      providerId: KEYCLOAK_PROVIDER_ID,
+      providerId: AUTHENTIK_PROVIDER_ID,
     })) as AccessTokenResult
 
     return extractAccessToken(result)
@@ -83,12 +83,12 @@ export default function PlaygroundClient({
           <Button
             onClick={async () => {
               try {
-                const token = await getKeycloakAccessTokenClient()
+                const token = await getOidcAccessTokenClient()
                 if (!token) {
                   setTokenPreview("")
                   showBoundary(
                     new Error(
-                      "Keycloak access token 조회 실패 (먼저 로그인해주세요)"
+                      "OIDC access token 조회 실패 (먼저 로그인해주세요)"
                     )
                   )
                   return
@@ -99,7 +99,7 @@ export default function PlaygroundClient({
               }
             }}
           >
-            클라이언트에서 Keycloak access token 조회
+            클라이언트에서 OIDC access token 조회
           </Button>
 
           <Button variant="outline" disabled>

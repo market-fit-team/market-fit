@@ -25,10 +25,10 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://localhost:18001/realms/pickle/protocol/openid-connect/certs
+          jwk-set-uri: http://localhost:18001/application/o/pickle-web/jwks/
 
 app:
   auth:
     jwt:
-      issuer: http://localhost:8180/realms/pickle
-      audience: pickle-api
+      issuer: http://localhost:9000/application/o/pickle-web/
+      audience: pickle-web

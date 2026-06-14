@@ -30,7 +30,7 @@ async def list_llm_models(_: DocumentedBearerAuth) -> ListChatModelsResponse:
 bearer_auth = HTTPBearer(
     bearerFormat="JWT",
     scheme_name="bearerAuth",
-    description="Keycloak access token를 Authorization: Bearer <token> 헤더로 전달합니다.",
+    description="authentik access token를 Authorization: Bearer <token> 헤더로 전달합니다.",
     auto_error=False,
 )
 ```

@@ -1,6 +1,6 @@
 # Security
 
-`src/agent/security/auth.py`가 Keycloak access token를 검증한다.  
+`src/agent/security/auth.py`가 authentik access token를 검증한다.  
 `src/agent/webapp.py`의 `HTTPBearer`는 OpenAPI 문서용이다.  
 실제 인증은 LangGraph custom auth가 처리한다.
 
@@ -8,7 +8,7 @@
 bearer_auth = HTTPBearer(
     bearerFormat="JWT",
     scheme_name="bearerAuth",
-    description="Keycloak access token를 Authorization: Bearer <token> 헤더로 전달합니다.",
+    description="authentik access token를 Authorization: Bearer <token> 헤더로 전달합니다.",
     auto_error=False,
 )
 ```
@@ -33,13 +33,13 @@ Bearer 스킴만 받는다.
 ```text
 Browser cookie
   -> frontend/src/features/auth/lib/auth.ts
-  -> Keycloak token endpoint
+  -> authentik token endpoint
   -> backend/services/traefik/server.mjs
   -> Authorization: Bearer <JWT>
   -> src/agent/security/auth.py
 ```
 
-프론트 쪽 JWT 경계는 `frontend/src/features/auth/lib/auth.ts`의 `jwt()` 플러그인과 `backend/services/traefik/server.mjs`의 헤더 교체로 닫힌다.
+프론트 쪽 OAuth/OIDC 경계는 `frontend/src/features/auth/lib/auth.ts`의 Better Auth `genericOAuth` 설정과 authentik provider 계약으로 닫힌다.
 
 ```ts
 plugins: [
@@ -105,9 +105,9 @@ async def _fetch_jwks(*, force_refresh: bool = False) -> dict[str, Any]:
 ASGI request path 안에서 sync client를 돌리지 않게 하기 위해서다.
 
 ```text
-JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-JWT_ISSUER=http://localhost:8180/realms/pickle
-JWT_AUDIENCE=pickle-api
+JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+JWT_AUDIENCE=pickle-web
 JWT_ALGORITHM=RS256
 ```
 
@@ -115,9 +115,9 @@ JWT_ALGORITHM=RS256
 
 ```py
 class Settings(BaseSettings):
-    jwks_url: str = "http://keycloak:8080/realms/pickle/protocol/openid-connect/certs"
-    jwt_issuer: str = "http://localhost:8180/realms/pickle"
-    jwt_audience: str = "pickle-api"
+    jwks_url: str = "http://authentik-server:9000/application/o/pickle-web/jwks/"
+    jwt_issuer: str = "http://localhost:9000/application/o/pickle-web/"
+    jwt_audience: str = "pickle-web"
     jwt_algorithm: str = "RS256"
 ```
 
@@ -235,7 +235,7 @@ JWKS fetch 실패, 토큰 파싱 실패, 서명 실패, `iss`/`aud` 불일치, �
           "type": "http",
           "scheme": "bearer",
           "bearerFormat": "JWT",
-          "description": "Keycloak access token를 Authorization: Bearer <token> 헤더로 전달합니다."
+          "description": "authentik access token를 Authorization: Bearer <token> 헤더로 전달합니다."
         }
       },
       "security": [
@@ -274,9 +274,9 @@ eval 설정에는 `auth`가 없다.
 ## `.env.example`
 
 ```text
-JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-JWT_ISSUER=http://localhost:8180/realms/pickle
-JWT_AUDIENCE=pickle-api
+JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+JWT_AUDIENCE=pickle-web
 JWT_ALGORITHM=RS256
 ```
 
@@ -307,4 +307,4 @@ JWT_ALGORITHM=RS256
 - FastAPI Security Tools: https://fastapi.tiangolo.com/reference/security/
 - FastAPI Dependencies and Security: https://fastapi.tiangolo.com/reference/dependencies/
 - Better Auth Next.js integration: https://better-auth.com/docs/integrations/next
-- Keycloak access token plugin: https://better-auth.com/docs/plugins/jwt
+- Better Auth Generic OAuth: https://better-auth.com/docs/plugins/generic-oauth

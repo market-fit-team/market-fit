@@ -31,12 +31,12 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://profile-service:8080Keycloak certs endpoint
+          jwk-set-uri: http://profile-service:8080authentik certs endpoint
 app:
   auth:
     jwt:
       issuer: "pickly-frontend"
-      audience: "pickle-api"
+      audience: "pickle-web"
 ```
 
 인증 흐름은 아래와 같다.

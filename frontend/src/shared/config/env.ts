@@ -8,11 +8,15 @@ const EnvSchema = z.object({
   BETTER_AUTH_URL: z.string().min(1, "[env] BETTER_AUTH_URL is required"),
   DATABASE_URL: z.string().min(1, "[env] DATABASE_URL is required"),
 
-  KEYCLOAK_CLIENT_ID: z.string().min(1, "[env] KEYCLOAK_CLIENT_ID is required"),
-  KEYCLOAK_CLIENT_SECRET: z
+  AUTHENTIK_CLIENT_ID: z
     .string()
-    .min(1, "[env] KEYCLOAK_CLIENT_SECRET is required"),
-  KEYCLOAK_ISSUER: z.string().min(1, "[env] KEYCLOAK_ISSUER is required"),
+    .min(1, "[env] AUTHENTIK_CLIENT_ID is required"),
+  AUTHENTIK_CLIENT_SECRET: z
+    .string()
+    .min(1, "[env] AUTHENTIK_CLIENT_SECRET is required"),
+  AUTHENTIK_DISCOVERY_URL: z
+    .string()
+    .min(1, "[env] AUTHENTIK_DISCOVERY_URL is required"),
 
   NEXT_PUBLIC_API_ORIGIN: z.string().optional(),
   AGENT_ASSISTANT_ID: z.string().default("chat"),
@@ -23,9 +27,9 @@ const createEnv = () => {
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     DATABASE_URL: process.env.DATABASE_URL,
-    KEYCLOAK_CLIENT_ID: process.env.KEYCLOAK_CLIENT_ID,
-    KEYCLOAK_CLIENT_SECRET: process.env.KEYCLOAK_CLIENT_SECRET,
-    KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER,
+    AUTHENTIK_CLIENT_ID: process.env.AUTHENTIK_CLIENT_ID,
+    AUTHENTIK_CLIENT_SECRET: process.env.AUTHENTIK_CLIENT_SECRET,
+    AUTHENTIK_DISCOVERY_URL: process.env.AUTHENTIK_DISCOVERY_URL,
     NEXT_PUBLIC_API_ORIGIN: process.env.NEXT_PUBLIC_API_ORIGIN,
     AGENT_ASSISTANT_ID: process.env.AGENT_ASSISTANT_ID,
   }

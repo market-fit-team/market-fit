@@ -8,7 +8,7 @@
 make dev
 ```
 
-`make dev` 명령어는 `docker-compose.yml`의 인프라(Keycloak, Traefik, PostgreSQL, Redis, RabbitMQ, MinIO 등)를 빌드하고 구동한 뒤, 프론트엔드 데이터베이스 마이그레이션 및 Next.js 개발 서버를 실행한다.
+`make dev` 명령어는 `docker-compose.yml`의 인프라(authentik, Traefik, PostgreSQL, Redis, RabbitMQ, MinIO 등)를 빌드하고 구동한 뒤, 프론트엔드 데이터베이스 마이그레이션 및 Next.js 개발 서버를 실행한다.
 
 서버가 실행된 후 Next.js의 스키마와 타입들을 초기화하기 위해서 아래의 명령어를 실행한다.
 
@@ -44,7 +44,7 @@ npm run db:migrate
 - **루트 디렉터리**: `.env.example`을 복사하여 `.env` 생성
   - Google Identity Provider 연동을 위한 Client ID 및 Client Secret 설정
 - **`frontend`**: `frontend/.env.example`을 복사하여 `frontend/.env` 생성
-  - Better Auth Secret, 데이터베이스 연결 URL, Keycloak Secret 설정
+  - Better Auth Secret, 데이터베이스 연결 URL, authentik Secret 설정
 - **`backend/services/community-service`**: `backend/services/community-service/.env.example`을 복사하여 `backend/services/community-service/.env` 생성
 - **`backend/services/agent-service`**: `backend/services/agent-service/.env.example`을 복사하여 `backend/services/agent-service/.env` 생성
   - 필요한 외부 AI API Key(Gemini 등) 설정

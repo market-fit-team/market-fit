@@ -92,7 +92,7 @@ public abstract class IntegrationTestSupport {
         return SecurityMockMvcRequestPostProcessors.jwt()
                 .jwt(jwt -> jwt
                         .subject(user.getProviderSubject())
-                        .audience(List.of("pickle-api"))
+                        .audience(List.of("pickle-web"))
                         .claim("email", user.getEmail())
                         .claim("name", user.getName()));
     }

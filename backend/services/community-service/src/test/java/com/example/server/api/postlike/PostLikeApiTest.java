@@ -19,7 +19,7 @@ class PostLikeApiTest extends IntegrationTestSupport {
 
     @Test
     void 로그인하지_않으면_좋아요를_누를_수_없다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         mockMvc.perform(post("/api/v1/posts/{id}/likes", postId))
@@ -28,7 +28,7 @@ class PostLikeApiTest extends IntegrationTestSupport {
 
     @Test
     void 유효한_JWT가_있으면_좋아요를_누를_수_있다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         mockMvc.perform(post("/api/v1/posts/{id}/likes", postId)
@@ -46,7 +46,7 @@ class PostLikeApiTest extends IntegrationTestSupport {
 
     @Test
     void 삭제된_게시글에는_좋아요를_누를_수_없다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "삭제될 글");
         testDataHelper.softDeletePost(alice, postId);
 
@@ -57,7 +57,7 @@ class PostLikeApiTest extends IntegrationTestSupport {
 
     @Test
     void 중복_좋아요를_눌러도_row는_하나만_유지된다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         for (int i = 0; i < 2; i++) {
@@ -77,7 +77,7 @@ class PostLikeApiTest extends IntegrationTestSupport {
 
     @Test
     void 좋아요를_취소할_수_있다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
         testDataHelper.likePost(alice, postId);
 

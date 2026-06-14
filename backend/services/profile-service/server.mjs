@@ -1,7 +1,7 @@
 // backend/profile-service/server.mjs
 // JWT verify via JWKS (remote)
-// - Keycloak exposes realm JWKS/certs endpoint for access token verification
-//   https://better-auth.com/docs/plugins/jwt
+// - authentik exposes an OIDC JWKS endpoint for access token verification
+//   https://docs.goauthentik.io/add-secure-apps/providers/oauth2/
 // - jose Remote JWK Set + jwtVerify:
 //   https://github.com/panva/jose
 
@@ -13,7 +13,7 @@ app.use(express.json())
 
 const PORT = process.env.PORT || 3001
 
-const JWKS_URL = process.env.JWKS_URL // e.g. http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
+const JWKS_URL = process.env.JWKS_URL // e.g. http://authentik-server:9000/application/o/pickle-web/jwks/
 const JWT_ISSUER = process.env.JWT_ISSUER // must match token "iss"
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE // must match token "aud"
 const JWT_ALGS = (process.env.JWT_ALGS ?? "RS256")
@@ -136,7 +136,7 @@ app.get("/me", async (req, res) => {
       algorithms: JWT_ALGS, // ✅ allowlist (don’t trust alg from token blindly)
     })
 
-    // Keycloak access token/userinfo mapper에서 email을 넣는다는 가정
+    // authentik scope/property mappings에서 email을 넣는다는 가정
     const email = payload.email
     if (!email) return res.status(400).json({ error: "NO_EMAIL_IN_TOKEN", header: protectedHeader })
 

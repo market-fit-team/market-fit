@@ -29,8 +29,8 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void 오프셋_페이징_목록_조회_시_좋아요_개수와_본인_좋아요_여부가_정상_노출된다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
+        User bob = testDataHelper.createAuthentikUser("authentik-user-bob", "bob@example.com");
 
         Long postId1 = testDataHelper.createPost(alice, "Alice 1번 글");
         Long postId2 = testDataHelper.createPost(bob, "Bob 2번 글");
@@ -54,7 +54,7 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void 피드에는_root_post만_노출된다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long root1 = testDataHelper.createRootPost(alice, "원글1");
         testDataHelper.createReply(alice, root1, "원글1 댓글");
         Long root2 = testDataHelper.createRootPost(alice, "원글2");
@@ -69,7 +69,7 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void 커서_페이징_조회_시_nextCursor를_통해_중복_없이_연속_페이징_스크롤이_가능하다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
 
         Long id1 = testDataHelper.createPost(alice, "게시글 1");
         Thread.sleep(10);
@@ -105,7 +105,7 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void replies_조회는_직계_자식만_반환한다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "원글");
         Long child1 = testDataHelper.createReply(alice, rootId, "댓글1");
         Long child2 = testDataHelper.createReply(alice, rootId, "댓글2");
@@ -121,7 +121,7 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void thread_조회는_ancestors와_현재글_그리고_직계_replies를_반환한다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long root = testDataHelper.createRootPost(alice, "원글");
         Long reply1 = testDataHelper.createReply(alice, root, "댓글1");
         Long reply2 = testDataHelper.createReply(alice, reply1, "댓글2");
@@ -140,7 +140,7 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void 댓글_작성_시_parent_root_depth가_설정된다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "원글");
 
         mockMvc.perform(post("/api/v1/posts/{id}/replies", rootId)
@@ -155,7 +155,7 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void 단건_조회_응답에_mediaAttachments가_포함된다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long postId = testDataHelper.createRootPost(alice, "이미지 포함 글");
         testDataHelper.createAttachedMedia(alice, postId, "posts/2026/05/22/%d/detail.png".formatted(alice.getId()));
 
@@ -171,8 +171,8 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void 다른_사용자도_피드에서_attached_media를_조회할_수_있다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
+        User bob = testDataHelper.createAuthentikUser("authentik-user-bob", "bob@example.com");
         Long postId = testDataHelper.createRootPost(alice, "Alice 이미지 글");
         testDataHelper.createAttachedMedia(alice, postId, "posts/2026/05/22/%d/feed.png".formatted(alice.getId()));
 
@@ -186,7 +186,7 @@ class PostQueryApiTest extends IntegrationTestSupport {
 
     @Test
     void 삭제된_thread_게시글은_mediaAttachments를_노출하지_않는다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "원글");
         Long replyId = testDataHelper.createReply(alice, rootId, "삭제될 댓글");
         testDataHelper.createAttachedMedia(alice, replyId, "posts/2026/05/22/%d/deleted.png".formatted(alice.getId()));

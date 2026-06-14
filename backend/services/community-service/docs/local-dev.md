@@ -32,8 +32,8 @@ src/main/
 app:
   auth:
     jwt:
-      issuer: ${JWT_ISSUER:http://localhost:8180/realms/pickle}
-      audience: ${JWT_AUDIENCE:pickle-api}
+      issuer: ${JWT_ISSUER:http://localhost:9000/application/o/pickle-web/}
+      audience: ${JWT_AUDIENCE:pickle-web}
 ```
 
 ## 애플리케이션 실행

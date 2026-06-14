@@ -2,7 +2,7 @@
 "use client"
 
 import { authClient } from "@/features/auth/lib/auth-client"
-import { KEYCLOAK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
+import { AUTHENTIK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
 import { Button } from "@/shared/components/ui/button"
 
 export default function SignInClient({
@@ -19,14 +19,14 @@ export default function SignInClient({
       <Button
         onClick={async () => {
           await authClient.signIn.oauth2({
-            providerId: KEYCLOAK_PROVIDER_ID,
+            providerId: AUTHENTIK_PROVIDER_ID,
             callbackURL,
             errorCallbackURL: "/sign-in?error=oauth",
             scopes: ["openid", "profile", "email"],
           })
         }}
       >
-        Continue with Keycloak
+        Continue with Google
       </Button>
 
       <div>

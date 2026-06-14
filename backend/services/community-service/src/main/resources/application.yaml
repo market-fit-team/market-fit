@@ -62,17 +62,17 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # NOTE: Keycloak realm certs endpoint.
-          # Backend services validate Bearer tokens with Keycloak public keys.
-          jwk-set-uri: ${JWKS_URL:http://keycloak:8080/realms/pickle/protocol/openid-connect/certs}
+          # NOTE: authentik OIDC JWKS endpoint.
+          # Backend services validate Bearer tokens with authentik public keys.
+          jwk-set-uri: ${JWKS_URL:http://authentik-server:9000/application/o/pickle-web/jwks/}
 
 app:
   auth:
     jwt:
-      # NOTE: Keycloak access token의 iss claim과 동일해야 합니다.
-      issuer: ${JWT_ISSUER:http://localhost:8180/realms/pickle}
-      # NOTE: Keycloak pickle-web client의 audience mapper가 넣는 aud 값입니다.
-      audience: ${JWT_AUDIENCE:pickle-api}
+      # NOTE: authentik access token의 iss claim과 동일해야 합니다.
+      issuer: ${JWT_ISSUER:http://localhost:9000/application/o/pickle-web/}
+      # NOTE: authentik OAuth2/OIDC provider가 발급하는 aud 값입니다.
+      audience: ${JWT_AUDIENCE:pickle-web}
 
 springdoc:
   # Source: https://springdoc.org/core-properties.html

@@ -19,13 +19,13 @@
 - **Prettier**: Tailwind CSS 클래스 자동 정렬 및 상단 `import` 구문 순서 자동 정렬 적용
 - **공통**: `src/shared/components/ui` 폴더 내 shadcn 컴포넌트들은 린트/포맷팅 대상에서 제외
 
-## Better Auth + Keycloak
+## Better Auth + authentik
 
-Better Auth는 Keycloak Generic OAuth provider를 사용한다.
+Better Auth는 authentik Generic OAuth provider를 사용한다.
 
 ```text
-Keycloak issuer: http://localhost:8180/realms/pickle
-Better Auth callback: http://localhost:3000/api/auth/oauth2/callback/keycloak
+authentik issuer: http://localhost:9000/application/o/pickle-web/
+Better Auth callback: http://localhost:3000/api/auth/oauth2/callback/authentik
 API runtime origin: http://localhost:8088
 ```
 

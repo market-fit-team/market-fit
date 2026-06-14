@@ -33,7 +33,7 @@ class ScheduledPostApiTest extends IntegrationTestSupport {
 
     @Test
     void 예약_게시글_생성은_mediaAttachmentIds를_예약_draft로_저장한다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long mediaId = testDataHelper.createUploadedMedia(alice, "posts/2026/05/24/%d/scheduled.png".formatted(alice.getId()));
 
         mockMvc.perform(post("/api/v1/scheduled-posts")
@@ -65,7 +65,7 @@ class ScheduledPostApiTest extends IntegrationTestSupport {
 
     @Test
     void 예약_게시글은_내용이_비어있어도_mediaAttachmentIds가_있으면_생성할_수_있다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long mediaId = testDataHelper.createUploadedMedia(alice, "posts/2026/05/24/%d/scheduled-image-only.png".formatted(alice.getId()));
 
         mockMvc.perform(post("/api/v1/scheduled-posts")
@@ -83,7 +83,7 @@ class ScheduledPostApiTest extends IntegrationTestSupport {
 
     @Test
     void 예약_게시글은_내용과_이미지가_모두_비어있으면_생성할_수_없다() throws Exception {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
 
         mockMvc.perform(post("/api/v1/scheduled-posts")
                         .with(jwtFor(alice))
@@ -100,7 +100,7 @@ class ScheduledPostApiTest extends IntegrationTestSupport {
 
     @Test
     void 예약_발행용_게시글_생성은_일반_게시글과_같은_첨부_경로를_사용한다() {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
         Long mediaId = testDataHelper.createUploadedMedia(alice, "posts/2026/05/24/%d/published-from-scheduled.png".formatted(alice.getId()));
 
         Post post = postCommandService.createRootFromScheduled(
@@ -128,8 +128,8 @@ class ScheduledPostApiTest extends IntegrationTestSupport {
 
     @Test
     void 예약_발행용_게시글_생성은_일반_게시글과_같은_첨부_검증을_사용한다() {
-        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createAuthentikUser("authentik-user-alice", "alice@example.com");
+        User bob = testDataHelper.createAuthentikUser("authentik-user-bob", "bob@example.com");
         Long otherUserMediaId = testDataHelper.createUploadedMedia(bob, "posts/2026/05/24/%d/other-user.png".formatted(bob.getId()));
         Long alreadyAttachedPostId = testDataHelper.createRootPost(alice, "이미 첨부된 이미지가 있는 글");
         Long alreadyAttachedMediaId = testDataHelper.createAttachedMedia(alice, alreadyAttachedPostId, "posts/2026/05/24/%d/already-attached.png".formatted(alice.getId()));

@@ -1,9 +1,9 @@
 import { authClient } from "./auth-client"
-import { KEYCLOAK_PROVIDER_ID } from "./auth-constants"
+import { AUTHENTIK_PROVIDER_ID } from "./auth-constants"
 
-const getClientKeycloakAccessToken = async () => {
+const getClientOidcAccessToken = async () => {
   const { data } = await authClient.getAccessToken({
-    providerId: KEYCLOAK_PROVIDER_ID,
+    providerId: AUTHENTIK_PROVIDER_ID,
   })
 
   return data?.accessToken
@@ -30,7 +30,7 @@ export const fetchWithAuth = async <T>(
   const headers = new Headers(init?.headers)
 
   if (!headers.has("authorization") && typeof window !== "undefined") {
-    const accessToken = await getClientKeycloakAccessToken()
+    const accessToken = await getClientOidcAccessToken()
 
     if (accessToken) {
       headers.set("authorization", `Bearer ${accessToken}`)

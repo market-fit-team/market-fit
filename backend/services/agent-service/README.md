@@ -42,7 +42,7 @@ Agent Server custom auth는 Next.js BFF가 발급해 붙인 Better Auth RS256 JW
 ```text
 Browser cookie
   -> Next.js http://localhost:8088/api/agent
-  -> Keycloak token endpoint
+  -> authentik token endpoint
   -> Authorization: Bearer <JWT>
   -> Nginx /api/agent
   -> Agent Server custom auth
@@ -51,9 +51,9 @@ Browser cookie
 필수 환경 변수:
 
 ```env
-JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
-JWT_ISSUER=http://localhost:8180/realms/pickle
-JWT_AUDIENCE=pickle-api
+JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
+JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
+JWT_AUDIENCE=pickle-web
 JWT_ALGORITHM=RS256
 ```
 

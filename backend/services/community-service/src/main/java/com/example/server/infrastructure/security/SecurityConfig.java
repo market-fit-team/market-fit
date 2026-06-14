@@ -102,11 +102,11 @@ public class SecurityConfig {
             @Value("${app.auth.jwt.audience}") String audience
     ) {
         /**
-         * NOTE: [Keycloak Migration]
-         * community-service는 Keycloak access token만 신뢰합니다.
-         * - jwkSetUri: Keycloak realm certs endpoint
+         * NOTE: [authentik OIDC]
+         * community-service는 authentik access token만 신뢰합니다.
+         * - jwkSetUri: authentik OIDC JWKS endpoint
          * - issuer:   access token의 iss claim
-         * - audience: pickle-api audience mapper가 access token에 넣는 aud claim
+         * - audience: authentik OAuth2/OIDC provider가 발급하는 aud claim
          *
          * jwk-set-uri만으로는 issuer/audience 경계가 충분하지 않으므로
          * issuer/audience validator를 명시적으로 같이 둡니다.

@@ -83,7 +83,7 @@ override: {
 }
 ```
 
-`fetchWithAuth`는 브라우저에서 Keycloak access token을 가져와 `Authorization` header를 붙인다.
+`fetchWithAuth`는 브라우저에서 authentik access token을 가져와 `Authorization` header를 붙인다.
 
 ```text
 Browser
