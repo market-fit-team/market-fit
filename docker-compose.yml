@@ -60,48 +60,21 @@ services:
       keycloak-db:
         condition: service_healthy
 
-  consul:
-    image: hashicorp/consul:1.21
-    container_name: consul
-    command: >
-      agent -dev
-      -client=0.0.0.0
-      -config-dir=/consul/config
-    ports:
-      - "8500:8500"
-      - "8600:8600/udp"
-    volumes:
-      - ./backend/consul/config:/consul/config
-    depends_on:
-      - profile-service
-      - echo-service
-      - community-service
-      - agent-service
 
-  discovery-service:
-    build: ./backend/services/discovery-service
-    container_name: discovery-service
-    environment:
-      PORT: "8090"
-      CONSUL_HTTP_ADDR: "http://consul:8500"
-      PUBLIC_DISCOVERY_ORIGIN: "http://localhost:8090"
-    ports:
-      - "8090:8090"
-    depends_on:
-      - consul
-
-  api-edge:
-    build: ./backend/services/api-edge
-    container_name: api-edge
-    environment:
-      PORT: "8088"
-      DISCOVERY_INTERNAL_ORIGIN: "http://discovery-service:8090"
-      ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - --entrypoints.web.address=:8088
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --api.dashboard=true
+      - --api.insecure=true
     ports:
       - "8088:8088"
-    depends_on:
-      - discovery-service
-
+      - "8089:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
   profile-service:
     build: ./backend/services/profile-service
     container_name: profile-service
@@ -113,6 +86,23 @@ services:
       JWT_ALGS: "RS256"
     expose:
       - "3001"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.profile.rule=PathPrefix(`/api/profile`)
+      - traefik.http.routers.profile.entrypoints=web
+      - traefik.http.routers.profile.middlewares=profile-strip,profile-cors
+      - traefik.http.middlewares.profile-strip.stripprefix.prefixes=/api/profile
+      - traefik.http.middlewares.profile-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
+      - traefik.http.middlewares.profile-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
+      - traefik.http.middlewares.profile-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
+      - traefik.http.middlewares.profile-cors.headers.accesscontrolmaxage=86400
+      - traefik.http.middlewares.profile-cors.headers.addvaryheader=true
+      - traefik.http.services.profile.loadbalancer.server.port=3001
+      - app.api.enabled=true
+      - app.api.name=profile
+      - app.api.publicPath=/api/profile
+      - app.api.openapiPath=/v3/api-docs
+      - app.api.schemasType=zod
     depends_on:
       - keycloak
 
@@ -124,6 +114,23 @@ services:
       PROFILE_BASE_URL: "http://profile-service:3001"
     expose:
       - "3002"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.echo.rule=PathPrefix(`/api/echo`)
+      - traefik.http.routers.echo.entrypoints=web
+      - traefik.http.routers.echo.middlewares=echo-strip,echo-cors
+      - traefik.http.middlewares.echo-strip.stripprefix.prefixes=/api/echo
+      - traefik.http.middlewares.echo-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
+      - traefik.http.middlewares.echo-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
+      - traefik.http.middlewares.echo-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
+      - traefik.http.middlewares.echo-cors.headers.accesscontrolmaxage=86400
+      - traefik.http.middlewares.echo-cors.headers.addvaryheader=true
+      - traefik.http.services.echo.loadbalancer.server.port=3002
+      - app.api.enabled=true
+      - app.api.name=echo
+      - app.api.publicPath=/api/echo
+      - app.api.openapiPath=/v3/api-docs
+      - app.api.schemasType=zod
     depends_on:
       - profile-service
 
@@ -205,6 +212,23 @@ services:
       - JWT_ALGORITHM=RS256
     expose:
       - "2024"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.agent.rule=PathPrefix(`/api/agent`)
+      - traefik.http.routers.agent.entrypoints=web
+      - traefik.http.routers.agent.middlewares=agent-strip,agent-cors
+      - traefik.http.middlewares.agent-strip.stripprefix.prefixes=/api/agent
+      - traefik.http.middlewares.agent-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
+      - traefik.http.middlewares.agent-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
+      - traefik.http.middlewares.agent-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
+      - traefik.http.middlewares.agent-cors.headers.accesscontrolmaxage=86400
+      - traefik.http.middlewares.agent-cors.headers.addvaryheader=true
+      - traefik.http.services.agent.loadbalancer.server.port=2024
+      - app.api.enabled=true
+      - app.api.name=agent
+      - app.api.publicPath=/api/agent
+      - app.api.openapiPath=/openapi.json
+      - app.api.schemasType=typescript
     depends_on:
       - keycloak
 
@@ -232,6 +256,23 @@ services:
       - JWT_AUDIENCE=pickle-api
     expose:
       - "8080"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.community.rule=PathPrefix(`/api/community`)
+      - traefik.http.routers.community.entrypoints=web
+      - traefik.http.routers.community.middlewares=community-strip,community-cors
+      - traefik.http.middlewares.community-strip.stripprefix.prefixes=/api/community
+      - traefik.http.middlewares.community-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
+      - traefik.http.middlewares.community-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
+      - traefik.http.middlewares.community-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
+      - traefik.http.middlewares.community-cors.headers.accesscontrolmaxage=86400
+      - traefik.http.middlewares.community-cors.headers.addvaryheader=true
+      - traefik.http.services.community.loadbalancer.server.port=8080
+      - app.api.enabled=true
+      - app.api.name=community
+      - app.api.publicPath=/api/community
+      - app.api.openapiPath=/v3/api-docs
+      - app.api.schemasType=zod
 
 volumes:
   postgres_data:

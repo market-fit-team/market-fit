@@ -34,12 +34,12 @@ Bearer 스킴만 받는다.
 Browser cookie
   -> frontend/src/features/auth/lib/auth.ts
   -> Keycloak token endpoint
-  -> backend/services/api-edge/server.mjs
+  -> backend/services/traefik/server.mjs
   -> Authorization: Bearer <JWT>
   -> src/agent/security/auth.py
 ```
 
-프론트 쪽 JWT 경계는 `frontend/src/features/auth/lib/auth.ts`의 `jwt()` 플러그인과 `backend/services/api-edge/server.mjs`의 헤더 교체로 닫힌다.
+프론트 쪽 JWT 경계는 `frontend/src/features/auth/lib/auth.ts`의 `jwt()` 플러그인과 `backend/services/traefik/server.mjs`의 헤더 교체로 닫힌다.
 
 ```ts
 plugins: [

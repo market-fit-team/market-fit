@@ -11,7 +11,7 @@ frontend
 ├── e2e                         # Playwright 등을 활용한 End-to-End 테스트
 └── src
     ├── app                     # 애플리케이션 진입점 및 전역 설정
-    │   ├── api                 # Route Handler (BFF 프록시, 인증 등)
+    │   ├── api                 # Route Handler (인증)
     │   ├── layout.tsx          # 전역 공통 레이아웃 (헤더, Toaster 등)
     │   ├── providers.tsx       # 전역 Provider (QueryClient 등) 세팅
     │   └── page.tsx            # 화면(Page) 컴포넌트

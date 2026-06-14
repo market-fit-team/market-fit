@@ -44,7 +44,7 @@ app:
 ```text
 Next.js BFF
   -> authorization: Bearer <token>
-  -> API Edge
+  -> Traefik
   -> community-service
   -> SecurityConfig (NimbusJwtDecoder)
   -> CurrentUserService.getRequiredUser(jwt)

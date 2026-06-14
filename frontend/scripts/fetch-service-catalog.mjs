@@ -1,25 +1,88 @@
+import { execFile } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+import { promisify } from "node:util"
 
-const DISCOVERY_ORIGIN = process.env.DISCOVERY_ORIGIN ?? "http://localhost:8090"
-const catalogUrl = new URL("/catalog/orval", DISCOVERY_ORIGIN)
+const execFileAsync = promisify(execFile)
+const scriptDir = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(scriptDir, "../..")
+const apiOrigin = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8088"
 
-const response = await fetch(catalogUrl, {
-  headers: { accept: "application/json" },
-  cache: "no-store",
-})
+const normalizeLabels = (labels) => {
+  if (!labels) return {}
 
-if (!response.ok) {
-  const detail = await response.text().catch(() => "")
-  throw new Error(
-    `Failed to fetch Discovery catalog: ${response.status} ${detail}`
-  )
+  if (Array.isArray(labels)) {
+    return Object.fromEntries(
+      labels.map((label) => {
+        const separatorIndex = label.indexOf("=")
+
+        if (separatorIndex === -1) {
+          return [label, "true"]
+        }
+
+        return [
+          label.slice(0, separatorIndex),
+          label.slice(separatorIndex + 1),
+        ]
+      })
+    )
+  }
+
+  return labels
 }
 
-const catalog = await response.json()
+const requireLabel = (labels, key, serviceName) => {
+  const value = labels[key]
 
-if (!catalog || !Array.isArray(catalog.services)) {
-  throw new Error("Invalid Discovery catalog: services array is required")
+  if (!value) {
+    throw new Error(`Missing ${key} label on ${serviceName}`)
+  }
+
+  return value
 }
+
+const { stdout } = await execFileAsync(
+  "docker",
+  ["compose", "config", "--format", "json"],
+  {
+    cwd: repoRoot,
+    maxBuffer: 1024 * 1024 * 10,
+  }
+)
+
+const compose = JSON.parse(stdout)
+const services = Object.entries(compose.services ?? {})
+  .map(([composeName, service]) => {
+    const labels = normalizeLabels(service.labels)
+
+    if (labels["app.api.enabled"] !== "true") {
+      return null
+    }
+
+    const name = labels["app.api.name"] ?? composeName
+    const publicPath = requireLabel(labels, "app.api.publicPath", composeName)
+    const openapiPath = requireLabel(labels, "app.api.openapiPath", composeName)
+    const schemasType = labels["app.api.schemasType"] ?? "zod"
+    const openapiUrl = new URL(`${publicPath}${openapiPath}`, apiOrigin).toString()
+
+    return {
+      name,
+      openapiUrl,
+      publicPath,
+      openapiPath,
+      schemasType,
+      composeService: composeName,
+    }
+  })
+  .filter(Boolean)
+  .sort((a, b) => a.name.localeCompare(b.name))
+
+if (services.length === 0) {
+  throw new Error("No app.api.enabled=true services found in docker-compose.yml")
+}
+
+const catalog = { services }
 
 await mkdir(".orval", { recursive: true })
 await writeFile(
@@ -28,5 +91,5 @@ await writeFile(
 )
 
 console.log(
-  `[orval] wrote .orval/service-catalog.json (${catalog.services.length} services)`
+  `[orval] wrote .orval/service-catalog.json from docker compose labels (${services.length} services)`
 )

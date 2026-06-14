@@ -91,7 +91,7 @@ storage:
 
 server:
   port: 8080
-  forward-headers-strategy: framework # NOTE: API Edge 뒤에서 X-Forwarded-* 헤더를 처리
+  forward-headers-strategy: framework # NOTE: Traefik 뒤에서 X-Forwarded-* 헤더를 처리
 
 logging:
   level:

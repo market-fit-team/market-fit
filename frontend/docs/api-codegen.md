@@ -2,24 +2,40 @@
 
 ## `.orval/service-catalog.json`
 
-`frontend/scripts/fetch-service-catalog.mjs`는 Discovery Server에서 Orval catalog를 가져온다.
+`frontend/scripts/fetch-service-catalog.mjs`는 `docker compose config --format json`을 실행한다.
 
 ```text
-GET http://localhost:8090/catalog/orval
+frontend/scripts/fetch-service-catalog.mjs
+-> docker compose config --format json
+-> services.*.labels
+-> app.api.* labels
 -> .orval/service-catalog.json
 ```
 
-응답 shape는 서비스마다 같다.
+서비스별 Orval metadata는 `docker-compose.yml`의 label에 둔다.
+
+```yaml
+community-service:
+  labels:
+    - app.api.enabled=true
+    - app.api.name=community
+    - app.api.publicPath=/api/community
+    - app.api.openapiPath=/v3/api-docs
+    - app.api.schemasType=zod
+```
+
+생성되는 catalog shape는 서비스마다 같다.
 
 ```json
 {
   "services": [
     {
       "name": "community",
-      "openapiUrl": "http://localhost:8090/openapi/community",
+      "openapiUrl": "http://localhost:8088/api/community/v3/api-docs",
       "publicPath": "/api/community",
+      "openapiPath": "/v3/api-docs",
       "schemasType": "zod",
-      "tags": ["api", "public", "orval", "spring"]
+      "composeService": "community-service"
     }
   ]
 }
@@ -40,13 +56,13 @@ return Object.fromEntries(
 )
 ```
 
-OpenAPI input은 Discovery Server가 proxy한다.
+OpenAPI input은 Traefik public path를 사용한다.
 
 ```text
-input.target = service.openapiUrl
+input.target = http://localhost:8088/api/community/v3/api-docs
 ```
 
-런타임 base URL은 API Edge를 본다.
+런타임 base URL도 같은 public path를 사용한다.
 
 ```ts
 baseUrl: {
@@ -67,8 +83,14 @@ override: {
 }
 ```
 
-브라우저 요청은 Keycloak access token을 Authorization header로 붙인다.
-Server Component prefetch는 `server-access-token.ts`에서 받은 token을 `fetch.headers.Authorization`으로 직접 넘긴다.
+`fetchWithAuth`는 브라우저에서 Keycloak access token을 가져와 `Authorization` header를 붙인다.
+
+```text
+Browser
+-> http://localhost:8088/api/community/...
+-> Traefik
+-> community-service
+```
 
 ## npm scripts
 
@@ -85,10 +107,12 @@ Server Component prefetch는 `server-access-token.ts`에서 받은 token을 `fet
 - `orval.config.ts`
 - `scripts/fetch-service-catalog.mjs`
 - `.orval/service-catalog.example.json`
+- `../docker-compose.yml`
 - `src/features/auth/lib/fetch-with-auth.ts`
 
 ## 참고 문서
 
+- https://docs.docker.com/reference/cli/docker/compose/config/
+- https://doc.traefik.io/traefik/providers/docker/
 - https://orval.dev/docs/reference/configuration/input
-- https://orval.dev/docs/guides/fetch
 - https://orval.dev/docs/guides/custom-client

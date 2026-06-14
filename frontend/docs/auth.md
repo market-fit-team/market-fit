@@ -115,7 +115,7 @@ const result = await authClient.getAccessToken({
 
 ```text
 Browser
-  -> API Edge http://localhost:8088/api/{service}/...
+  -> Traefik http://localhost:8088/api/{service}/...
   -> backend service
   -> Keycloak JWT 검증
 ```

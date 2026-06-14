@@ -1,17 +1,17 @@
 .PHONY: dev infra api-catalog api-gen frontend clean
 
 infra:
-	@echo "Starting MSA infrastructure..."
+	@echo "Starting Docker Compose infrastructure..."
 	@docker compose up -d --build
-	@echo "Waiting for Keycloak, Consul, Discovery, and API Edge..."
+	@echo "Waiting for Keycloak and Traefik..."
 	@sleep 8
 
 api-catalog:
-	@echo "Fetching Discovery catalog for Orval..."
+	@echo "Building Orval catalog from docker-compose labels..."
 	@cd frontend && npm run api:catalog
 
 api-gen: api-catalog
-	@echo "Generating API clients from Discovery catalog..."
+	@echo "Generating API clients from docker-compose label catalog..."
 	@cd frontend && npm run api:gen:only
 
 frontend:
@@ -20,7 +20,7 @@ frontend:
 	@echo "Starting Next.js outside the compose network..."
 	@cd frontend && npm run dev
 
-dev: infra api-gen frontend
+dev: infra frontend
 
 clean:
 	@docker compose down -v

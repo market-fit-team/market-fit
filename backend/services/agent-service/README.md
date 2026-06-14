@@ -20,7 +20,7 @@ uv run langgraph dev --host 0.0.0.0 --port 2024 --no-browser
 Docker compose에서는 프로젝트 루트에서 실행합니다.
 
 ```bash
-docker compose up -d --build agent-service api-edge
+docker compose up -d --build agent-service traefik
 ```
 
 ## graph id

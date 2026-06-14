@@ -72,7 +72,7 @@ export function LangGraphChatStreamProvider({
 
     // @langchain/react의 agent-server branch는 절대 URL을 기준으로
     // Protocol V2 /threads/{thread_id}/stream/events 및 /commands를 호출합니다.
-    // API Edge는 이 경로를 그대로 Agent Server로 프록시하고, Authorization header의 Keycloak token은 backend가 검증합니다.
+    // Traefik은 이 경로를 그대로 Agent Server로 프록시하고, Authorization header의 Keycloak token은 backend가 검증합니다.
     // 근거:
     // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
     // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command

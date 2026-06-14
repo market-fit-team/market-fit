@@ -107,12 +107,12 @@ agent-service:
 ```
 
 `FF_V2_EVENT_STREAMING=true`가 있어야 `/stream/events`와 `/commands`의 Protocol V2 스트림을 본다.  
-`API Edge`는 루트에서 `8080:80`으로 열리고, `host.docker.internal`을 내부 호스트로 돌린다.
+`Traefik`는 루트에서 `8080:80`으로 열리고, `host.docker.internal`을 내부 호스트로 돌린다.
 
 실행은 루트에서 이 명령을 쓴다.
 
 ```text
-docker compose up -d --build agent-service api-edge
+docker compose up -d --build agent-service traefik
 ```
 
 ## 주요 파일

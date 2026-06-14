@@ -4,7 +4,6 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "api:gen": "npm run api:catalog && npm run api:gen:only",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -17,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "api:gen": "npm run api:catalog && npm run api:gen:only",
     "api:catalog": "node scripts/fetch-service-catalog.mjs",
     "api:gen:only": "orval"
   },

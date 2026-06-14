@@ -65,7 +65,7 @@ export default function PlaygroundClient({
       <CardHeader>
         <CardTitle>클라이언트 컴포넌트 (Hydration & Suspense 완료)</CardTitle>
         <CardDescription>
-          호출 대상: <code>{apiOrigin}</code> (CORS는 API Edge가 처리)
+          호출 대상: <code>{apiOrigin}</code> (CORS는 Traefik이 처리)
         </CardDescription>
       </CardHeader>
 

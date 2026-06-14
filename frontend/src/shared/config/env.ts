@@ -17,7 +17,6 @@ const EnvSchema = z.object({
   KEYCLOAK_ISSUER: z.string().min(1, "[env] KEYCLOAK_ISSUER is required"),
 
   NEXT_PUBLIC_API_ORIGIN: z.string().optional(),
-  DISCOVERY_ORIGIN: z.string().optional(),
   AGENT_ASSISTANT_ID: z.string().default("chat"),
 })
 
@@ -30,7 +29,6 @@ const createEnv = () => {
     KEYCLOAK_CLIENT_SECRET: process.env.KEYCLOAK_CLIENT_SECRET,
     KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER,
     NEXT_PUBLIC_API_ORIGIN: process.env.NEXT_PUBLIC_API_ORIGIN,
-    DISCOVERY_ORIGIN: process.env.DISCOVERY_ORIGIN,
     AGENT_ASSISTANT_ID: process.env.AGENT_ASSISTANT_ID,
   }
 

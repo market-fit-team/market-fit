@@ -3,13 +3,13 @@
 ## `/api/agent`
 
 클라이언트는 Agent Server 컨테이너를 직접 호출하지 않는다.
-API Edge의 public path를 사용한다.
+Traefik의 public path를 사용한다.
 
 ```text
 Browser
   -> http://localhost:8088/api/agent
-  -> api-edge
-  -> discovery-service /resolve/agent
+  -> Traefik router agent
+  -> StripPrefix /api/agent
   -> agent-service:2024
 ```
 
@@ -44,7 +44,7 @@ JWT_AUDIENCE=pickle-api
 
 ## catalog
 
-`src/features/llm-chat/lib/agent-catalog/use-agent-catalog.ts`도 API Edge를 사용한다.
+`src/features/llm-chat/lib/agent-catalog/use-agent-catalog.ts`도 Traefik public path를 사용한다.
 
 ```text
 GET http://localhost:8088/api/agent/api/v1/llm/models
@@ -56,4 +56,4 @@ GET http://localhost:8088/api/agent/api/v1/llm/tools
 - `src/features/llm-chat/hooks/langgraph-chat-stream-provider.tsx`
 - `src/features/llm-chat/lib/agent-catalog/use-agent-catalog.ts`
 - `backend/services/agent-service/src/agent/security/auth.py`
-- `backend/services/api-edge/server.mjs`
+- `../../docker-compose.yml`
