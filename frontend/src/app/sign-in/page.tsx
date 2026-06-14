@@ -18,7 +18,7 @@ async function SignInClientWrapper({
   const params = await searchParams
   return (
     <SignInClient
-      callbackURL={String(params?.callbackURL || "/dashboard")}
+      callbackURL={String(params?.callbackURL || "/")}
       error={String(params?.error || "")}
     />
   )

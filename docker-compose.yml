@@ -60,7 +60,6 @@ services:
       keycloak-db:
         condition: service_healthy
 
-
   traefik:
     image: traefik:v3.0
     container_name: traefik
@@ -75,6 +74,14 @@ services:
       - "8089:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
+      - traefik.http.middlewares.api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
+      - traefik.http.middlewares.api-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
+      - traefik.http.middlewares.api-cors.headers.accesscontrolmaxage=86400
+      - traefik.http.middlewares.api-cors.headers.addvaryheader=true
+
   profile-service:
     build: ./backend/services/profile-service
     container_name: profile-service
@@ -90,13 +97,8 @@ services:
       - traefik.enable=true
       - traefik.http.routers.profile.rule=PathPrefix(`/api/profile`)
       - traefik.http.routers.profile.entrypoints=web
-      - traefik.http.routers.profile.middlewares=profile-strip,profile-cors
+      - traefik.http.routers.profile.middlewares=profile-strip,api-cors
       - traefik.http.middlewares.profile-strip.stripprefix.prefixes=/api/profile
-      - traefik.http.middlewares.profile-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
-      - traefik.http.middlewares.profile-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
-      - traefik.http.middlewares.profile-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
-      - traefik.http.middlewares.profile-cors.headers.accesscontrolmaxage=86400
-      - traefik.http.middlewares.profile-cors.headers.addvaryheader=true
       - traefik.http.services.profile.loadbalancer.server.port=3001
       - app.api.enabled=true
       - app.api.name=profile
@@ -118,13 +120,8 @@ services:
       - traefik.enable=true
       - traefik.http.routers.echo.rule=PathPrefix(`/api/echo`)
       - traefik.http.routers.echo.entrypoints=web
-      - traefik.http.routers.echo.middlewares=echo-strip,echo-cors
+      - traefik.http.routers.echo.middlewares=echo-strip,api-cors
       - traefik.http.middlewares.echo-strip.stripprefix.prefixes=/api/echo
-      - traefik.http.middlewares.echo-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
-      - traefik.http.middlewares.echo-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
-      - traefik.http.middlewares.echo-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
-      - traefik.http.middlewares.echo-cors.headers.accesscontrolmaxage=86400
-      - traefik.http.middlewares.echo-cors.headers.addvaryheader=true
       - traefik.http.services.echo.loadbalancer.server.port=3002
       - app.api.enabled=true
       - app.api.name=echo
@@ -216,13 +213,8 @@ services:
       - traefik.enable=true
       - traefik.http.routers.agent.rule=PathPrefix(`/api/agent`)
       - traefik.http.routers.agent.entrypoints=web
-      - traefik.http.routers.agent.middlewares=agent-strip,agent-cors
+      - traefik.http.routers.agent.middlewares=agent-strip,api-cors
       - traefik.http.middlewares.agent-strip.stripprefix.prefixes=/api/agent
-      - traefik.http.middlewares.agent-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
-      - traefik.http.middlewares.agent-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
-      - traefik.http.middlewares.agent-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
-      - traefik.http.middlewares.agent-cors.headers.accesscontrolmaxage=86400
-      - traefik.http.middlewares.agent-cors.headers.addvaryheader=true
       - traefik.http.services.agent.loadbalancer.server.port=2024
       - app.api.enabled=true
       - app.api.name=agent
@@ -260,13 +252,8 @@ services:
       - traefik.enable=true
       - traefik.http.routers.community.rule=PathPrefix(`/api/community`)
       - traefik.http.routers.community.entrypoints=web
-      - traefik.http.routers.community.middlewares=community-strip,community-cors
+      - traefik.http.routers.community.middlewares=community-strip,api-cors
       - traefik.http.middlewares.community-strip.stripprefix.prefixes=/api/community
-      - traefik.http.middlewares.community-cors.headers.accesscontrolalloworiginlist=http://localhost:3000,http://127.0.0.1:3000
-      - traefik.http.middlewares.community-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS
-      - traefik.http.middlewares.community-cors.headers.accesscontrolallowheaders=Authorization,Content-Type,X-CSRF-Token
-      - traefik.http.middlewares.community-cors.headers.accesscontrolmaxage=86400
-      - traefik.http.middlewares.community-cors.headers.addvaryheader=true
       - traefik.http.services.community.loadbalancer.server.port=8080
       - app.api.enabled=true
       - app.api.name=community
