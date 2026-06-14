@@ -1,6 +1,6 @@
 import { expect, fn, userEvent, within } from "storybook/test"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
-import { ChatHero } from "@/features/llm-chat/page/components/chat-hero"
+import { ChatHero } from "@/features/llm-chat/components/chat-app/components/chat-hero"
 
 const meta = {
   title: "LLM Chat/Page/ChatHero",

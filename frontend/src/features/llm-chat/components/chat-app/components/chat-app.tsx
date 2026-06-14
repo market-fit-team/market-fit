@@ -1,9 +1,9 @@
+import { ChatComposerPanel } from "@/features/llm-chat/components/chat-app/components/chat-composer-panel"
+import { ChatHeroPanel } from "@/features/llm-chat/components/chat-app/components/chat-hero-panel"
+import { ChatMessagesPanel } from "@/features/llm-chat/components/chat-app/components/chat-messages-panel"
 import { LangGraphChatStreamProvider } from "@/features/llm-chat/hooks/langgraph-chat-stream-provider"
 import { useChatModelSelection } from "@/features/llm-chat/hooks/use-chat-model-selection"
 import { useToolPolicy } from "@/features/llm-chat/hooks/use-tool-policy"
-import { ChatComposerPanel } from "@/features/llm-chat/page/components/chat-composer-panel"
-import { ChatHeroPanel } from "@/features/llm-chat/page/components/chat-hero-panel"
-import { ChatMessagesPanel } from "@/features/llm-chat/page/components/chat-messages-panel"
 import {
   useListLlmModelsApiV1LlmModelsGetSuspense,
   useListLlmToolsApiV1LlmToolsGetSuspense,
@@ -12,10 +12,27 @@ import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export function ChatApp() {
   const { data: tools } = useListLlmToolsApiV1LlmToolsGetSuspense({
-    query: { select: (data) => data.tools },
+    query: {
+      select: (data) =>
+        data.tools.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          category: tool.category,
+          defaultAllowed: tool.default_allowed,
+          allowedDecisions: tool.allowed_decisions,
+        })),
+    },
   })
   const { data: models } = useListLlmModelsApiV1LlmModelsGetSuspense({
-    query: { select: (data) => data.list },
+    query: {
+      select: (data) =>
+        data.list.map((model) => ({
+          id: model.id,
+          object: model.object,
+          created: model.created,
+          supportedReasoningEfforts: model.supported_reasoning_efforts,
+        })),
+    },
   })
 
   const toolPolicy = useToolPolicy(tools)

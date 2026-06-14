@@ -1,4 +1,8 @@
-import { ChatPage } from "@/features/llm-chat/page/chat-page"
+import { Suspense } from "react"
+import {
+  ChatApp,
+  ChatAppSkeleton,
+} from "@/features/llm-chat/components/chat-app/components/chat-app"
 import { ClientOnly } from "@/shared/components/client-only"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
@@ -21,7 +25,13 @@ function ChatPageSkeleton() {
 export default function Page() {
   return (
     <ClientOnly fallback={<ChatPageSkeleton />}>
-      <ChatPage />
+      return (
+      <div className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-4xl flex-col overflow-hidden border-x border-border/60 bg-background">
+        <Suspense fallback={<ChatAppSkeleton />}>
+          <ChatApp />
+        </Suspense>
+      </div>
+      )
     </ClientOnly>
   )
 }
