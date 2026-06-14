@@ -1,13 +1,26 @@
-.PHONY: dev
+.PHONY: dev infra api-catalog api-gen frontend clean
 
-dev:
-	@echo "Starting Docker Compose services..."
+infra:
+	@echo "Starting MSA infrastructure..."
 	@docker compose up -d --build
-	@echo "Waiting for database and openapi to be ready..."
-	@sleep 5
-	@echo "restarting nginx..."
-	@docker compose restart nginx
-	@echo "Running database migrations..."
+	@echo "Waiting for Keycloak, Consul, Discovery, and API Edge..."
+	@sleep 8
+
+api-catalog:
+	@echo "Fetching Discovery catalog for Orval..."
+	@cd frontend && npm run api:catalog
+
+api-gen: api-catalog
+	@echo "Generating API clients from Discovery catalog..."
+	@cd frontend && npm run api:gen:only
+
+frontend:
+	@echo "Running Better Auth database migrations..."
 	@cd frontend && npm run db:migrate
-	@echo "Starting development server..."
+	@echo "Starting Next.js outside the compose network..."
 	@cd frontend && npm run dev
+
+dev: infra api-gen frontend
+
+clean:
+	@docker compose down -v

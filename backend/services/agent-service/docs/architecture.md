@@ -243,5 +243,5 @@ load_suite(evals/config.yaml)
 - Agent Server Protocol V2 event stream SSE: https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
 - Agent Server Protocol V2 command: https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
 - Better Auth Next.js integration: https://www.better-auth.com/docs/integrations/next
-- Better Auth JWT plugin: https://better-auth.com/docs/plugins/jwt
+- Keycloak access token plugin: https://better-auth.com/docs/plugins/jwt
 - Better Auth Drizzle adapter: https://www.better-auth.com/docs/adapters/drizzle

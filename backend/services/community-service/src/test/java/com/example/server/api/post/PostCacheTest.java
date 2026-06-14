@@ -31,7 +31,7 @@ class PostCacheTest extends IntegrationTestSupport {
 
     @Test
     void 페이지네이션_목록_조회_시에는_posts_all_캐시가_생성되지_않는다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         testDataHelper.createPost(alice, "페이징 캐시 테스트 글");
 
         // NOTE: 페이징 목록 조회 API 수행 (인증 필수 조건 탑재)
@@ -46,7 +46,7 @@ class PostCacheTest extends IntegrationTestSupport {
 
     @Test
     void 단건_조회_후_post_id_캐시가_생성된다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "단건 캐시 테스트 글");
 
         // NOTE: 최초 게시글 단건 조회 요청
@@ -67,7 +67,7 @@ class PostCacheTest extends IntegrationTestSupport {
 
     @Test
     void 좋아요를_누르면_해당_게시글_단건_캐시는_무효화_삭제된다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "좋아요 캐시 삭제 테스트 글");
 
         // NOTE: 먼저 단건 조회하여 post::{id} 캐시 생성 유도
@@ -88,7 +88,7 @@ class PostCacheTest extends IntegrationTestSupport {
 
     @Test
     void 좋아요를_취소하면_해당_게시글_단건_캐시는_무효화_삭제된다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "좋아요 취소 캐시 삭제 테스트 글");
         testDataHelper.likePost(alice, postId); // NOTE: 먼저 좋아요가 눌러진 상태 빌드
 

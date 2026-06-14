@@ -1,11 +1,11 @@
 # Catalog API
 
 `src/agent/webapp.py`가 chat 화면에서 읽는 모델과 tool 목록을 낸다.  
-프론트는 `/api/proxy/agent` 뒤에 이 두 경로를 붙여 호출한다.
+프론트는 `http://localhost:8088/api/agent` 뒤에 이 두 경로를 붙여 호출한다.
 
 ```text
-GET /api/proxy/agent/api/v1/llm/models
-GET /api/proxy/agent/api/v1/llm/tools
+GET http://localhost:8088/api/agent/api/v1/llm/models
+GET http://localhost:8088/api/agent/api/v1/llm/tools
 ```
 
 ## `/api/v1/llm/models`
@@ -30,7 +30,7 @@ async def list_llm_models(_: DocumentedBearerAuth) -> ListChatModelsResponse:
 bearer_auth = HTTPBearer(
     bearerFormat="JWT",
     scheme_name="bearerAuth",
-    description="Better Auth JWT를 Authorization: Bearer <token> 헤더로 전달합니다.",
+    description="Keycloak access token를 Authorization: Bearer <token> 헤더로 전달합니다.",
     auto_error=False,
 )
 ```
@@ -131,7 +131,7 @@ const modelsResponseSchema = z.object({
 ```
 
 ```ts
-await fetch("/api/proxy/agent/api/v1/llm/models", {
+await fetch("http://localhost:8088/api/agent/api/v1/llm/models", {
   credentials: "include",
   cache: "no-store",
 })

@@ -4,6 +4,8 @@ import {
   LangGraphChatStreamContext,
   type LangGraphChatStreamContextValue,
 } from "@/features/llm-chat/hooks/langgraph-chat-stream-context"
+import { KEYCLOAK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
+import { authClient } from "@/features/auth/lib/auth-client"
 import { buildSubmitContext } from "@/features/llm-chat/lib/langgraph/build-submit-config"
 import { buildSubmitInput } from "@/features/llm-chat/lib/langgraph/build-submit-input"
 import type {
@@ -27,12 +29,33 @@ type LangGraphChatStreamProviderProps = {
   toolPolicy: LangGraphChatStreamContextValue["toolPolicy"]
 }
 
-const langGraphFetch: typeof fetch = (input, init) =>
-  fetch(input, {
+type AccessTokenResult = {
+  accessToken?: string
+  data?: {
+    accessToken?: string
+  }
+}
+
+const extractAccessToken = (result: AccessTokenResult | null | undefined) => {
+  return result?.accessToken ?? result?.data?.accessToken
+}
+
+const langGraphFetch: typeof fetch = async (input, init) => {
+  const headers = new Headers(withCsrfHeaders(init?.headers))
+  const result = (await authClient.getAccessToken({
+    providerId: KEYCLOAK_PROVIDER_ID,
+  })) as AccessTokenResult
+  const accessToken = extractAccessToken(result)
+
+  if (accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`)
+  }
+
+  return fetch(input, {
     ...init,
-    credentials: "include",
-    headers: withCsrfHeaders(init?.headers),
+    headers,
   })
+}
 
 export function LangGraphChatStreamProvider({
   children,
@@ -44,20 +67,16 @@ export function LangGraphChatStreamProvider({
   const [threadId, setThreadId] = useState<string | null>(null)
 
   const apiUrl = useMemo(() => {
-    const AGENT_PROXY_PATH = "/api/proxy/agent"
-    const origin =
-      process.env.NEXT_PUBLIC_APP_ORIGIN ??
-      (typeof window !== "undefined"
-        ? window.location.origin
-        : "http://localhost:3000")
+    const AGENT_PUBLIC_PATH = "/api/agent"
+    const origin = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8088"
 
     // @langchain/react의 agent-server branch는 절대 URL을 기준으로
     // Protocol V2 /threads/{thread_id}/stream/events 및 /commands를 호출합니다.
-    // BFF는 이 경로를 그대로 Agent Server로 프록시하고, JWT는 서버 경계에서 교체합니다.
+    // API Edge는 이 경로를 그대로 Agent Server로 프록시하고, Authorization header의 Keycloak token은 backend가 검증합니다.
     // 근거:
     // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
     // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
-    return new URL(AGENT_PROXY_PATH, origin).toString()
+    return new URL(AGENT_PUBLIC_PATH, origin).toString()
   }, [])
 
   const stream = useStream<

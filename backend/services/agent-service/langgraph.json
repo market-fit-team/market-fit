@@ -18,7 +18,7 @@
           "type": "http",
           "scheme": "bearer",
           "bearerFormat": "JWT",
-          "description": "Better Auth JWT를 Authorization: Bearer <token> 헤더로 전달합니다."
+          "description": "Keycloak access token을 Authorization: Bearer <token> 헤더로 전달합니다."
         }
       },
       "security": [

@@ -9,9 +9,9 @@
 LANGGRAPH_CLI_NO_ANALYTICS=1
 LANGSMITH_TRACING=false
 
-JWKS_URL=http://host.docker.internal:3000/api/auth/jwks
-JWT_ISSUER=http://localhost:3000
-JWT_AUDIENCE=frontend-api
+JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
+JWT_ISSUER=http://localhost:8180/realms/pickle
+JWT_AUDIENCE=pickle-api
 JWT_ALGORITHM=RS256
 
 OLLAMA_API_KEY=
@@ -68,9 +68,9 @@ FF_V2_EVENT_STREAMING=true uv run langgraph dev \
 기본 설정에서는 프론트가 발급한 JWT가 필요하다.
 
 ```text
-JWKS_URL=http://host.docker.internal:3000/api/auth/jwks
-JWT_ISSUER=http://localhost:3000
-JWT_AUDIENCE=frontend-api
+JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
+JWT_ISSUER=http://localhost:8180/realms/pickle
+JWT_AUDIENCE=pickle-api
 JWT_ALGORITHM=RS256
 ```
 
@@ -96,9 +96,9 @@ agent-service:
   environment:
     - LANGGRAPH_CLI_NO_ANALYTICS=1
     - FF_V2_EVENT_STREAMING=true
-    - JWKS_URL=http://host.docker.internal:3000/api/auth/jwks
-    - JWT_ISSUER=http://localhost:3000
-    - JWT_AUDIENCE=frontend-api
+    - JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
+    - JWT_ISSUER=http://localhost:8180/realms/pickle
+    - JWT_AUDIENCE=pickle-api
     - JWT_ALGORITHM=RS256
   extra_hosts:
     - "host.docker.internal=host-gateway"
@@ -107,12 +107,12 @@ agent-service:
 ```
 
 `FF_V2_EVENT_STREAMING=true`가 있어야 `/stream/events`와 `/commands`의 Protocol V2 스트림을 본다.  
-`nginx`는 루트에서 `8080:80`으로 열리고, `host.docker.internal`을 내부 호스트로 돌린다.
+`API Edge`는 루트에서 `8080:80`으로 열리고, `host.docker.internal`을 내부 호스트로 돌린다.
 
 실행은 루트에서 이 명령을 쓴다.
 
 ```text
-docker compose up -d --build agent-service nginx
+docker compose up -d --build agent-service api-edge
 ```
 
 ## 주요 파일
@@ -136,4 +136,4 @@ docker compose up -d --build agent-service nginx
 - Agent Server Protocol V2 event stream SSE: https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
 - Agent Server Protocol V2 command: https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
 - Better Auth Next.js integration: https://www.better-auth.com/docs/integrations/next
-- Better Auth JWT plugin: https://better-auth.com/docs/plugins/jwt
+- Keycloak access token plugin: https://better-auth.com/docs/plugins/jwt

@@ -5,9 +5,9 @@ class Settings(BaseSettings):
     app_name: str = "My Harness API"
     app_version: str = "0.1.0"
 
-    jwks_url: str = "http://host.docker.internal:3000/api/auth/jwks"
-    jwt_issuer: str = "http://localhost:3000"
-    jwt_audience: str = "frontend-api"
+    jwks_url: str = "http://keycloak:8080/realms/pickle/protocol/openid-connect/certs"
+    jwt_issuer: str = "http://localhost:8180/realms/pickle"
+    jwt_audience: str = "pickle-api"
     jwt_algorithm: str = "RS256"
 
     ollama_api_key: str | None = None

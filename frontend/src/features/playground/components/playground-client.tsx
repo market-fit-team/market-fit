@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useErrorBoundary } from "react-error-boundary"
+import { KEYCLOAK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
 import { authClient } from "@/features/auth/lib/auth-client"
 import { useGetEchoSuspense } from "@/shared/api/generated/echo/endpoints/echo/echo"
 import { useGetMeSuspense } from "@/shared/api/generated/profile/endpoints/profile/profile"
@@ -14,33 +15,49 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card"
 
+type AccessTokenResult = {
+  accessToken?: string
+  data?: {
+    accessToken?: string
+  }
+}
+
+const extractAccessToken = (result: AccessTokenResult | null | undefined) => {
+  return result?.accessToken ?? result?.data?.accessToken ?? null
+}
+
 export default function PlaygroundClient({
-  gatewayBase,
-  serverJwt,
+  apiOrigin,
+  serverAccessToken,
 }: {
-  gatewayBase: string
-  serverJwt: string | null
+  apiOrigin: string
+  serverAccessToken: string | null
 }) {
   const { data: session, isPending } = authClient.useSession()
   const { showBoundary } = useErrorBoundary()
-  const [jwtPreview, setJwtPreview] = useState<string>("")
+  const [tokenPreview, setTokenPreview] = useState<string>("")
 
-  // 서버에서 prefetch된 캐시를 Hydration 받아 즉시 렌더링됩니다.
-  // 네트워크 지연 없이 화면에 바로 출력됩니다.
   const { data: profile } = useGetMeSuspense({
-    fetch: {
-      headers: { Authorization: `Bearer ${serverJwt || ""}` },
-    },
+    request: serverAccessToken
+      ? {
+          headers: { Authorization: `Bearer ${serverAccessToken}` },
+        }
+      : undefined,
   })
   const { data: echo } = useGetEchoSuspense({
-    fetch: {
-      headers: { Authorization: `Bearer ${serverJwt || ""}` },
-    },
+    request: serverAccessToken
+      ? {
+          headers: { Authorization: `Bearer ${serverAccessToken}` },
+        }
+      : undefined,
   })
 
-  const issueJwtClient = async (): Promise<string | null> => {
-    const tokenResult = await authClient.token()
-    return tokenResult.data?.token || null
+  const getKeycloakAccessTokenClient = async (): Promise<string | null> => {
+    const result = (await authClient.getAccessToken({
+      providerId: KEYCLOAK_PROVIDER_ID,
+    })) as AccessTokenResult
+
+    return extractAccessToken(result)
   }
 
   return (
@@ -48,7 +65,7 @@ export default function PlaygroundClient({
       <CardHeader>
         <CardTitle>클라이언트 컴포넌트 (Hydration & Suspense 완료)</CardTitle>
         <CardDescription>
-          호출 대상: <code>{gatewayBase}</code> (CORS는 nginx가 처리)
+          호출 대상: <code>{apiOrigin}</code> (CORS는 API Edge가 처리)
         </CardDescription>
       </CardHeader>
 
@@ -66,21 +83,21 @@ export default function PlaygroundClient({
           <Button
             onClick={async () => {
               try {
-                const token = await issueJwtClient()
+                const token = await getKeycloakAccessTokenClient()
                 if (!token) {
-                  setJwtPreview("")
+                  setTokenPreview("")
                   showBoundary(
-                    new Error("토큰 발급 실패 (먼저 로그인해주세요)")
+                    new Error("Keycloak access token 조회 실패 (먼저 로그인해주세요)")
                   )
                   return
                 }
-                setJwtPreview(`${token.slice(0, 32)}…`)
+                setTokenPreview(`${token.slice(0, 32)}…`)
               } catch (err) {
                 showBoundary(err)
               }
             }}
           >
-            클라이언트에서 JWT 발급 테스트
+            클라이언트에서 Keycloak access token 조회
           </Button>
 
           <Button variant="outline" disabled>
@@ -89,8 +106,8 @@ export default function PlaygroundClient({
         </div>
 
         <div>
-          <h3>클라이언트에서 발급받은 JWT 미리보기</h3>
-          <pre>{jwtPreview || "—"}</pre>
+          <h3>클라이언트 access token 미리보기</h3>
+          <pre>{tokenPreview || "—"}</pre>
         </div>
 
         <div>

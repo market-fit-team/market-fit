@@ -1,10 +1,6 @@
 // src/shared/db/schema.ts
-// Better Auth core schema는 user/session/account/verification 이며,
-// JWT plugin은 jwks 테이블을 추가합니다.
-// (core schema 설명: Database 개념 문서)
-// https://www.better-auth.com/docs/concepts/database :contentReference[oaicite:9]{index=9}
-// (jwks table: JWT plugin schema 섹션)
-// https://better-auth.com/docs/plugins/jwt :contentReference[oaicite:10]{index=10}
+// Better Auth는 Next.js의 Keycloak session facade로만 사용한다.
+// JWT issuer/JWKS 역할은 Keycloak으로 이동했으므로 jwks 테이블은 쓰지 않는다.
 
 import {
   pgTable,
@@ -79,12 +75,3 @@ export const verification = pgTable("verification", {
 }, (t) => ({
   identifierIdx: index("verification_identifier_idx").on(t.identifier),
 }))
-
-// JWT plugin: jwks table
-export const jwks = pgTable("jwks", {
-  id: text("id").primaryKey(),
-  publicKey: text("publicKey").notNull(),
-  privateKey: text("privateKey").notNull(),
-  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
-  expiresAt: timestamp("expiresAt", { withTimezone: true }),
-})

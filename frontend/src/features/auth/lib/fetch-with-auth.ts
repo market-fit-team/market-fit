@@ -1,19 +1,74 @@
 // src/features/auth/lib/fetch-with-auth.ts
-// JWT plugin: authClient.token()으로 JWT 받고, 외부 서비스에 Bearer로 전달하는 게 권장.
-// https://better-auth.com/docs/plugins/jwt :contentReference[oaicite:30]{index=30}
+import { KEYCLOAK_PROVIDER_ID } from "./auth-constants"
 import { authClient } from "./auth-client"
 
-export const fetchWithAuth = async (input: string, init?: RequestInit) => {
-  const { data, error } = await authClient.token()
-  if (error || !data?.token) {
-    throw new Error("Failed to issue JWT token from Better Auth")
+type AccessTokenResult = {
+  accessToken?: string
+  data?: {
+    accessToken?: string
+  }
+  error?: unknown
+}
+
+const extractAccessToken = (result: AccessTokenResult | null | undefined) => {
+  return result?.accessToken ?? result?.data?.accessToken
+}
+
+const getClientKeycloakAccessToken = async () => {
+  const result = (await authClient.getAccessToken({
+    providerId: KEYCLOAK_PROVIDER_ID,
+  })) as AccessTokenResult
+
+  return extractAccessToken(result)
+}
+
+const parseResponseBody = async (response: Response) => {
+  if (response.status === 204) {
+    return undefined
   }
 
-  return fetch(input, {
+  const contentType = response.headers.get("content-type") ?? ""
+
+  if (contentType.includes("application/json")) {
+    return response.json()
+  }
+
+  return response.text()
+}
+
+const createHttpError = async (response: Response) => {
+  const detail = await response.text().catch(() => "")
+  return new Error(`API request failed: ${response.status} ${detail}`)
+}
+
+export const fetchWithAuth = async <T>(
+  input: string,
+  init?: RequestInit
+): Promise<T> => {
+  const headers = new Headers(init?.headers)
+
+  if (!headers.has("authorization") && typeof window !== "undefined") {
+    const accessToken = await getClientKeycloakAccessToken()
+
+    if (accessToken) {
+      headers.set("authorization", `Bearer ${accessToken}`)
+    }
+  }
+
+  const response = await fetch(input, {
     ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      Authorization: `Bearer ${data.token}`,
-    },
+    headers,
   })
+
+  if (!response.ok) {
+    throw await createHttpError(response)
+  }
+
+  const data = await parseResponseBody(response)
+
+  return {
+    data,
+    status: response.status,
+    headers: response.headers,
+  } as T
 }

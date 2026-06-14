@@ -19,12 +19,17 @@
 - **Prettier**: Tailwind CSS 클래스 자동 정렬 및 상단 `import` 구문 순서 자동 정렬 적용
 - **공통**: `src/shared/components/ui` 폴더 내 shadcn 컴포넌트들은 린트/포맷팅 대상에서 제외
 
-## better auth
+## Better Auth + Keycloak
 
-https://console.cloud.google.com/auth/clients 에서 해당되는 곳에
+Better Auth는 Keycloak Generic OAuth provider를 사용한다.
 
-http://localhost:3000 를 승인된 원본
-http://localhost:3000/api/auth/callback/google 를 승인된 리다이렉트 uri
+```text
+Keycloak issuer: http://localhost:8180/realms/pickle
+Better Auth callback: http://localhost:3000/api/auth/oauth2/callback/keycloak
+API runtime origin: http://localhost:8088
+```
+
+`/api/proxy`는 사용하지 않는다. Generated client는 `NEXT_PUBLIC_API_ORIGIN + /api/{service}`를 호출한다.
 
 ## Coding Convention
 

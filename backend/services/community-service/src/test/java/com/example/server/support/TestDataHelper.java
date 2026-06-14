@@ -22,9 +22,9 @@ public class TestDataHelper {
     private final TransactionTemplate transactionTemplate;
     private final JdbcTemplate jdbcTemplate;
 
-    public User createBetterAuthUser(String subject, String email) {
+    public User createKeycloakUser(String subject, String email) {
         return userRepository.save(User.createExternalUser(
-                "better-auth",
+                "keycloak",
                 subject,
                 email,
                 true,

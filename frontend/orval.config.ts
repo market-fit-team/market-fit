@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs"
 import {
   type Config,
   type Options,
@@ -5,57 +6,73 @@ import {
   defineConfig,
 } from "orval"
 
-const OPENAPI_GATEWAY_ORIGIN =
-  process.env.OPENAPI_GATEWAY_ORIGIN ?? "http://localhost:8080"
-
 const GENERATED_ROOT = "src/shared/api/generated"
+const CATALOG_PATH = ".orval/service-catalog.json"
 
-const createProject = ({
-  name,
-  inputPath,
-  runtimeBasePath,
-  schemasType = "zod",
-}: {
+type CatalogService = {
   name: string
-  inputPath: string
-  runtimeBasePath: string
+  openapiUrl: string
+  publicPath: string
   schemasType?: SchemaGenerationType
-}): Options => {
+}
+
+type ServiceCatalog = {
+  services: CatalogService[]
+}
+
+const readCatalog = (): ServiceCatalog => {
+  if (!existsSync(CATALOG_PATH)) {
+    throw new Error(
+      `${CATALOG_PATH} is missing. Run \"npm run api:catalog\" before Orval.`
+    )
+  }
+
+  const catalog = JSON.parse(readFileSync(CATALOG_PATH, "utf8")) as ServiceCatalog
+
+  if (!Array.isArray(catalog.services)) {
+    throw new Error(`${CATALOG_PATH} must contain a services array.`)
+  }
+
+  return catalog
+}
+
+const createProject = (service: CatalogService): Options => {
   return {
     input: {
-      target: new URL(inputPath, OPENAPI_GATEWAY_ORIGIN).toString(),
+      target: service.openapiUrl,
     },
     output: {
       mode: "tags-split",
-      target: `${GENERATED_ROOT}/${name}/endpoints`,
+      target: `${GENERATED_ROOT}/${service.name}/endpoints`,
       schemas: {
-        path: `${GENERATED_ROOT}/${name}/schemas`,
-        type: schemasType,
+        path: `${GENERATED_ROOT}/${service.name}/schemas`,
+        type: service.schemasType ?? "zod",
       },
       client: "react-query",
       httpClient: "fetch",
       clean: true,
       namingConvention: "kebab-case",
       baseUrl: {
-        runtime: `(process.env.NEXT_PUBLIC_APP_ORIGIN ?? "") + "${runtimeBasePath}"`,
+        runtime: `(process.env.NEXT_PUBLIC_API_ORIGIN ?? "") + "${service.publicPath}"`,
       },
       override: {
+        mutator: {
+          path: "./src/features/auth/lib/fetch-with-auth.ts",
+          name: "fetchWithAuth",
+        },
         query: {
           useSuspenseQuery: true,
           useSuspenseInfiniteQuery: true,
           useInfiniteQueryParam: "cursor",
           usePrefetch: true,
           useInvalidate: true,
-          // useMutation: true, // mutaion이 없어도 post 요청은 자동 생성됨. patch, delete는 수동 생성 요망
           useSetQueryData: true,
           useGetQueryData: true,
           signal: true,
         },
         fetch: {
-          // v8.16.0 버그 우회: forceSuccessResponse: true 일 때 includeHttpResponseReturnType: false 를 쓰면 타입 누락 에러 발생 (orval-labs/orval#2550)
           includeHttpResponseReturnType: true,
           forceSuccessResponse: true,
-          // v8.16.0 버그 우회: schemas.type = "zod" 환경에서 true로 설정 시, Zod 객체를 'import type'으로 가져와 .parse()를 호출하는 TS 에러 발생
           runtimeValidation: false,
         },
       },
@@ -64,29 +81,12 @@ const createProject = ({
 }
 
 export default defineConfig((): Config => {
-  return {
-    "profile-api": createProject({
-      name: "profile",
-      inputPath: "/api/profile/v3/api-docs",
-      runtimeBasePath: "/api/proxy/profile",
-    }),
-    "community-api": createProject({
-      name: "community",
-      inputPath: "/api/community/v3/api-docs",
-      runtimeBasePath: "/api/proxy/community",
-    }),
+  const catalog = readCatalog()
 
-    "echo-api": createProject({
-      name: "echo",
-      inputPath: "/api/echo/v3/api-docs",
-      runtimeBasePath: "/api/proxy/echo",
-    }),
-
-    "agent-api": createProject({
-      name: "agent",
-      inputPath: "/api/agent/openapi.json",
-      runtimeBasePath: "/api/proxy/agent",
-      schemasType: "typescript",
-    }),
-  }
+  return Object.fromEntries(
+    catalog.services.map((service) => [
+      `${service.name}-api`,
+      createProject(service),
+    ])
+  )
 })

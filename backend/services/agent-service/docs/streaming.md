@@ -1,6 +1,6 @@
 ## /threads/{thread_id}/stream/events
 
-`evals/agent_eval/client.py`와 `frontend/src/features/llm-chat/hooks/langgraph-chat-stream-provider.tsx`가 같은 Protocol V2 스트리밍 계약을 쓴다. 브라우저 쪽은 `/api/proxy/agent`를 `apiUrl`로 넘기고, eval 쪽은 Agent Server에 직접 붙는다.
+`evals/agent_eval/client.py`와 `frontend/src/features/llm-chat/hooks/langgraph-chat-stream-provider.tsx`가 같은 Protocol V2 스트리밍 계약을 쓴다. 브라우저 쪽은 `http://localhost:8088/api/agent`를 `apiUrl`로 넘기고, eval 쪽은 Agent Server에 직접 붙는다.
 
 ```py
 async with self._client.stream(
@@ -132,12 +132,12 @@ def is_terminal_protocol_event(event: StreamRecord) -> bool:
 브라우저 쪽 연결은 `frontend/src/features/llm-chat/hooks/langgraph-chat-stream-provider.tsx`에 있다.
 
 ```ts
-const AGENT_PROXY_PATH = "/api/proxy/agent"
+const AGENT_PROXY_PATH = "http://localhost:8088/api/agent"
 const origin =
   process.env.NEXT_PUBLIC_APP_ORIGIN ??
   (typeof window !== "undefined"
     ? window.location.origin
-    : "http://localhost:3000")
+    : "http://localhost:8180/realms/pickle")
 
 const apiUrl = new URL(AGENT_PROXY_PATH, origin).toString()
 

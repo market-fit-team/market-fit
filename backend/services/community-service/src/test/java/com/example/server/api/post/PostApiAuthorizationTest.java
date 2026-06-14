@@ -29,7 +29,7 @@ class PostApiAuthorizationTest extends IntegrationTestSupport {
 
     @Test
     void 유효한_JWT가_있으면_게시글을_생성할_수_있다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
 
         mockMvc.perform(post("/api/v1/posts")
                         .with(jwtFor(alice))
@@ -41,8 +41,8 @@ class PostApiAuthorizationTest extends IntegrationTestSupport {
 
     @Test
     void 작성자가_아니면_게시글을_수정할_수_없다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         mockMvc.perform(put("/api/v1/posts/{id}", postId)
@@ -54,7 +54,7 @@ class PostApiAuthorizationTest extends IntegrationTestSupport {
 
     @Test
     void 작성자는_본인_게시글을_수정할_수_있다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "수정 전");
 
         mockMvc.perform(put("/api/v1/posts/{id}", postId)
@@ -67,7 +67,7 @@ class PostApiAuthorizationTest extends IntegrationTestSupport {
 
     @Test
     void 삭제된_게시글은_수정할_수_없다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "삭제될 글");
         testDataHelper.softDeletePost(alice, postId);
 
@@ -80,8 +80,8 @@ class PostApiAuthorizationTest extends IntegrationTestSupport {
 
     @Test
     void 작성자가_아니면_게시글을_삭제할_수_없다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         mockMvc.perform(delete("/api/v1/posts/{id}", postId)
@@ -91,7 +91,7 @@ class PostApiAuthorizationTest extends IntegrationTestSupport {
 
     @Test
     void 작성자는_본인_게시글을_삭제할_수_있다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "삭제할 글");
 
         mockMvc.perform(delete("/api/v1/posts/{id}", postId)

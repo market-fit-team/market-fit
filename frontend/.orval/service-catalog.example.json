@@ -1,0 +1,12 @@
+{
+  "services": [
+    {
+      "name": "community",
+      "openapiUrl": "http://localhost:8090/openapi/community",
+      "publicPath": "/api/community",
+      "openapiPath": "/v3/api-docs",
+      "schemasType": "zod",
+      "tags": ["api", "public", "orval", "spring"]
+    }
+  ]
+}

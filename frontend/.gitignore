@@ -41,3 +41,5 @@ next-env.d.ts
 
 # orval generated
 src/shared/api/generated/
+.orval/service-catalog.json
+!.orval/service-catalog.example.json

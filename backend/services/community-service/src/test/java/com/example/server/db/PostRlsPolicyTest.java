@@ -18,7 +18,7 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void current_user_id가_없으면_posts_insert가_실패한다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "원글");
 
         assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> {
@@ -35,8 +35,8 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void 다른_사용자_id로_posts_insert하면_실패한다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "원글");
 
         assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> {
@@ -59,8 +59,8 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void 작성자가_아니면_content_update가_0건만_반영된다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         Integer updated = transactionTemplate.execute(status -> {
@@ -82,8 +82,8 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void 작성자가_아니면_deleted_at_update가_0건만_반영된다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         Integer updated = transactionTemplate.execute(status -> {
@@ -104,7 +104,7 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void 작성자는_update할_수_있다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "수정 전");
 
         Integer updated = transactionTemplate.execute(status -> {
@@ -126,8 +126,8 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void 작성자가_아니면_delete가_0건만_반영된다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         Integer deleted = transactionTemplate.execute(status -> {
@@ -145,7 +145,7 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void current_user_id가_없으면_post_likes_insert가_실패한다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> {
@@ -159,8 +159,8 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void 다른_사용자_id로_post_likes_insert하면_실패한다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(status -> {
@@ -180,8 +180,8 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void 다른_사용자의_좋아요_delete는_0건만_반영된다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
         testDataHelper.likePost(alice, postId);
 
@@ -204,7 +204,7 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void 본인_id로_post_likes_insert와_delete는_성공한다() {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(alice, "Alice 글");
 
         Integer inserted = transactionTemplate.execute(status -> {
@@ -240,8 +240,8 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void current_user_id가_없으면_notifications_select결과는_0건이다() {
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(bob, "Bob 글");
 
         transactionTemplate.executeWithoutResult(status -> {
@@ -269,8 +269,8 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void recipient는_본인_notifications를_조회할_수_있다() {
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long postId = testDataHelper.createPost(bob, "Bob 글");
 
         transactionTemplate.executeWithoutResult(status -> {
@@ -304,9 +304,9 @@ class PostRlsPolicyTest extends IntegrationTestSupport {
 
     @Test
     void recipient가_아니면_notifications_update가_0건이다() {
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User charlie = testDataHelper.createBetterAuthUser("better-auth-user-charlie", "charlie@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User charlie = testDataHelper.createKeycloakUser("better-auth-user-charlie", "charlie@example.com");
         Long postId = testDataHelper.createPost(bob, "Bob 글");
 
         transactionTemplate.executeWithoutResult(status -> {

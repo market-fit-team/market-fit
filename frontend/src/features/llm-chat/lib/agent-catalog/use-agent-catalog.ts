@@ -1,9 +1,11 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { KEYCLOAK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
+import { authClient } from "@/features/auth/lib/auth-client"
 import { z } from "zod"
 import type { ChatModelOption } from "@/features/llm-chat/types/chat-model-selection"
 import type { LlmToolDefinition } from "@/features/llm-chat/types/llm-tool-definition"
 
-const AGENT_PROXY_BASE_URL = "/api/proxy/agent"
+const AGENT_PUBLIC_PATH = "/api/agent"
 
 const reasoningEffortSchema = z.enum(["none", "low", "medium", "high"])
 
@@ -31,9 +33,31 @@ const toolsResponseSchema = z.object({
   tools: z.array(toolSchema),
 })
 
+type AccessTokenResult = {
+  accessToken?: string
+  data?: {
+    accessToken?: string
+  }
+}
+
+const extractAccessToken = (result: AccessTokenResult | null | undefined) => {
+  return result?.accessToken ?? result?.data?.accessToken
+}
+
 async function fetchAgentJson(path: string) {
-  const response = await fetch(`${AGENT_PROXY_BASE_URL}${path}`, {
-    credentials: "include",
+  const origin = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8088"
+  const result = (await authClient.getAccessToken({
+    providerId: KEYCLOAK_PROVIDER_ID,
+  })) as AccessTokenResult
+  const accessToken = extractAccessToken(result)
+  const headers = new Headers()
+
+  if (accessToken) {
+    headers.set("authorization", `Bearer ${accessToken}`)
+  }
+
+  const response = await fetch(new URL(`${AGENT_PUBLIC_PATH}${path}`, origin), {
+    headers,
     cache: "no-store",
   })
 

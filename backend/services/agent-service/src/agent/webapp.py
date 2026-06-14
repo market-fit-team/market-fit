@@ -26,7 +26,7 @@ app = FastAPI(title="Pickle Agent Custom Routes")
 bearer_auth = HTTPBearer(
     bearerFormat="JWT",
     scheme_name="bearerAuth",
-    description="Better Auth JWT를 Authorization: Bearer <token> 헤더로 전달합니다.",
+    description="Keycloak access token을 Authorization: Bearer <token> 헤더로 전달합니다.",
     auto_error=False,
 )
 

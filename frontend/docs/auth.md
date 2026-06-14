@@ -1,101 +1,63 @@
-# Authentication
-
-인증 설정은 `src/features/auth/lib/auth.ts`에 있다.  
-클라이언트는 세션 쿠키를 쓰고, 백엔드 서비스 호출용 JWT는 별도로 발급한다.
-
-## `betterAuth()`
-
-```ts
-export const auth = betterAuth({
-  baseURL: env.BETTER_AUTH_URL,
-  secret: env.BETTER_AUTH_SECRET,
-  trustedOrigins: [env.BETTER_AUTH_URL],
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema,
-  }),
-  socialProviders: {
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID,
-      clientSecret: env.GOOGLE_CLIENT_SECRET,
-    },
-  },
-  plugins: [
-    jwt({
-      jwks: {
-        keyPairConfig: {
-          alg: env.JWT_ALGORITHM,
-          modulusLength: 2048,
-        },
-      },
-      jwt: {
-        issuer: env.JWT_ISSUER,
-        audience: env.JWT_AUDIENCE,
-        expirationTime: env.JWT_EXPIRATION,
-        definePayload: ({ user }) => ({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        }),
-      },
-    }),
-    nextCookies(),
-  ],
-})
-```
-
-- `baseURL`: OAuth callback URL 구성에 직접 쓰인다.
-- `jwt()`: `/api/auth/token`, `/api/auth/jwks`를 만든다.
-- `nextCookies()`: server action이나 route handler에서 쿠키 반영을 맡는다.
-
-`JWT_ALGORITHM`은 현재 `RS256`만 허용한다.
+# auth
 
 ## `/api/auth/[...all]`
 
-```ts
-import { toNextJsHandler } from "better-auth/next-js"
-import { auth } from "@/features/auth/lib/auth"
+`src/app/api/auth/[...all]/route.ts`는 Better Auth handler를 Next.js에 붙인다.
 
+```ts
 const handler = toNextJsHandler(auth)
 
 export const GET = (req: NextRequest) => handler.GET(req)
 export const POST = (req: NextRequest) => handler.POST(req)
 ```
 
-```text
-/api/auth/callback/google
-/api/auth/token
-/api/auth/jwks
-```
-
-## Google 로그인
-
-```ts
-await authClient.signIn.social({
-  provider: "google",
-  callbackURL,
-  errorCallbackURL: "/sign-in?error=oauth",
-})
-```
+이 route는 gateway가 아니다. Keycloak OAuth callback과 Better Auth session cookie만 처리한다.
 
 ```text
-http://localhost:3000/api/auth/callback/google
+Browser
+  -> /api/auth/sign-in/oauth2
+  -> Keycloak
+  -> /api/auth/oauth2/callback/keycloak
+  -> Better Auth session cookie
 ```
 
-## `authClient`
+## Keycloak provider
+
+`src/features/auth/lib/auth.ts`는 `genericOAuth`와 `keycloak` helper를 사용한다.
 
 ```ts
-export const authClient = createAuthClient({
-  plugins: [jwtClient()],
-})
-
-export const { signIn, signOut, useSession, getSession, token } = authClient
+plugins: [
+  genericOAuth({
+    config: [
+      keycloak({
+        clientId: env.KEYCLOAK_CLIENT_ID,
+        clientSecret: env.KEYCLOAK_CLIENT_SECRET,
+        issuer: env.KEYCLOAK_ISSUER,
+        scopes: ["openid", "profile", "email"],
+      }),
+    ],
+  }),
+  nextCookies(),
+]
 ```
 
-- `useSession()`: 클라이언트 세션 상태
-- `jwtClient()`: `authClient.token()` 사용 가능
+Better Auth의 `jwt()` plugin은 없다.
 
-## 서버에서 세션 읽는 곳
+```text
+/api/auth/token ❌
+/api/auth/jwks  ❌
+```
+
+Keycloak이 access token과 JWKS를 제공한다.
+
+```text
+http://localhost:8180/realms/pickle
+http://localhost:8180/realms/pickle/protocol/openid-connect/certs
+```
+
+## Server Component
+
+`src/features/auth/lib/server-session.ts`는 Server Component에서 Better Auth session을 읽는다.
 
 ```ts
 export const getServerSession = async () => {
@@ -105,118 +67,98 @@ export const getServerSession = async () => {
 }
 ```
 
-- `src/features/auth/lib/server-session.ts`
-- `src/app/api/session/route.ts`
-- `src/app/api/proxy/[...path]/route.ts`
-- `src/proxy.ts`
+`src/features/auth/lib/server-access-token.ts`는 같은 session cookie로 Keycloak provider access token을 가져온다.
 
 ```ts
-export const config = {
-  matcher: ["/dashboard/:path*"],
+export const getServerKeycloakAccessToken = async () => {
+  const result = await auth.api.getAccessToken({
+    body: { providerId: "keycloak" },
+    headers: await headers(),
+  })
+
+  return result?.accessToken ?? result?.data?.accessToken ?? null
 }
 ```
 
-## JWT
+## Client Component
 
-세션은 브라우저 쿠키로 유지하고, JWT는 backend service가 읽을 토큰으로 따로 발급한다.
-
-```text
-Browser cookie
-  -> auth.api.getSession(...)
-  -> /api/auth/token
-  -> Bearer JWT
-  -> /api/proxy/[...path]
-  -> nginx
-  -> backend service
-```
+`src/features/auth/lib/auth-client.ts`는 `genericOAuthClient()`만 붙인다.
 
 ```ts
-{
-  id: user.id,
-  email: user.email,
-  name: user.name,
-}
-```
-
-JWKS는 `/api/auth/jwks`에서 공개된다.
-
-## `.env`
-
-```text
-BETTER_AUTH_SECRET
-BETTER_AUTH_URL
-DATABASE_URL
-GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET
-JWT_ISSUER
-JWT_AUDIENCE
-JWT_EXPIRATION
-JWT_ALGORITHM
-```
-
-```ts
-const EnvSchema = z.object({
-  BETTER_AUTH_SECRET: z.string().min(32),
-  BETTER_AUTH_URL: z.string().min(1),
-  DATABASE_URL: z.string().min(1),
-  GOOGLE_CLIENT_ID: z.string().min(1),
-  GOOGLE_CLIENT_SECRET: z.string().min(1),
-  JWT_ISSUER: z.string().min(1),
-  JWT_AUDIENCE: z.string().min(1),
-  JWT_EXPIRATION: z.string().min(1),
-  JWT_ALGORITHM: z.enum(["RS256"]).default("RS256"),
+export const authClient = createAuthClient({
+  plugins: [genericOAuthClient()],
 })
+```
+
+로그인은 `signIn.oauth2`로 시작한다.
+
+```ts
+await authClient.signIn.oauth2({
+  providerId: "keycloak",
+  callbackURL,
+  errorCallbackURL: "/sign-in?error=oauth",
+  scopes: ["openid", "profile", "email"],
+})
+```
+
+## API token
+
+`src/features/auth/lib/fetch-with-auth.ts`는 Orval mutator다.
+
+```ts
+const result = await authClient.getAccessToken({
+  providerId: "keycloak",
+})
+```
+
+브라우저에서 Authorization header가 없으면 Keycloak access token을 붙인다.
+
+```text
+Browser
+  -> API Edge http://localhost:8088/api/{service}/...
+  -> backend service
+  -> Keycloak JWT 검증
 ```
 
 ## Drizzle 테이블
 
-```ts
-export const user = pgTable("user", { ... })
-export const account = pgTable("account", { ... })
-export const session = pgTable("session", { ... })
-export const verification = pgTable("verification", { ... })
-export const jwks = pgTable("jwks", { ... })
-```
+`src/shared/db/schema.ts`는 Better Auth core table만 둔다.
 
 ```text
-user / account / session / verification
-  -> Better Auth core schema
-
-jwks
-  -> JWT plugin schema
+user
+account
+session
+verification
 ```
 
-## `/api/session`
-
-```ts
-export const GET = async () => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-
-  return Response.json({ session }, { status: 200 })
-}
-```
+`jwks` 테이블은 `frontend/drizzle/0001_drop_better_auth_jwks.sql`에서 삭제한다.
 
 ## 주요 파일
 
-- `src/features/auth/lib/auth.ts`
 - `src/app/api/auth/[...all]/route.ts`
+- `src/features/auth/lib/auth.ts`
 - `src/features/auth/lib/auth-client.ts`
 - `src/features/auth/lib/server-session.ts`
-- `src/app/api/session/route.ts`
-- `src/features/auth/components/sign-in-client.tsx`
-- `src/features/auth/components/user-nav.tsx`
-- `src/shared/config/env.ts`
+- `src/features/auth/lib/server-access-token.ts`
+- `src/features/auth/lib/fetch-with-auth.ts`
 - `src/shared/db/schema.ts`
-- `src/proxy.ts`
 
 ## 참고 문서
 
-- Better Auth Next.js integration: https://www.better-auth.com/docs/integrations/next
-- Better Auth JWT plugin: https://better-auth.com/docs/plugins/jwt
-- Better Auth Google provider: https://www.better-auth.com/docs/authentication/google
-- Better Auth Drizzle adapter: https://better-auth.com/docs/adapters/drizzle
-- Better Auth database concepts: https://www.better-auth.com/docs/concepts/database
-- Better Auth basic usage: https://better-auth.com/docs/basic-usage
-- Next.js `proxy.ts` file convention: https://nextjs.org/docs/app/api-reference/file-conventions/proxy
+- https://better-auth.com/docs/integrations/next
+- https://better-auth.com/docs/plugins/generic-oauth
+- https://better-auth.com/docs/concepts/oauth
+- https://www.keycloak.org/securing-apps/oidc-layers
+
+
+## Keycloak Google Identity Provider
+
+Google OAuth credentials are now registered in Keycloak, not directly in Better Auth. Keep `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the repo root `.env` for `docker compose` and mirror them in `frontend/.env` if you want the frontend env file to keep the same values documented.
+
+Google Cloud Console redirect URI:
+
+```text
+http://localhost:8180/realms/pickle/broker/google/endpoint
+```
+
+Better Auth still talks to Keycloak using the `keycloak` provider. Keycloak then brokers Google login.

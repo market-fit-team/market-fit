@@ -1,5 +1,5 @@
 services:
-  db:
+  frontend-db:
     image: postgres:17-alpine
     container_name: frontend-db
     restart: unless-stopped
@@ -18,42 +18,103 @@ services:
       timeout: 3s
       retries: 20
 
-  nginx:
-    image: nginx:1.27-alpine
-    container_name: msa-nginx
-    ports:
-      - "8080:80"
+  keycloak-db:
+    image: postgres:17-alpine
+    container_name: keycloak-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+      TZ: Asia/Seoul
     volumes:
-      - ./backend/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - keycloak_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    container_name: keycloak
+    entrypoint: ["/bin/sh", "/opt/keycloak/import-template/render-realm.sh"]
+    command: ["start-dev", "--import-realm"]
+    ports:
+      - "8180:8080"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      PICKLE_WEB_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-pickle-web-secret}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-CHANGE_ME}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-CHANGE_ME}
+    volumes:
+      - ./backend/keycloak/import:/opt/keycloak/import-template:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+
+  consul:
+    image: hashicorp/consul:1.21
+    container_name: consul
+    command: >
+      agent -dev
+      -client=0.0.0.0
+      -config-dir=/consul/config
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    volumes:
+      - ./backend/consul/config:/consul/config
     depends_on:
       - profile-service
       - echo-service
       - community-service
       - agent-service
 
+  discovery-service:
+    build: ./backend/services/discovery-service
+    container_name: discovery-service
+    environment:
+      PORT: "8090"
+      CONSUL_HTTP_ADDR: "http://consul:8500"
+      PUBLIC_DISCOVERY_ORIGIN: "http://localhost:8090"
+    ports:
+      - "8090:8090"
+    depends_on:
+      - consul
+
+  api-edge:
+    build: ./backend/services/api-edge
+    container_name: api-edge
+    environment:
+      PORT: "8088"
+      DISCOVERY_INTERNAL_ORIGIN: "http://discovery-service:8090"
+      ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+    ports:
+      - "8088:8088"
+    depends_on:
+      - discovery-service
+
   profile-service:
     build: ./backend/services/profile-service
     container_name: profile-service
     environment:
       PORT: "3001"
-      JWKS_URL: "http://host.docker.internal:3000/api/auth/jwks"
-      JWT_ISSUER: "http://localhost:3000"
-      JWT_AUDIENCE: "frontend-api"
-
-      # NOTE:
-      # profile-service는 jose.jwtVerify(..., { algorithms })로 JWT alg allowlist를 사용한다.
-      # Better Auth JWT 발급을 RS256으로 바꾸면 profile-service도 RS256을 허용해야 한다.
-      #
-      # 근거:
-      # - Better Auth JWT plugin은 JWKS로 외부 서비스 검증을 지원
-      #   https://better-auth.com/docs/plugins/jwt
-      # - jose jwtVerify algorithms 옵션은 허용할 JWS alg 목록
-      #   https://github.com/panva/jose/blob/main/docs/jwt/verify/interfaces/JWTVerifyOptions.md
+      JWKS_URL: "http://keycloak:8080/realms/pickle/protocol/openid-connect/certs"
+      JWT_ISSUER: "http://localhost:8180/realms/pickle"
+      JWT_AUDIENCE: "pickle-api"
       JWT_ALGS: "RS256"
     expose:
       - "3001"
+    depends_on:
+      - keycloak
 
   echo-service:
     build: ./backend/services/echo-service
@@ -63,6 +124,8 @@ services:
       PROFILE_BASE_URL: "http://profile-service:3001"
     expose:
       - "3002"
+    depends_on:
+      - profile-service
 
   community-db:
     image: postgres:17-alpine
@@ -128,7 +191,6 @@ services:
       exit 0;
       "
 
-
   agent-service:
     build: ./backend/services/agent-service
     container_name: agent-service
@@ -136,42 +198,44 @@ services:
       - ./backend/services/agent-service/.env
     environment:
       - LANGGRAPH_CLI_NO_ANALYTICS=1
-      # Protocol V2 event streaming endpoint(/stream/events, /commands)를 활성화합니다.
-      # tools 채널은 legacy /runs/stream이 아니라 이 V2 endpoint에서 구독해야 합니다.
-      # 근거:
-      # https://docs.langchain.com/langsmith/agent-server-changelog
-      # https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
       - FF_V2_EVENT_STREAMING=true
-      - JWKS_URL=http://host.docker.internal:3000/api/auth/jwks
-      - JWT_ISSUER=http://localhost:3000
-      - JWT_AUDIENCE=frontend-api
+      - JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
+      - JWT_ISSUER=http://localhost:8180/realms/pickle
+      - JWT_AUDIENCE=pickle-api
       - JWT_ALGORITHM=RS256
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     expose:
       - "2024"
+    depends_on:
+      - keycloak
 
   community-service:
     build: ./backend/services/community-service
     container_name: community-service
     depends_on:
-      - community-db
-      - redis
-      - rabbitmq
-      - minio-init
+      community-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_started
     environment:
       - DB_HOST=community-db
       - REDIS_HOST=redis
       - RABBITMQ_HOST=rabbitmq
       - S3_ENDPOINT=http://minio:8900
-      - JWKS_URL=http://host.docker.internal:3000/api/auth/jwks
-      - JWT_ISSUER=http://localhost:3000
-      - JWT_AUDIENCE=frontend-api
+      - JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
+      - JWT_ISSUER=http://localhost:8180/realms/pickle
+      - JWT_AUDIENCE=pickle-api
     expose:
       - "8080"
 
 volumes:
   postgres_data:
+  keycloak_postgres_data:
   community_postgres_data:
   redis_data:
   minio_data:

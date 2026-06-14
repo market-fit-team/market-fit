@@ -31,12 +31,12 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://profile-service:8080/api/auth/jwks
+          jwk-set-uri: http://profile-service:8080Keycloak certs endpoint
 app:
   auth:
     jwt:
       issuer: "pickly-frontend"
-      audience: "frontend-api"
+      audience: "pickle-api"
 ```
 
 인증 흐름은 아래와 같다.
@@ -44,7 +44,7 @@ app:
 ```text
 Next.js BFF
   -> authorization: Bearer <token>
-  -> nginx
+  -> API Edge
   -> community-service
   -> SecurityConfig (NimbusJwtDecoder)
   -> CurrentUserService.getRequiredUser(jwt)

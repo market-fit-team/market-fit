@@ -24,8 +24,8 @@ class NotificationApiTest extends IntegrationTestSupport {
 
     @Test
     void 타인_글에_댓글을_달면_POST_REPLY_알림이_생성된다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "Alice 원글");
 
         mockMvc.perform(post("/api/v1/posts/{id}/replies", rootId)
@@ -51,8 +51,8 @@ class NotificationApiTest extends IntegrationTestSupport {
 
     @Test
     void 좋아요_중복요청에도_POST_LIKE_알림은_한번만_생성된다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "Alice 원글");
 
         for (int i = 0; i < 2; i++) {
@@ -69,7 +69,7 @@ class NotificationApiTest extends IntegrationTestSupport {
 
     @Test
     void 자기_행동에는_알림이_생기지_않는다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "Alice 원글");
 
         mockMvc.perform(post("/api/v1/posts/{id}/replies", rootId)
@@ -90,8 +90,8 @@ class NotificationApiTest extends IntegrationTestSupport {
 
     @Test
     void 읽음처리_API가_동작한다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "Alice 원글");
 
         mockMvc.perform(post("/api/v1/posts/{id}/likes", rootId)
@@ -122,7 +122,7 @@ class NotificationApiTest extends IntegrationTestSupport {
 
     @Test
     void SSE_엔드포인트는_인증이_필요하고_로그인시_async_연결된다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
 
         mockMvc.perform(get("/api/v1/notifications/stream"))
                 .andExpect(status().isUnauthorized());
@@ -135,8 +135,8 @@ class NotificationApiTest extends IntegrationTestSupport {
 
     @Test
     void 수신자는_알림을_삭제할_수_있다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "Alice 원글");
 
         mockMvc.perform(post("/api/v1/posts/{id}/likes", rootId)
@@ -172,8 +172,8 @@ class NotificationApiTest extends IntegrationTestSupport {
 
     @Test
     void 수신자가_아닌_사용자는_알림을_삭제할_수_없다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
-        User bob = testDataHelper.createBetterAuthUser("better-auth-user-bob", "bob@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
+        User bob = testDataHelper.createKeycloakUser("better-auth-user-bob", "bob@example.com");
         Long rootId = testDataHelper.createRootPost(alice, "Alice 원글");
 
         mockMvc.perform(post("/api/v1/posts/{id}/likes", rootId)

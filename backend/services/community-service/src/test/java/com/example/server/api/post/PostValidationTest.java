@@ -19,7 +19,7 @@ class PostValidationTest extends IntegrationTestSupport {
 
     @Test
     void 내용이_비어있으면_게시글을_생성할_수_없다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
 
         mockMvc.perform(post("/api/v1/posts")
                         .with(jwtFor(alice))
@@ -30,7 +30,7 @@ class PostValidationTest extends IntegrationTestSupport {
 
     @Test
     void 내용이_비어있어도_mediaAttachmentIds가_있으면_게시글을_생성할_수_있다() throws Exception {
-        User alice = testDataHelper.createBetterAuthUser("better-auth-user-alice", "alice@example.com");
+        User alice = testDataHelper.createKeycloakUser("better-auth-user-alice", "alice@example.com");
         Long mediaId = testDataHelper.createUploadedMedia(alice, "posts/2026/05/22/%d/uploaded.png".formatted(alice.getId()));
 
         mockMvc.perform(post("/api/v1/posts")

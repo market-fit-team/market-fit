@@ -30,9 +30,9 @@ public JwtDecoder jwtDecoder(
 }
 ```
 
-- **jwk-set-uri**: Better Auth의 공개키 엔드포인트(`http://host.docker.internal:3000/api/auth/jwks`)
-- **issuer**: 토큰 발급자(`http://localhost:3000`)
-- **audience**: 대상 서비스(`frontend-api`)
+- **jwk-set-uri**: Keycloak realm certs endpoint(`http://keycloak:8080/realms/pickle/protocol/openid-connect/certs`)
+- **issuer**: 토큰 발급자(`http://localhost:8180/realms/pickle`)
+- **audience**: 대상 서비스(`pickle-api`)
 
 ## API 엔드포인트 권한
 

@@ -20,7 +20,7 @@ uv run langgraph dev --host 0.0.0.0 --port 2024 --no-browser
 Docker compose에서는 프로젝트 루트에서 실행합니다.
 
 ```bash
-docker compose up -d --build agent-service nginx
+docker compose up -d --build agent-service api-edge
 ```
 
 ## graph id
@@ -41,8 +41,8 @@ Agent Server custom auth는 Next.js BFF가 발급해 붙인 Better Auth RS256 JW
 
 ```text
 Browser cookie
-  -> Next.js /api/proxy/agent
-  -> /api/auth/token
+  -> Next.js http://localhost:8088/api/agent
+  -> Keycloak token endpoint
   -> Authorization: Bearer <JWT>
   -> Nginx /api/agent
   -> Agent Server custom auth
@@ -51,9 +51,9 @@ Browser cookie
 필수 환경 변수:
 
 ```env
-JWKS_URL=http://host.docker.internal:3000/api/auth/jwks
-JWT_ISSUER=http://localhost:3000
-JWT_AUDIENCE=frontend-api
+JWKS_URL=http://keycloak:8080/realms/pickle/protocol/openid-connect/certs
+JWT_ISSUER=http://localhost:8180/realms/pickle
+JWT_AUDIENCE=pickle-api
 JWT_ALGORITHM=RS256
 ```
 
@@ -69,8 +69,8 @@ GET /api/v1/llm/tools
 Nginx/Next 경유 시 프론트에서는 다음 경로가 됩니다.
 
 ```text
-GET /api/proxy/agent/api/v1/llm/models
-GET /api/proxy/agent/api/v1/llm/tools
+GET http://localhost:8088/api/agent/api/v1/llm/models
+GET http://localhost:8088/api/agent/api/v1/llm/tools
 ```
 
 ## 기존 adapter 제외

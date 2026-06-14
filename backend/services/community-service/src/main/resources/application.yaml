@@ -62,17 +62,17 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          # NOTE: Next.js Better Auth JWT plugin exposes this JWKS endpoint.
-          # community-service validates incoming Bearer tokens with the same public key set.
-          jwk-set-uri: ${JWKS_URL:http://host.docker.internal:3000/api/auth/jwks}
+          # NOTE: Keycloak realm certs endpoint.
+          # Backend services validate Bearer tokens with Keycloak public keys.
+          jwk-set-uri: ${JWKS_URL:http://keycloak:8080/realms/pickle/protocol/openid-connect/certs}
 
 app:
   auth:
     jwt:
-      # NOTE: frontend/src/features/auth/lib/auth.ts 의 jwt({ issuer }) 값과 동일해야 합니다.
-      issuer: ${JWT_ISSUER:http://localhost:3000}
-      # NOTE: frontend/src/features/auth/lib/auth.ts 의 jwt({ audience }) 값과 동일해야 합니다.
-      audience: ${JWT_AUDIENCE:frontend-api}
+      # NOTE: Keycloak access token의 iss claim과 동일해야 합니다.
+      issuer: ${JWT_ISSUER:http://localhost:8180/realms/pickle}
+      # NOTE: Keycloak pickle-web client의 audience mapper가 넣는 aud 값입니다.
+      audience: ${JWT_AUDIENCE:pickle-api}
 
 springdoc:
   # Source: https://springdoc.org/core-properties.html
@@ -91,7 +91,7 @@ storage:
 
 server:
   port: 8080
-  forward-headers-strategy: framework # NOTE: 프록시 서버(Nginx 등) 뒤에 있을 때 헤더 처리를 위함
+  forward-headers-strategy: framework # NOTE: API Edge 뒤에서 X-Forwarded-* 헤더를 처리
 
 logging:
   level:

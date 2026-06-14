@@ -23,12 +23,12 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY) // NOTE: [JPA] 기본 키 생성을 DB에 위임 (자동 증가)
     private Long id;
 
-    // 예: better-auth, google
-    // NOTE: 인증 provider 이름입니다. 현재 런타임은 Next.js Better Auth JWT를 사용하므로 better-auth가 기본입니다.
+    // 예: keycloak, google
+    // NOTE: 인증 provider 이름입니다. 런타임 backend 경계는 Keycloak JWT를 기준으로 합니다.
     @Column(nullable = false, length = 50) // NOTE: [JPA] DB 컬럼 설정 (null 불가, 길이 50)
     private String provider;
 
-    // NOTE: provider 안에서 유일한 사용자 식별자입니다. Better Auth JWT 기준으로는 jwt.sub = user.id 입니다.
+    // NOTE: provider 안에서 유일한 사용자 식별자입니다. Keycloak JWT 기준으로는 jwt.sub = realm user id 입니다.
     @Column(name = "provider_subject", nullable = false, length = 100) // NOTE: [JPA] DB 컬럼 설정
     private String providerSubject;
 
@@ -67,9 +67,9 @@ public class User {
     }
 
     /**
-     * NOTE: [Auth Migration]
+     * NOTE: [Keycloak Migration]
      * 외부 인증 시스템에서 검증된 사용자를 community-service 내부 User로 생성합니다.
-     * 현재 운영 흐름은 Better Auth JWT를 사용하므로 provider="better-auth", providerSubject=jwt.sub 형태로 저장합니다.
+     * 현재 운영 흐름은 Keycloak JWT를 사용하므로 provider="keycloak", providerSubject=jwt.sub 형태로 저장합니다.
      */
     public static User createExternalUser(
             String provider,

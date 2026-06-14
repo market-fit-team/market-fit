@@ -19,12 +19,11 @@ import lombok.RequiredArgsConstructor;
 public class CurrentUserService {
 
     /**
-     * NOTE: [Auth Migration]
-     * 기존 코드는 provider="google" + Google subject 기준으로 app_users를 조회했습니다.
-     * 현재 인증 주체는 Next.js Better Auth가 발급한 JWT이므로 jwt.getSubject()는 Google subject가 아니라
-     * Better Auth user.id 입니다. 따라서 community-service 내부 사용자 매핑 provider도 better-auth로 고정합니다.
+     * NOTE: [Keycloak Migration]
+     * jwt.getSubject()는 Keycloak realm user id입니다.
+     * Better Auth는 Next.js session facade로만 남고, backend user identity provider는 keycloak으로 고정합니다.
      */
-    private static final String BETTER_AUTH_PROVIDER = "better-auth";
+    private static final String KEYCLOAK_PROVIDER = "keycloak";
 
     private final UserRepository userRepository;
 
@@ -44,7 +43,7 @@ public class CurrentUserService {
             );
         }
 
-        return findOrCreateBetterAuthUser(jwt);
+        return findOrCreateKeycloakUser(jwt);
     }
 
     /**
@@ -59,17 +58,17 @@ public class CurrentUserService {
             return Optional.empty();
         }
 
-        return Optional.of(findOrCreateBetterAuthUser(jwt));
+        return Optional.of(findOrCreateKeycloakUser(jwt));
     }
 
-    private User findOrCreateBetterAuthUser(Jwt jwt) {
+    private User findOrCreateKeycloakUser(Jwt jwt) {
         String providerSubject = requireSubject(jwt);
 
         return userRepository
-                .findByProviderAndProviderSubject(BETTER_AUTH_PROVIDER, providerSubject)
+                .findByProviderAndProviderSubject(KEYCLOAK_PROVIDER, providerSubject)
                 .map(existingUser -> updateProfileIfNeeded(existingUser, jwt))
                 .orElseGet(() -> userRepository.save(User.createExternalUser(
-                        BETTER_AUTH_PROVIDER,
+                        KEYCLOAK_PROVIDER,
                         providerSubject,
                         requireEmail(jwt),
                         true,
@@ -80,7 +79,7 @@ public class CurrentUserService {
 
     private User updateProfileIfNeeded(User user, Jwt jwt) {
         /**
-         * NOTE: Better Auth 쪽 프로필 정보가 바뀌었을 때 community DB도 최신 표시명을 따라가도록 갱신합니다.
+         * NOTE: Keycloak 프로필 정보가 바뀌었을 때 community DB도 최신 표시명을 따라가도록 갱신합니다.
          * provider/providerSubject는 로그인 식별자이므로 변경하지 않습니다.
          */
         user.updateExternalProfile(
@@ -129,8 +128,7 @@ public class CurrentUserService {
 
     private String resolvePictureUrl(Jwt jwt) {
         /**
-         * NOTE: Better Auth definePayload에는 현재 email/name만 넣고 있지만,
-         * 추후 image 또는 picture claim을 추가해도 community-service가 바로 반영할 수 있게 양쪽 키를 허용합니다.
+         * NOTE: Keycloak profile/userinfo mapper가 picture 또는 image claim을 넣을 수 있으므로 양쪽 키를 허용합니다.
          */
         String picture = jwt.getClaimAsString("picture");
         if (picture != null && !picture.isBlank()) {

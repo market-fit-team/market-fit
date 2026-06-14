@@ -102,14 +102,14 @@ public class SecurityConfig {
             @Value("${app.auth.jwt.audience}") String audience
     ) {
         /**
-         * NOTE: [Auth Migration]
-         * community-service도 profile-service와 동일하게 Better Auth JWT를 검증합니다.
-         * - jwkSetUri: Next.js Better Auth의 /api/auth/jwks 공개키
-         * - issuer:   frontend .env의 JWT_ISSUER와 동일해야 함
-         * - audience: frontend .env의 JWT_AUDIENCE와 동일해야 함
+         * NOTE: [Keycloak Migration]
+         * community-service는 Keycloak access token만 신뢰합니다.
+         * - jwkSetUri: Keycloak realm certs endpoint
+         * - issuer:   access token의 iss claim
+         * - audience: pickle-api audience mapper가 access token에 넣는 aud claim
          *
-         * Spring Boot의 jwk-set-uri 기본 설정은 서명/만료 검증에는 충분하지만,
-         * issuer/audience까지 명시적으로 맞춰야 다른 issuer의 토큰이 섞이는 문제를 막을 수 있습니다.
+         * jwk-set-uri만으로는 issuer/audience 경계가 충분하지 않으므로
+         * issuer/audience validator를 명시적으로 같이 둡니다.
          */
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
 

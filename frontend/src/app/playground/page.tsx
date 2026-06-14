@@ -1,12 +1,12 @@
 // src/app/playground/page.tsx
 import { Suspense } from "react"
-import { headers } from "next/headers"
 import { ErrorBoundary } from "react-error-boundary"
 import {
   HydrationBoundary,
   QueryClient,
   dehydrate,
 } from "@tanstack/react-query"
+import { getServerKeycloakAccessToken } from "@/features/auth/lib/server-access-token"
 import { getServerSession } from "@/features/auth/lib/server-session"
 import PlaygroundClient from "@/features/playground/components/playground-client"
 import {
@@ -24,74 +24,26 @@ import {
 
 export const dynamic = "force-dynamic"
 
-type JsonObject = Record<string, unknown>
-
-const GATEWAY_BASE =
-  process.env.GATEWAY_BASE_URL ??
-  process.env.NEXT_PUBLIC_GATEWAY_BASE_URL ??
-  "http://localhost:8080"
-
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8088"
 const AUTH_BASE = process.env.BETTER_AUTH_URL ?? "http://localhost:3000"
-
-const parseJsonSafe = (text: string): unknown => {
-  try {
-    return JSON.parse(text) as unknown
-  } catch {
-    return { raw: text } satisfies JsonObject
-  }
-}
-
-const getTokenFromUnknown = (input: unknown): string | null => {
-  if (!input || typeof input !== "object") return null
-  const obj = input as JsonObject
-
-  if (typeof obj.token === "string") return obj.token
-
-  const data = obj.data
-  if (data && typeof data === "object") {
-    const dataObj = data as JsonObject
-    if (typeof dataObj.token === "string") return dataObj.token
-  }
-
-  return null
-}
-
-const issueJwtFromCookie = async (): Promise<string | null> => {
-  const h = await headers()
-  const cookie = h.get("cookie") ?? ""
-  if (!cookie) return null
-
-  const res = await fetch(`${AUTH_BASE}/api/auth/token`, {
-    method: "GET",
-    headers: { cookie },
-    cache: "no-store",
-  })
-
-  if (!res.ok) return null
-
-  const text = await res.text()
-  const json = parseJsonSafe(text)
-  return getTokenFromUnknown(json)
-}
 
 export default async function PlaygroundPage() {
   const session = await getServerSession()
-  const jwt = await issueJwtFromCookie()
+  const accessToken = await getServerKeycloakAccessToken()
 
   const queryClient = new QueryClient()
 
-  // 서버 사이드에서 데이터 미리 패칭 (prefetch)
-  if (jwt) {
+  if (accessToken) {
     await Promise.all([
       prefetchGetMeQuery(queryClient, {
-        fetch: {
-          headers: { Authorization: `Bearer ${jwt}` },
+        request: {
+          headers: { Authorization: `Bearer ${accessToken}` },
           cache: "no-store",
         },
       }),
       prefetchGetEchoQuery(queryClient, {
-        fetch: {
-          headers: { Authorization: `Bearer ${jwt}` },
+        request: {
+          headers: { Authorization: `Bearer ${accessToken}` },
           cache: "no-store",
         },
       }),
@@ -99,12 +51,10 @@ export default async function PlaygroundPage() {
   }
 
   const dehydratedState = dehydrate(queryClient)
-
-  // SSR 단계에서 서버용 캐시값을 꺼내 확인용 UI에 렌더링
-  const serverProfile = jwt
+  const serverProfile = accessToken
     ? queryClient.getQueryData(getGetMeSuspenseQueryOptions().queryKey)
     : null
-  const serverEcho = jwt
+  const serverEcho = accessToken
     ? queryClient.getQueryData(getGetEchoSuspenseQueryOptions().queryKey)
     : null
 
@@ -118,7 +68,7 @@ export default async function PlaygroundPage() {
       <section>
         <h2>서버 측 환경 변수 및 상태</h2>
         <div>
-          GATEWAY_BASE: <code>{GATEWAY_BASE}</code>
+          API_ORIGIN: <code>{API_ORIGIN}</code>
         </div>
         <div>
           AUTH_BASE: <code>{AUTH_BASE}</code>
@@ -127,9 +77,11 @@ export default async function PlaygroundPage() {
         <h3>서버 세션</h3>
         <pre>{JSON.stringify(session ?? null, null, 2)}</pre>
 
-        <h3>서버에서 발급받은 JWT</h3>
+        <h3>서버에서 가져온 Keycloak access token</h3>
         <pre>
-          {jwt ? `${jwt.slice(0, 32)}…` : "토큰 없음 (로그인이 필요합니다)"}
+          {accessToken
+            ? `${accessToken.slice(0, 32)}…`
+            : "토큰 없음 (로그인이 필요합니다)"}
         </pre>
 
         <h3>프리페치된 Profile 데이터 (서버 캐시)</h3>
@@ -139,11 +91,10 @@ export default async function PlaygroundPage() {
         <pre>{JSON.stringify(serverEcho, null, 2)}</pre>
       </section>
 
-      {/* 클라이언트 컴포넌트는 HydrationBoundary와 Suspense로 감싸서 분리 */}
       <ErrorBoundary FallbackComponent={PlaygroundErrorFallback}>
         <Suspense fallback={<PlaygroundSuspenseFallback />}>
           <HydrationBoundary state={dehydratedState}>
-            <PlaygroundClient gatewayBase={GATEWAY_BASE} serverJwt={jwt} />
+            <PlaygroundClient apiOrigin={API_ORIGIN} serverAccessToken={accessToken} />
           </HydrationBoundary>
         </Suspense>
       </ErrorBoundary>

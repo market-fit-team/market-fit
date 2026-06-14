@@ -1,0 +1,101 @@
+{
+  "services": [
+    {
+      "id": "profile-service",
+      "name": "profile",
+      "address": "profile-service",
+      "port": 3001,
+      "tags": ["api", "public", "orval", "node"],
+      "meta": {
+        "protocol": "http",
+        "publicPath": "/api/profile",
+        "openapiPath": "/v3/api-docs",
+        "schemasType": "zod",
+        "stripPrefix": "true",
+        "auth": "keycloak"
+      },
+      "checks": [
+        {
+          "id": "profile-service-tcp",
+          "name": "profile-service tcp",
+          "tcp": "profile-service:3001",
+          "interval": "10s",
+          "timeout": "2s"
+        }
+      ]
+    },
+    {
+      "id": "echo-service",
+      "name": "echo",
+      "address": "echo-service",
+      "port": 3002,
+      "tags": ["api", "public", "orval", "node"],
+      "meta": {
+        "protocol": "http",
+        "publicPath": "/api/echo",
+        "openapiPath": "/v3/api-docs",
+        "schemasType": "zod",
+        "stripPrefix": "true",
+        "auth": "keycloak"
+      },
+      "checks": [
+        {
+          "id": "echo-service-tcp",
+          "name": "echo-service tcp",
+          "tcp": "echo-service:3002",
+          "interval": "10s",
+          "timeout": "2s"
+        }
+      ]
+    },
+    {
+      "id": "community-service",
+      "name": "community",
+      "address": "community-service",
+      "port": 8080,
+      "tags": ["api", "public", "orval", "spring"],
+      "meta": {
+        "protocol": "http",
+        "publicPath": "/api/community",
+        "openapiPath": "/v3/api-docs",
+        "schemasType": "zod",
+        "stripPrefix": "true",
+        "auth": "keycloak"
+      },
+      "checks": [
+        {
+          "id": "community-service-tcp",
+          "name": "community-service tcp",
+          "tcp": "community-service:8080",
+          "interval": "10s",
+          "timeout": "2s"
+        }
+      ]
+    },
+    {
+      "id": "agent-service",
+      "name": "agent",
+      "address": "agent-service",
+      "port": 2024,
+      "tags": ["api", "public", "orval", "python", "sse"],
+      "meta": {
+        "protocol": "http",
+        "publicPath": "/api/agent",
+        "openapiPath": "/openapi.json",
+        "schemasType": "typescript",
+        "stripPrefix": "true",
+        "streaming": "sse",
+        "auth": "keycloak"
+      },
+      "checks": [
+        {
+          "id": "agent-service-tcp",
+          "name": "agent-service tcp",
+          "tcp": "agent-service:2024",
+          "interval": "10s",
+          "timeout": "2s"
+        }
+      ]
+    }
+  ]
+}

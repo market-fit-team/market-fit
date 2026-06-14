@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "api:gen": "orval",
+    "api:gen": "npm run api:catalog && npm run api:gen:only",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -16,7 +16,9 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "api:catalog": "node scripts/fetch-service-catalog.mjs",
+    "api:gen:only": "orval"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
