@@ -6,6 +6,7 @@ shape를 쓴다.
 
 맞추는 필드:
 - 추론 텍스트: `additional_kwargs.reasoning_content`
+- 표준 block: `AIMessage.content_blocks`의 reasoning block
 - tool call 응답 content: 빈 문자열
 - 파싱된 tool call: `AIMessage.tool_calls`
 
@@ -14,6 +15,12 @@ shape를 쓴다.
 - Google Gemma: `tool_calls`와 중복되는 `additional_kwargs.function_call`
 - OpenRouter gpt-oss/deepseek/gemma: raw `message.reasoning` 또는
   `delta.reasoning`
+
+주의:
+- LangChain은 `response_metadata.model_provider`가 있으면 provider translator를 먼저 탄다.
+- `google_genai`, `openai` translator는 `additional_kwargs.reasoning_content`를 보지 않는다.
+- 그래서 이 adapter를 지난 메시지는 `model_provider`를 제거해 Ollama와 같은
+  best-effort `content_blocks` 경로를 타게 한다.
 """
 
 from __future__ import annotations
@@ -27,6 +34,12 @@ from langchain_openai import ChatOpenAI
 
 
 class ChatOpenRouter(ChatOpenAI):
+    def _generate(self, *args: Any, **kwargs: Any) -> ChatResult:
+        return normalize_chat_result(super()._generate(*args, **kwargs))
+
+    async def _agenerate(self, *args: Any, **kwargs: Any) -> ChatResult:
+        return normalize_chat_result(await super()._agenerate(*args, **kwargs))
+
     def _create_chat_result(
         self,
         response: Any,
@@ -112,13 +125,19 @@ def normalize_ai_message(
         additional_kwargs.pop("__gemini_function_call_thought_signatures__", None)
 
     content = _normalize_content(message)
-    if content == message.content and additional_kwargs == message.additional_kwargs:
+    response_metadata = _normalize_response_metadata(message)
+    if (
+        content == message.content
+        and additional_kwargs == message.additional_kwargs
+        and response_metadata == message.response_metadata
+    ):
         return message
 
     return message.model_copy(
         update={
             "content": content,
             "additional_kwargs": additional_kwargs,
+            "response_metadata": response_metadata,
         }
     )
 
@@ -154,6 +173,12 @@ def _extract_reasoning_from_message(
         return reasoning
 
     return _thinking_text(message.content)
+
+
+def _normalize_response_metadata(message: AIMessage | AIMessageChunk) -> dict[str, Any]:
+    response_metadata = dict(message.response_metadata)
+    response_metadata.pop("model_provider", None)
+    return response_metadata
 
 
 def _thinking_text(content: Any) -> str | None:

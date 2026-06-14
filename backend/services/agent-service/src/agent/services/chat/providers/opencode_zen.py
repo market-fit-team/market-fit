@@ -1,12 +1,13 @@
-from typing import Any
+from typing import Any, cast
 
-from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_openai import ChatOpenAI
 
 from agent.core.config import settings
 from agent.schemas.chat import ReasoningEffort
 from agent.services.chat.model_cards import ChatModelRoute
+from agent.services.chat.providers.normalized import normalize_chat_generation, normalize_chat_result
 
 
 class ChatOpenCodeZen(ChatOpenAI):
@@ -23,6 +24,12 @@ class ChatOpenCodeZen(ChatOpenAI):
     같은 문제가 LangChain 이슈로도 보고되어 있습니다:
     https://github.com/langchain-ai/langchain/issues/35516
     """
+
+    def _generate(self, *args: Any, **kwargs: Any) -> Any:
+        return normalize_chat_result(super()._generate(*args, **kwargs))
+
+    async def _agenerate(self, *args: Any, **kwargs: Any) -> Any:
+        return normalize_chat_result(await super()._agenerate(*args, **kwargs))
 
     def _get_request_payload(
         self,
@@ -69,14 +76,15 @@ class ChatOpenCodeZen(ChatOpenAI):
             default_chunk_class,
             base_generation_info,
         )
-        reasoning_content = _extract_reasoning_content(chunk)
-        if (
-            reasoning_content
-            and generation_chunk is not None
-            and isinstance(generation_chunk.message, AIMessageChunk)
-        ):
-            generation_chunk.message.additional_kwargs["reasoning_content"] = reasoning_content
-        return generation_chunk
+        if generation_chunk is None:
+            return None
+        return cast(
+            ChatGenerationChunk,
+            normalize_chat_generation(
+                generation_chunk,
+                reasoning_content=_extract_reasoning_content(chunk),
+            ),
+        )
 
 
 def create_opencode_zen_chat_model(

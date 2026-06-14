@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from langchain_core.messages import AIMessage
-from langchain_core.outputs import ChatGeneration
+from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk
 from pydantic import SecretStr
 
 from agent.services.chat.providers.normalized import (
@@ -29,6 +29,7 @@ def test_normalize_message_converts_google_gemma_tool_call_shape() -> None:
         response_metadata={
             "finish_reason": "STOP",
             "model_name": "gemma-4-31b-it",
+            "model_provider": "google_genai",
         },
         tool_calls=[
             {
@@ -49,6 +50,11 @@ def test_normalize_message_converts_google_gemma_tool_call_shape() -> None:
         "reasoning_content": "The user wants the result of 19 * 3."
     }
     assert normalized.response_metadata["finish_reason"] == "STOP"
+    assert "model_provider" not in normalized.response_metadata
+    assert normalized.content_blocks[0] == {
+        "type": "reasoning",
+        "reasoning": "The user wants the result of 19 * 3.",
+    }
 
 
 def test_chat_openai_reasoning_adapter_keeps_openrouter_reasoning() -> None:
@@ -94,6 +100,11 @@ def test_chat_openai_reasoning_adapter_keeps_openrouter_reasoning() -> None:
     assert isinstance(message, AIMessage)
     assert message.content == ""
     assert message.additional_kwargs["reasoning_content"] == "Use multiply with a=19 and b=3."
+    assert "model_provider" not in message.response_metadata
+    assert message.content_blocks[0] == {
+        "type": "reasoning",
+        "reasoning": "Use multiply with a=19 and b=3.",
+    }
     assert message.tool_calls == [
         {
             "name": "multiply",
@@ -144,3 +155,26 @@ def test_normalize_chat_generation_updates_message_before_stream_event() -> None
     assert normalized.message.additional_kwargs == {
         "reasoning_content": "I should call the multiply tool."
     }
+
+
+def test_normalize_chat_generation_keeps_reasoning_visible_in_chunk_content_blocks() -> None:
+    generation = ChatGenerationChunk(
+        message=AIMessageChunk(
+            content="",
+            additional_kwargs={"reasoning_content": "I should call the multiply tool."},
+            response_metadata={"model_provider": "openai"},
+        )
+    )
+
+    normalized = normalize_chat_generation(generation)
+
+    assert normalized.message.additional_kwargs == {
+        "reasoning_content": "I should call the multiply tool."
+    }
+    assert "model_provider" not in normalized.message.response_metadata
+    assert normalized.message.content_blocks == [
+        {
+            "type": "reasoning",
+            "reasoning": "I should call the multiply tool.",
+        }
+    ]
