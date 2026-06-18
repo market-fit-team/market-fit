@@ -10,7 +10,7 @@ const AnimalsSearchParamsSchema = z.object({
 
 export default async function AnimalSearchModalPage({
   searchParams,
-}: PageProps<"/animals/search">) {
+}: PageProps<"/example/animals/search">) {
   const rawSearchParams = (await searchParams) ?? {}
   const parsedSearchParams =
     AnimalsSearchParamsSchema.safeParse(rawSearchParams)

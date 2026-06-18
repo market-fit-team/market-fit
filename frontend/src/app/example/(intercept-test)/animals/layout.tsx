@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 export default function AnimalsLayout({
   children,
   modal,
-}: LayoutProps<"/animals"> & {
+}: LayoutProps<"/example/animals"> & {
   children: ReactNode
   modal: ReactNode
 }) {

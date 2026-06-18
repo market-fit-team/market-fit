@@ -1,4 +1,4 @@
-// src/app/playground/page.tsx
+// src/app/example/playground/page.tsx
 import { Suspense } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import {
@@ -61,7 +61,7 @@ export default async function PlaygroundPage() {
   return (
     <main>
       <div>
-        <h1>/playground</h1>
+        <h1>/example/playground</h1>
         <p>서버 측 Shell (SSR)</p>
       </div>
 

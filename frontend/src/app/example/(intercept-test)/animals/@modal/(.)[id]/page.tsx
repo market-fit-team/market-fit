@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation"
 import { getAnimalById } from "@/features/animal/api/animal-service"
-import { AnimalDetailPageCard } from "@/features/animal/components/animal-detail"
+import { AnimalDetailDialog } from "@/features/animal/components/animal-detail"
 
-export default async function AnimalDetailPage({
+export default async function AnimalDetailModalPage({
   params,
-}: PageProps<"/animals/[id]">) {
+}: PageProps<"/example/animals/[id]">) {
   const { id } = await params
   const animal = await getAnimalById(id)
 
   if (!animal) notFound()
 
-  return <AnimalDetailPageCard animal={animal} />
+  return <AnimalDetailDialog animal={animal} />
 }

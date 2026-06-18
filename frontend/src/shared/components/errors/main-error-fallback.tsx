@@ -25,10 +25,10 @@ export function MainErrorFallback({
     ? (parsedError.data.detail ?? parsedError.data.title)
     : undefined
 
-  if (isUnauthorized && pathname !== "/sign-in") {
+  if (isUnauthorized && pathname !== "/example/sign-in") {
     const callbackURL = `${pathname}${search ? `?${search}` : ""}`
     // Next.js App Router의 redirect()는 Client Component 렌더 중에도 사용할 수 있습니다.
-    redirect(`/sign-in?callbackURL=${encodeURIComponent(callbackURL)}`)
+    redirect(`/example/sign-in?callbackURL=${encodeURIComponent(callbackURL)}`)
   }
 
   return (

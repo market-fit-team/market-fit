@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test"
 test.describe("Community Features", () => {
   test("should render post list and load more", async ({ page }) => {
     // 이제 실제 생성된 라우트로 접속합니다.
-    await page.goto("/community/posts")
+    await page.goto("/example/community/posts")
 
     // 컴포넌트 렌더링 확인 (서버에서 dehydrate 된 데이터가 렌더링되는지)
     const heading = page.locator("h1:has-text('커뮤니티')")
@@ -17,7 +17,7 @@ test.describe("Community Features", () => {
   })
 
   test("should be able to create a post", async ({ page }) => {
-    await page.goto("/community/posts")
+    await page.goto("/example/community/posts")
 
     const textarea = page.locator("textarea[placeholder='내용을 입력하세요']")
     await expect(textarea).toBeVisible()
@@ -37,7 +37,7 @@ test.describe("Community Features", () => {
 
   test("should be able to schedule a post", async ({ page }) => {
     // 실제 예약 게시글 라우트로 접속합니다.
-    await page.goto("/community/scheduled-posts")
+    await page.goto("/example/community/scheduled-posts")
 
     const heading = page.locator("h1:has-text('예약 게시글 작성')")
     await expect(heading).toBeVisible()

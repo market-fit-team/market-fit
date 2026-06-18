@@ -52,7 +52,7 @@ function AnimalDetailBody({ animal }: AnimalDetailProps) {
         </div>
         <div className="rounded-md border border-border bg-input/20 p-3">
           <dt className="mb-1 text-[0.625rem] text-muted-foreground">경로</dt>
-          <dd className="text-sm">{`/animals/${animal.id}`}</dd>
+          <dd className="text-sm">{`/example/animals/${animal.id}`}</dd>
         </div>
       </dl>
 
@@ -76,7 +76,7 @@ export function AnimalDetailPageCard({ animal }: AnimalDetailProps) {
         </CardContent>
         <CardFooter>
           <Button asChild variant="outline">
-            <Link href="/animals">/animals 로 돌아가기</Link>
+            <Link href="/example/animals">/example/animals 로 돌아가기</Link>
           </Button>
         </CardFooter>
       </Card>

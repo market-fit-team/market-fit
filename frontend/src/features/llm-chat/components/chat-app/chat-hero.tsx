@@ -39,7 +39,7 @@ export function ChatHero({ threadId, isBusy, onReset }: ChatHeroProps) {
               <DropdownMenuLabel>채팅 정보</DropdownMenuLabel>
               <DropdownMenuItem className="justify-between py-2 text-sm">
                 <span className="text-muted-foreground">경로</span>
-                <span>/chat</span>
+                <span>/example/chat</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="justify-between py-2 text-sm">
                 <span className="text-muted-foreground">스레드</span>

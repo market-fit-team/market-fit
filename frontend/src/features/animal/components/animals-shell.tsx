@@ -71,13 +71,15 @@ export function AnimalsShell({ animals, query }: AnimalsShellProps) {
   }, [query])
 
   const searchHref = query
-    ? `/animals/search?q=${encodeURIComponent(query)}`
-    : "/animals/search"
+    ? `/example/animals/search?q=${encodeURIComponent(query)}`
+    : "/example/animals/search"
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       <div className="flex flex-col gap-2">
-        <h1 className="font-heading text-2xl font-semibold">/animals</h1>
+        <h1 className="font-heading text-2xl font-semibold">
+          /example/animals
+        </h1>
         <p className="text-sm text-muted-foreground">
           목록은 서버 컴포넌트에서 필터링한다. 상세와 검색은 URL로 모달을 연다.
         </p>
@@ -96,8 +98,8 @@ export function AnimalsShell({ animals, query }: AnimalsShellProps) {
                 <div>
                   <CardTitle>동물 목록</CardTitle>
                   <CardDescription>
-                    동물을 누르면 `/animals/[id]`로 이동하고 인터셉트 모달이
-                    열린다.
+                    동물을 누르면 `/example/animals/[id]`로 이동하고 인터셉트
+                    모달이 열린다.
                   </CardDescription>
                 </div>
                 <Button asChild variant="outline">
@@ -138,7 +140,7 @@ export function AnimalsShell({ animals, query }: AnimalsShellProps) {
                   </span>
                   <Button asChild>
                     <Link
-                      href={`/animals/${animal.id}`}
+                      href={`/example/animals/${animal.id}`}
                       onClick={() =>
                         appendLog(`상세 모달 열기 -> ${animal.id}`)
                       }

@@ -19,7 +19,7 @@ export const proxy = async (request: NextRequest) => {
   })
 
   if (!session) {
-    const url = new URL("/sign-in", request.url)
+    const url = new URL("/example/sign-in", request.url)
     url.searchParams.set("callbackURL", request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
@@ -28,5 +28,5 @@ export const proxy = async (request: NextRequest) => {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/example/dashboard/:path*"],
 }

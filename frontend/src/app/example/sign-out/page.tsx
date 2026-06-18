@@ -1,4 +1,4 @@
-// src/app/sign-out/page.tsx
+// src/app/example/sign-out/page.tsx
 "use client"
 
 // signOut 클라이언트 메서드 공식 문서

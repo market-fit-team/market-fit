@@ -21,7 +21,7 @@ export default function SignInClient({
           await authClient.signIn.oauth2({
             providerId: AUTHENTIK_PROVIDER_ID,
             callbackURL,
-            errorCallbackURL: "/sign-in?error=oauth",
+            errorCallbackURL: "/example/sign-in?error=oauth",
             scopes: ["openid", "profile", "email"],
           })
         }}

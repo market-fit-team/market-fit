@@ -20,7 +20,7 @@ export function UserNav() {
     return (
       <div>
         <Button asChild>
-          <Link href="/sign-in">Sign in</Link>
+          <Link href="/example/sign-in">Sign in</Link>
         </Button>
       </div>
     )
