@@ -1,0 +1,823 @@
+name: Codex Code Review
+
+# GitHub Suggested Changes 원문:
+# - 작성 UI/문법:
+#   https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/reviewing-proposed-changes-in-a-pull-request
+# - Pull Request Review REST API:
+#   https://docs.github.com/en/rest/pulls/reviews#create-a-review-for-a-pull-request
+# - 멀티라인 review comment 위치 필드:
+#   https://docs.github.com/en/rest/pulls/comments#create-a-review-comment-for-a-pull-request
+#
+# GitHub API에는 suggestion 전용 필드가 없다. 아래 워크플로 내부 JSON의
+# suggestion을 게시 직전에 review comment body의 `suggestion` fenced block으로 변환한다.
+
+# PR 댓글에 /code-review가 달렸을 때 실행
+on:
+  issue_comment:
+    types: [created]
+
+# 코드 읽기, PR 정보 조회, 진행 댓글 작성/수정, PR 리뷰 작성에 필요한 권한
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  code-review:
+    # 저장소 구성원이 PR에 /code-review 댓글을 달았을 때만 실행
+    if: >-
+      ${{
+        github.event.issue.pull_request &&
+        (
+          github.event.comment.body == '/code-review' ||
+          startsWith(github.event.comment.body, '/code-review ')
+        ) &&
+        (
+          github.event.comment.author_association == 'OWNER' ||
+          github.event.comment.author_association == 'MEMBER' ||
+          github.event.comment.author_association == 'COLLABORATOR'
+        )
+      }}
+
+    # VPS에 등록한 self-hosted runner에서 실행
+    runs-on: [self-hosted, Linux, ARM64]
+
+    steps:
+      # PR 번호, base 브랜치, head SHA 정보를 가져옴
+      - name: PR 정보 가져오기
+        id: pr
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const prNumber = context.payload.issue.number;
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+            });
+
+            core.setOutput('number', String(prNumber));
+            core.setOutput('base_ref', pr.base.ref);
+            core.setOutput('head_sha', pr.head.sha);
+            core.setOutput('title', pr.title || '');
+
+            const command = String(context.payload.comment.body || '');
+            const reviewRequest = command.replace(/^\/code-review\b/, '').trim();
+            core.setOutput('review_request', reviewRequest);
+
+      # 리뷰 시작을 PR 일반 댓글로 알리고, 나중에 같은 댓글을 계속 수정하기 위해 댓글 ID 저장
+      - name: 리뷰 시작 댓글 작성
+        id: start-comment
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const { data: comment } = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: [
+                '## Codex 코드 리뷰 진행 중 🚀',
+                '',
+                'gpt-5.4 xhigh로 머지될 변경사항만 분석하고 있습니다.',
+                '',
+                `- PR: #${context.payload.issue.number}`,
+                `- 실행 ID: ${context.runId}`,
+                `- 실행 로그: [GitHub Actions에서 보기](${runUrl})`,
+                '',
+                '현재 상태: PR diff를 준비하고 있습니다.',
+              ].join('\n'),
+            });
+
+            core.setOutput('comment_id', String(comment.id));
+
+      # code-server 컨테이너 안의 market-fit 저장소를 기준으로 임시 worktree를 만들고 Codex 리뷰 JSON 생성
+      - name: code-server 안에서 Codex inline 리뷰 JSON 생성
+        id: generate-review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          REVIEW_REQUEST: ${{ steps.pr.outputs.review_request }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          REVIEW_FILE="$RUNNER_TEMP/codex-inline-review-${PR_NUMBER}.json"
+          CONTAINER_REVIEW_FILE="/tmp/codex-inline-review-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          WORKTREE="/tmp/codex-review-worktree-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          PROMPT_FILE="/tmp/codex-review-prompt-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.txt"
+          SCHEMA_FILE="/tmp/codex-review-schema-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          PR_REF="refs/remotes/origin/codex-pr-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+          echo "REVIEW_FILE=$REVIEW_FILE" >> "$GITHUB_ENV"
+          rm -f "$REVIEW_FILE"
+
+          set +e
+
+          docker compose \
+            -f /home/ubuntu/code-server/docker-compose.opencode.yml \
+            -f /home/ubuntu/code-server/docker-compose.yml \
+            exec -T \
+            -e GH_TOKEN="$GH_TOKEN" \
+            -e PR_NUMBER="$PR_NUMBER" \
+            -e BASE_REF="$BASE_REF" \
+            -e HEAD_SHA="$HEAD_SHA" \
+            -e REVIEW_REQUEST="$REVIEW_REQUEST" \
+            -e GITHUB_RUN_ID="$GITHUB_RUN_ID" \
+            -e GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+            -e CONTAINER_REVIEW_FILE="$CONTAINER_REVIEW_FILE" \
+            -e WORKTREE="$WORKTREE" \
+            -e PROMPT_FILE="$PROMPT_FILE" \
+            -e SCHEMA_FILE="$SCHEMA_FILE" \
+            -e PR_REF="$PR_REF" \
+            code-server sh -s <<'CONTAINER_SCRIPT'
+          set -eu
+
+          REPO_DIR="/home/coder/project/market-fit"
+
+          cleanup() {
+            git -C "$REPO_DIR" worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+            git -C "$REPO_DIR" update-ref -d "$PR_REF" >/dev/null 2>&1 || true
+            rm -f "$PROMPT_FILE" "$SCHEMA_FILE" >/dev/null 2>&1 || true
+          }
+
+          trap cleanup EXIT
+
+          cd "$REPO_DIR"
+
+          # 기존 code-server 작업 브랜치/변경사항은 건드리지 않고, PR 코드만 임시 worktree에 분리
+          git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+          git worktree prune >/dev/null 2>&1 || true
+          git update-ref -d "$PR_REF" >/dev/null 2>&1 || true
+          rm -f "$CONTAINER_REVIEW_FILE"
+
+          # base 브랜치 최신 상태 가져오기
+          git fetch "https://x-access-token:${GH_TOKEN}@github.com/market-fit-team/market-fit.git" \
+            "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+
+          # PR head를 임시 ref로 가져오기
+          git fetch "https://x-access-token:${GH_TOKEN}@github.com/market-fit-team/market-fit.git" \
+            "pull/${PR_NUMBER}/head:${PR_REF}"
+
+          # 리뷰 시작 후 새 커밋이 push되었다면 서로 다른 SHA의 diff와 API payload를 섞지 않는다.
+          # 사용자가 최신 커밋에서 /code-review를 다시 실행하도록 명시적으로 실패시킨다.
+          FETCHED_HEAD_SHA="$(git rev-parse "$PR_REF")"
+          if [ "$FETCHED_HEAD_SHA" != "$HEAD_SHA" ]; then
+            echo "PR head가 리뷰 시작 후 변경되었습니다. expected=$HEAD_SHA actual=$FETCHED_HEAD_SHA" >&2
+            exit 1
+          fi
+
+          # PR 코드를 임시 worktree에 체크아웃
+          git worktree add --detach "$WORKTREE" "$PR_REF"
+
+          cd "$WORKTREE"
+
+          # heredoc 종료자는 YAML 들여쓰기 제거 후 반드시 열 0에 있어야 한다.
+          cat > "$SCHEMA_FILE" <<'JSON_SCHEMA'
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "review_status": {
+                "type": "string",
+                "enum": ["completed", "blocked"]
+              },
+              "failure_reason": {
+                "type": "string"
+              },
+              "pr_title": {
+                "type": "string"
+              },
+              "pr_detail": {
+                "type": "string"
+              },
+              "overall_review": {
+                "type": "string"
+              },
+              "comments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "side": {
+                      "type": "string",
+                      "enum": ["RIGHT", "LEFT"]
+                    },
+                    "start_line": {
+                      "type": ["integer", "null"],
+                      "minimum": 1
+                    },
+                    "start_side": {
+                      "type": ["string", "null"],
+                      "enum": ["RIGHT", "LEFT", null]
+                    },
+                    "severity": {
+                      "type": "string",
+                      "enum": ["치명적", "우선순위 높음", "우선순위 보통", "우선순위 낮음", "개선의견"]
+                    },
+                    "body": {
+                      "type": "string"
+                    },
+                    "suggestion": {
+                      "type": ["string", "null"]
+                    }
+                  },
+                  "required": [
+                    "path",
+                    "line",
+                    "side",
+                    "start_line",
+                    "start_side",
+                    "severity",
+                    "body",
+                    "suggestion"
+                  ]
+                }
+              }
+            },
+            "required": ["review_status", "failure_reason", "pr_title", "pr_detail", "overall_review", "comments"]
+          }
+          JSON_SCHEMA
+
+          # Codex에게 GitHub inline review에 바로 쓸 수 있는 JSON만 만들게 함
+          cat > "$PROMPT_FILE" <<PROMPT
+          origin/${BASE_REF}...HEAD 범위의 머지될 변경사항만 코드리뷰해줘.
+
+          사용자 메시지:
+          ${REVIEW_REQUEST:-추가 요청 없음}
+
+          위 사용자 메시지는 /code-review 명령을 실행한 사용자가 직접 작성한 리뷰 요청이다.
+          추가 요청이 있다면 리뷰 범위, 우선순위, 관점에 반드시 반영하고 해당 요청을 따라야 한다.
+          단, 아래의 필수 리뷰 규칙과 JSON 출력 형식은 항상 유지해야 한다.
+
+          중요:
+          - 빌드, 테스트, 실행은 하지 마.
+          - 코드와 git diff만 읽고 리뷰해.
+          - 변경사항 밖의 코드는 맥락 확인용으로만 참고해.
+          - 파일 경로는 반드시 repository root 기준 상대경로로 써. 예: backend/app.py
+          - /home/coder, /tmp, 절대경로는 절대 쓰지 마.
+          - inline comment의 line은 GitHub PR diff에 존재하는 실제 라인 번호만 써.
+          - 새로 추가되었거나 변경된 줄은 side를 RIGHT로 써.
+          - 삭제된 줄을 꼭 지적해야 할 때만 side를 LEFT로 써.
+          - suggestion은 PR head에 실제 적용되어야 하므로 side가 RIGHT인 comment에만 넣어. LEFT이면 suggestion은 null로 써.
+          - 한 줄만 교체하면 start_line과 start_side는 null로 써.
+          - 여러 줄을 한 번에 교체하면 start_line은 첫 줄, line은 마지막 줄로 쓰고 start_side와 side를 같은 값으로 써.
+          - 여러 줄 범위는 중간의 모든 줄이 같은 diff side에 실제로 존재하는 연속 범위여야 해.
+          - 사소한 취향/스타일 지적은 하지 마.
+          - 보안 문제, 실제 버그, 회귀 위험, 테스트 누락을 우선해.
+          - comments는 실제로 고칠 가치가 있는 항목만 넣어.
+          - 정확한 대체 코드를 제시할 수 있으면 suggestion에 교체 후 코드만 넣어. Markdown fence는 넣지 마.
+          - suggestion의 들여쓰기는 최종 파일에 들어갈 형태 그대로 보존해.
+          - 선택한 코드를 삭제하는 제안이면 suggestion을 빈 문자열로 써.
+          - 정확한 수정안을 제시하기 어렵고 설명만 필요한 리뷰는 suggestion을 null로 써.
+          - suggestion은 선택한 한 줄 또는 start_line부터 line까지의 전체 범위를 통째로 대체한다는 점을 고려해.
+          - comments가 없으면 빈 배열로 둬.
+          - 반드시 git diff origin/${BASE_REF}...HEAD를 직접 읽은 뒤에만 review_status를 completed로 써.
+          - 저장소나 diff를 읽지 못했으면 review_status를 blocked로 쓰고 failure_reason에 원인을 적어.
+          - 최종 출력은 JSON만. 마크다운 코드블록 금지.
+
+          JSON 필드:
+          - review_status: 리뷰를 실제 수행했으면 completed, 수행하지 못했으면 blocked
+          - failure_reason: completed이면 빈 문자열, blocked이면 실패 원인
+          - pr_title: "type: ..." 형식의 명사형 종결어미 PR 제목. (type은 feat, fix, chore, docs, refactor, test, ui 중 하나)
+          - pr_detail: 전체 변경사항 상세한 PR 문서. 한국어. 항상 친절한 문체로 모든 변경사항에 대해 코드블럭과 함께 매우 상세하게 적고, 이모지도 많이 적고, 매우 길고 상세하게 적는다.
+          - overall_review: 전체 리뷰 총평. 한국어.
+          - comments: GitHub inline review comments 배열. 각 항목은 path, line, side, start_line, start_side, severity, body, suggestion을 포함.
+          PROMPT
+
+          # PR 코드의 지침이 GitHub 토큰에 접근하지 못하게 fetch 이후 환경에서 제거한다.
+          unset GH_TOKEN
+
+          NODE_BIN="/home/coder/.config/nvm/versions/node/v24.15.0/bin/node"
+          CODEX_CLI="/home/coder/.config/nvm/versions/node/v24.15.0/bin/codex"
+
+          "$NODE_BIN" "$CODEX_CLI" exec \
+            --sandbox danger-full-access \
+            --ephemeral \
+            --color never \
+            --output-schema "$SCHEMA_FILE" \
+            --output-last-message "$CONTAINER_REVIEW_FILE" \
+            --model gpt-5.4 \
+            -c model_reasoning_effort=xhigh \
+            - < "$PROMPT_FILE"
+          CONTAINER_SCRIPT
+
+          CODEX_EXIT=$?
+
+          set -e
+
+          # 컨테이너 안에 저장된 Codex JSON 결과를 runner 쪽 파일로 가져옴
+          if [ "$CODEX_EXIT" -eq 0 ] && docker compose \
+            -f /home/ubuntu/code-server/docker-compose.opencode.yml \
+            -f /home/ubuntu/code-server/docker-compose.yml \
+            exec -T code-server sh -lc "test -s '$CONTAINER_REVIEW_FILE'"; then
+
+            docker compose \
+              -f /home/ubuntu/code-server/docker-compose.opencode.yml \
+              -f /home/ubuntu/code-server/docker-compose.yml \
+              exec -T code-server sh -lc "cat '$CONTAINER_REVIEW_FILE'" > "$REVIEW_FILE"
+          else
+            echo "::error::Codex 결과 파일이 생성되지 않았습니다."
+            CODEX_EXIT=1
+          fi
+
+          docker compose \
+            -f /home/ubuntu/code-server/docker-compose.opencode.yml \
+            -f /home/ubuntu/code-server/docker-compose.yml \
+            exec -T code-server rm -f "$CONTAINER_REVIEW_FILE" || true
+
+          echo "CODEX_EXIT=$CODEX_EXIT" >> "$GITHUB_ENV"
+          echo "codex_exit=$CODEX_EXIT" >> "$GITHUB_OUTPUT"
+
+      # 진행 댓글을 중간 상태로 갱신
+      - name: 리뷰 진행 댓글 갱신
+        if: ${{ always() && steps.generate-review.outputs.codex_exit == '0' }}
+        uses: actions/github-script@v8
+        env:
+          START_COMMENT_ID: ${{ steps.start-comment.outputs.comment_id }}
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: Number(process.env.START_COMMENT_ID),
+              body: [
+                '## Codex 코드 리뷰 진행 중 🧠',
+                '',
+                'Codex 분석이 끝났고, GitHub PR diff 라인에 inline review를 게시하는 중입니다.',
+                '',
+                `- PR: #${context.payload.issue.number}`,
+                `- 실행 ID: ${context.runId}`,
+                `- 실행 로그: [GitHub Actions에서 보기](${runUrl})`,
+              ].join('\n'),
+            });
+
+      # Codex JSON을 검증하고 GitHub Pull Request Review API로 inline comments 등록
+      - name: GitHub PR inline review 등록
+        id: publish-review
+        if: ${{ always() && steps.generate-review.outputs.codex_exit == '0' }}
+        uses: actions/github-script@v8
+        env:
+          START_COMMENT_ID: ${{ steps.start-comment.outputs.comment_id }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = Number(process.env.PR_NUMBER);
+            const headSha = process.env.HEAD_SHA;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            function readJsonFile(path) {
+              if (!path || !fs.existsSync(path)) {
+                throw new Error('Codex 리뷰 결과 파일을 찾지 못했습니다.');
+              }
+
+              const raw = fs.readFileSync(path, 'utf8').trim();
+
+              if (!raw) {
+                throw new Error('Codex 리뷰 결과 파일이 비어 있습니다.');
+              }
+
+              let parsed;
+
+              try {
+                parsed = JSON.parse(raw);
+              } catch {
+                const start = raw.indexOf('{');
+                const end = raw.lastIndexOf('}');
+                if (start >= 0 && end > start) {
+                  parsed = JSON.parse(raw.slice(start, end + 1));
+                } else {
+                  throw new Error('Codex JSON 파싱 실패');
+                }
+              }
+
+              if (
+                !parsed ||
+                !['completed', 'blocked'].includes(parsed.review_status) ||
+                typeof parsed.failure_reason !== 'string' ||
+                typeof parsed.pr_title !== 'string' ||
+                typeof parsed.pr_detail !== 'string' ||
+                typeof parsed.overall_review !== 'string' ||
+                !Array.isArray(parsed.comments)
+              ) {
+                throw new Error('Codex JSON 필수 필드 검증 실패');
+              }
+
+              if (parsed.review_status !== 'completed') {
+                throw new Error(
+                  `Codex가 코드 리뷰를 수행하지 못했습니다: ${parsed.failure_reason || '원인 없음'}`
+                );
+              }
+
+              return parsed;
+            }
+
+            /**
+             * GitHub의 file.patch를 실제 blob line 번호 집합으로 변환한다.
+             * RIGHT는 추가/문맥 줄, LEFT는 삭제/문맥 줄이다.
+             */
+            function parsePatchLines(patch) {
+              const right = new Set();
+              const left = new Set();
+
+              if (!patch) {
+                return { RIGHT: right, LEFT: left };
+              }
+
+              let oldLine = 0;
+              let newLine = 0;
+
+              for (const rawLine of patch.split('\n')) {
+                const hunk = rawLine.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+                if (hunk) {
+                  oldLine = Number(hunk[1]);
+                  newLine = Number(hunk[2]);
+                  continue;
+                }
+
+                if (rawLine.startsWith('+++') || rawLine.startsWith('---')) {
+                  continue;
+                }
+
+                if (rawLine.startsWith('+')) {
+                  right.add(newLine);
+                  newLine += 1;
+                  continue;
+                }
+
+                if (rawLine.startsWith('-')) {
+                  left.add(oldLine);
+                  oldLine += 1;
+                  continue;
+                }
+
+                if (rawLine.startsWith(' ')) {
+                  right.add(newLine);
+                  left.add(oldLine);
+                  oldLine += 1;
+                  newLine += 1;
+                }
+              }
+
+              return { RIGHT: right, LEFT: left };
+            }
+
+            function rejectComment(rejectedComments, comment, reason) {
+              rejectedComments.push({
+                path: comment.path,
+                line: comment.line,
+                side: comment.side,
+                startLine: comment.startLine,
+                startSide: comment.startSide,
+                severity: comment.severity,
+                body: comment.bodyText,
+                suggestion: comment.suggestion,
+                reason,
+              });
+            }
+
+            /**
+             * 한 줄 comment와 멀티라인 comment를 동일한 내부 표현으로 정규화한다.
+             * suggestion은 null이면 일반 inline comment, 문자열이면 Suggested Change다.
+             * 빈 문자열도 "선택 범위 삭제"라는 유효한 suggestion이므로 보존한다.
+             */
+            function normalizeComment(item) {
+              const hasStartLine = item.start_line !== null && item.start_line !== undefined;
+              const hasStartSide = item.start_side !== null && item.start_side !== undefined;
+
+              return {
+                path: String(item.path || '').trim(),
+                line: Number(item.line),
+                side: String(item.side || '').trim().toUpperCase(),
+                startLine: hasStartLine ? Number(item.start_line) : null,
+                startSide: hasStartSide
+                  ? String(item.start_side || '').trim().toUpperCase()
+                  : null,
+                severity: String(item.severity || '개선의견').trim(),
+                bodyText: String(item.body || '').trim(),
+                suggestion:
+                  typeof item.suggestion === 'string'
+                    ? item.suggestion.replace(/\r\n?/g, '\n').replace(/\n$/, '')
+                    : null,
+              };
+            }
+
+            function isValidRange(comment, patchLines) {
+              if (!['LEFT', 'RIGHT'].includes(comment.side)) {
+                return false;
+              }
+
+              if (comment.startLine === null) {
+                return (
+                  comment.startSide === null &&
+                  patchLines[comment.side].has(comment.line)
+                );
+              }
+
+              if (
+                !Number.isInteger(comment.startLine) ||
+                comment.startLine <= 0 ||
+                comment.startLine > comment.line ||
+                comment.startSide === null ||
+                comment.startSide !== comment.side
+              ) {
+                return false;
+              }
+
+              for (let line = comment.startLine; line <= comment.line; line += 1) {
+                if (!patchLines[comment.side].has(line)) {
+                  return false;
+                }
+              }
+
+              return true;
+            }
+
+            function buildCodeBlock(content) {
+              const longestBacktickRun = Math.max(
+                0,
+                ...Array.from(content.matchAll(/`+/g), (match) => match[0].length)
+              );
+              const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1));
+
+              return `${fence}\n${content}\n${fence}`;
+            }
+
+            /**
+             * replacement 안의 backtick보다 긴 fence를 사용하면 Markdown 파일처럼
+             * 코드 자체에 ```가 포함된 수정안도 suggestion block을 닫지 않는다.
+             */
+            function buildSuggestionBlock(replacement) {
+              const longestBacktickRun = Math.max(
+                0,
+                ...Array.from(replacement.matchAll(/`+/g), (match) => match[0].length)
+              );
+              const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1));
+
+              return `${fence}suggestion\n${replacement}\n${fence}`;
+            }
+
+            function buildReviewCommentBody(comment) {
+              const sections = [`**${comment.severity}**`, comment.bodyText];
+
+              if (comment.suggestion !== null) {
+                sections.push(buildSuggestionBlock(comment.suggestion));
+              }
+
+              return sections.join('\n\n');
+            }
+
+            const codex = readJsonFile(process.env.REVIEW_FILE);
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+
+            const diffMap = new Map();
+
+            for (const file of files) {
+              const patchLines = parsePatchLines(file.patch || '');
+
+              diffMap.set(file.filename, {
+                apiPath: file.filename,
+                patchLines,
+              });
+
+              // 모델이 rename 전 경로를 반환해도 API에는 현재 filename을 보내야 한다.
+              if (file.previous_filename) {
+                diffMap.set(file.previous_filename, {
+                  apiPath: file.filename,
+                  patchLines,
+                });
+              }
+            }
+
+            const rawComments = Array.isArray(codex.comments) ? codex.comments : [];
+            const validComments = [];
+            const rejectedComments = [];
+            const seen = new Set();
+            let suggestedChangesCount = 0;
+
+            for (const item of rawComments) {
+              const comment = normalizeComment(item);
+
+              if (
+                !comment.path ||
+                !Number.isInteger(comment.line) ||
+                comment.line <= 0 ||
+                !comment.bodyText
+              ) {
+                rejectComment(rejectedComments, comment, '필수 필드 누락');
+                continue;
+              }
+
+              const diffEntry = diffMap.get(comment.path);
+              if (!diffEntry) {
+                rejectComment(rejectedComments, comment, 'PR 변경 파일에 없음');
+                continue;
+              }
+
+              if (!isValidRange(comment, diffEntry.patchLines)) {
+                rejectComment(
+                  rejectedComments,
+                  comment,
+                  comment.startLine === null
+                    ? 'PR diff에 존재하지 않는 라인'
+                    : 'PR diff에 존재하지 않거나 유효하지 않은 멀티라인 범위'
+                );
+                continue;
+              }
+
+              // LEFT는 PR head에 존재하지 않는 삭제 측이므로 적용형 suggestion을 만들 수 없다.
+              // 설명형 inline comment는 그대로 게시하고 suggestion만 안전하게 제거한다.
+              if (comment.side === 'LEFT') {
+                comment.suggestion = null;
+              }
+
+              const key = [
+                diffEntry.apiPath,
+                comment.startSide || '',
+                comment.startLine || '',
+                comment.side,
+                comment.line,
+                comment.bodyText,
+                comment.suggestion === null ? '<no-suggestion>' : comment.suggestion,
+              ].join(':');
+
+              if (seen.has(key)) {
+                continue;
+              }
+
+              seen.add(key);
+
+              const reviewComment = {
+                path: diffEntry.apiPath,
+                line: comment.line,
+                side: comment.side,
+                body: buildReviewCommentBody(comment),
+              };
+
+              if (comment.startLine !== null) {
+                reviewComment.start_line = comment.startLine;
+                reviewComment.start_side = comment.startSide;
+              }
+
+              if (comment.suggestion !== null) {
+                suggestedChangesCount += 1;
+              }
+
+              validComments.push(reviewComment);
+            }
+
+            const prTitle = String(codex.pr_title || 'Codex 코드 리뷰').trim();
+            const prSummary = String(codex.pr_detail || '').trim();
+            const overallReview = String(codex.overall_review || '').trim();
+            const rejectedReviewBody = rejectedComments.flatMap((comment) => [
+              `### ${comment.path || '알 수 없는 파일'}:${
+                comment.startLine ? `${comment.startLine}-` : ''
+              }${comment.line || '?'} (${comment.side})`,
+              '',
+              `**${comment.severity}** · Inline 제외 사유: ${comment.reason}`,
+              '',
+              comment.body || '리뷰 본문이 비어 있습니다.',
+              ...(comment.suggestion !== null
+                ? [
+                    '',
+                    '제안하려던 변경:',
+                    '',
+                    buildCodeBlock(comment.suggestion),
+                  ]
+                : []),
+              '',
+            ]);
+
+            const reviewBody = [
+              `# ${prTitle}`,
+              '',
+              prSummary,
+              '',
+              '## Codex 전체 리뷰',
+              '',
+              overallReview || '전체 리뷰 요약이 비어 있습니다.',
+              '',
+              ...(rejectedComments.length > 0
+                ? [
+                    '## Inline으로 게시하지 못한 리뷰',
+                    '',
+                    ...rejectedReviewBody,
+                  ]
+                : []),
+              '---',
+              `- Inline comments: ${validComments.length}`,
+              `- Suggested changes: ${suggestedChangesCount}`,
+              `- 제외된 comments: ${rejectedComments.length}`,
+              `- 실행 로그: [GitHub Actions에서 보기](${runUrl})`,
+            ].join('\n');
+
+            const reviewPayload = {
+              owner,
+              repo,
+              pull_number,
+              commit_id: headSha,
+              event: 'COMMENT',
+              body: reviewBody,
+            };
+
+            if (validComments.length > 0) {
+              reviewPayload.comments = validComments;
+            }
+
+            const { data: review } = await github.rest.pulls.createReview(reviewPayload);
+
+            core.setOutput('review_url', review.html_url || '');
+            core.setOutput('inline_count', String(validComments.length));
+            core.setOutput('suggestion_count', String(suggestedChangesCount));
+            core.setOutput('rejected_count', String(rejectedComments.length));
+
+      # 시작 댓글을 최종 완료 상태로 수정
+      - name: 리뷰 완료 댓글 갱신
+        if: always()
+        uses: actions/github-script@v8
+        env:
+          REVIEW_FILE: ${{ env.REVIEW_FILE }}
+          START_COMMENT_ID: ${{ steps.start-comment.outputs.comment_id }}
+          INLINE_COUNT: ${{ steps.publish-review.outputs.inline_count }}
+          SUGGESTION_COUNT: ${{ steps.publish-review.outputs.suggestion_count }}
+          REJECTED_COUNT: ${{ steps.publish-review.outputs.rejected_count }}
+          REVIEW_URL: ${{ steps.publish-review.outputs.review_url }}
+          CODEX_EXIT: ${{ steps.generate-review.outputs.codex_exit }}
+          PUBLISH_REVIEW_OUTCOME: ${{ steps.publish-review.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const reviewUrl = process.env.REVIEW_URL || '';
+            const codexExit = process.env.CODEX_EXIT || 'unknown';
+            const publishReviewOutcome = process.env.PUBLISH_REVIEW_OUTCOME || 'unknown';
+            const failed = codexExit !== '0' || publishReviewOutcome !== 'success';
+            let reviewSummary = '';
+
+            if (!failed && process.env.REVIEW_FILE && fs.existsSync(process.env.REVIEW_FILE)) {
+              const codex = JSON.parse(fs.readFileSync(process.env.REVIEW_FILE, 'utf8'));
+              reviewSummary = [
+                '',
+                `### ${String(codex.pr_title || 'Codex 코드 리뷰').trim()}`,
+                '',
+                String(codex.pr_detail || '').trim(),
+                '',
+                '### 전체 리뷰',
+                '',
+                String(codex.overall_review || '').trim(),
+              ].join('\n');
+
+              if (reviewSummary.length > 50000) {
+                reviewSummary = `${reviewSummary.slice(0, 50000)}\n\n... 리뷰 요약이 길어 일부만 표시합니다. 전체 내용은 PR 리뷰 링크에서 확인해 주세요.`;
+              }
+            }
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: Number(process.env.START_COMMENT_ID),
+              body: [
+                failed ? '## Codex 코드 리뷰 실패 ❌' : '## Codex 코드 리뷰 완료 ✅',
+                '',
+                failed ? '리뷰 생성 중 오류가 있어 로그 확인이 필요합니다.' : '리뷰를 정상적으로 게시했습니다.',
+                '',
+                `- PR: #${context.payload.issue.number}`,
+                `- Codex exit code: ${codexExit}`,
+                `- Publish review outcome: ${publishReviewOutcome}`,
+                `- Inline comments: ${process.env.INLINE_COUNT || '0'}`,
+                `- Suggested changes: ${process.env.SUGGESTION_COUNT || '0'}`,
+                `- 제외된 comments: ${process.env.REJECTED_COUNT || '0'}`,
+                reviewUrl ? `- PR 리뷰: [GitHub Review에서 보기](${reviewUrl})` : '- PR 리뷰: 생성 실패 또는 URL 없음',
+                `- 실행 로그: [GitHub Actions에서 보기](${runUrl})`,
+              ].join('\n'),
+            });
+
+      # Codex 실행이 실패했으면 댓글/리뷰 작성 후 workflow도 실패 처리
+      - name: Codex 실패 처리
+        if: ${{ steps.generate-review.outputs.codex_exit != '0' || steps.publish-review.outcome != 'success' }}
+        run: exit 1
