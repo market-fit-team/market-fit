@@ -29,6 +29,10 @@ jobs:
 
     runs-on: [self-hosted, Linux, ARM64]
 
+    env:
+      CODEX_MODEL: gpt-5.5
+      CODEX_REASONING_EFFORT: medium
+
     steps:
       # /issue-review 뒤에 붙은 추가 요청을 Codex 프롬프트에 전달
       - name: 이슈 리뷰 요청 가져오기
@@ -55,7 +59,7 @@ jobs:
               body: [
                 '## Codex 이슈 리뷰 진행 중 🚀',
                 '',
-                'gpt-5.5 medium이 저장소의 코드와 문서를 확인하며 이슈를 구체화하고 있습니다.',
+                `${process.env.CODEX_MODEL} ${process.env.CODEX_REASONING_EFFORT}이 저장소의 코드와 문서를 확인하며 이슈를 구체화하고 있습니다.`,
                 '',
                 `- 이슈: #${context.payload.issue.number}`,
                 `- 실행 ID: ${context.runId}`,
@@ -107,6 +111,8 @@ jobs:
             -e GITHUB_REPOSITORY="$GITHUB_REPOSITORY" \
             -e GITHUB_RUN_ID="$GITHUB_RUN_ID" \
             -e GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+            -e CODEX_MODEL="$CODEX_MODEL" \
+            -e CODEX_REASONING_EFFORT="$CODEX_REASONING_EFFORT" \
             -e CONTAINER_REVIEW_FILE="$CONTAINER_REVIEW_FILE" \
             -e WORKTREE="$WORKTREE" \
             -e PROMPT_FILE="$PROMPT_FILE" \
@@ -201,8 +207,8 @@ jobs:
             --ephemeral \
             --color never \
             --output-last-message "$CONTAINER_REVIEW_FILE" \
-            --model gpt-5.5 \
-            -c model_reasoning_effort=medium \
+            --model "$CODEX_MODEL" \
+            -c "model_reasoning_effort=$CODEX_REASONING_EFFORT" \
             - < "$PROMPT_FILE"
           CONTAINER_SCRIPT
 
@@ -254,15 +260,22 @@ jobs:
             }
 
             // GitHub issue comment 본문 제한보다 여유 있게 잘라 API 실패를 방지한다.
+            const metadata = [
+              '',
+              '---',
+              `- 모델: ${process.env.CODEX_MODEL} ${process.env.CODEX_REASONING_EFFORT}`,
+            ].join('\n');
+
             const body = review.length > 60000
               ? `${review.slice(0, 60000)}\n\n---\n리뷰가 길어 일부 내용이 생략되었습니다.`
               : review;
+            const bodyWithMetadata = `${body}${metadata}`;
 
             const { data: comment } = await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.payload.issue.number,
-              body,
+              body: bodyWithMetadata,
             });
 
             core.setOutput('comment_url', comment.html_url || '');

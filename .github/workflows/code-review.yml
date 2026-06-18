@@ -42,6 +42,10 @@ jobs:
     # VPS에 등록한 self-hosted runner에서 실행
     runs-on: [self-hosted, Linux, ARM64]
 
+    env:
+      CODEX_MODEL: gpt-5.4
+      CODEX_REASONING_EFFORT: xhigh
+
     steps:
       # PR 번호, base 브랜치, head SHA 정보를 가져옴
       - name: PR 정보 가져오기
@@ -81,7 +85,7 @@ jobs:
               body: [
                 '## Codex 코드 리뷰 진행 중 🚀',
                 '',
-                'gpt-5.4 xhigh로 머지될 변경사항만 분석하고 있습니다.',
+                `${process.env.CODEX_MODEL} ${process.env.CODEX_REASONING_EFFORT}로 머지될 변경사항만 분석하고 있습니다.`,
                 '',
                 `- PR: #${context.payload.issue.number}`,
                 `- 실행 ID: ${context.runId}`,
@@ -129,6 +133,8 @@ jobs:
             -e REVIEW_REQUEST="$REVIEW_REQUEST" \
             -e GITHUB_RUN_ID="$GITHUB_RUN_ID" \
             -e GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+            -e CODEX_MODEL="$CODEX_MODEL" \
+            -e CODEX_REASONING_EFFORT="$CODEX_REASONING_EFFORT" \
             -e CONTAINER_REVIEW_FILE="$CONTAINER_REVIEW_FILE" \
             -e WORKTREE="$WORKTREE" \
             -e PROMPT_FILE="$PROMPT_FILE" \
@@ -309,8 +315,8 @@ jobs:
             --color never \
             --output-schema "$SCHEMA_FILE" \
             --output-last-message "$CONTAINER_REVIEW_FILE" \
-            --model gpt-5.4 \
-            -c model_reasoning_effort=xhigh \
+            --model "$CODEX_MODEL" \
+            -c "model_reasoning_effort=$CODEX_REASONING_EFFORT" \
             - < "$PROMPT_FILE"
           CONTAINER_SCRIPT
 
@@ -733,6 +739,7 @@ jobs:
               `- Inline comments: ${validComments.length}`,
               `- Suggested changes: ${suggestedChangesCount}`,
               `- 제외된 comments: ${rejectedComments.length}`,
+              `- 모델: ${process.env.CODEX_MODEL} ${process.env.CODEX_REASONING_EFFORT}`,
               `- 실행 로그: [GitHub Actions에서 보기](${runUrl})`,
             ].join('\n');
 
