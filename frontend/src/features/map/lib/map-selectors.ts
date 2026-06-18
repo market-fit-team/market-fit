@@ -13,7 +13,7 @@ type FilteredTradeAreaInput = {
   targetDemographic: TargetDemographic
 }
 
-// Selector helpers keep filtering rules out of widgets and store slices.
+// 선택자 유틸은 필터링 규칙이 위젯과 스토어 조각에 흩어지지 않게 한다.
 export const getSelectedTradeArea = (selectedTradeAreaId: TradeAreaId | null) =>
   districtsData.find((district) => district.id === selectedTradeAreaId) ?? null
 

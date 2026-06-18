@@ -9,8 +9,8 @@ import { useMapStore } from "@/features/map/store/map-store"
 import { districtsData, personaResults } from "@/features/startup/lib/data"
 import { Card, CardContent } from "@/shared/components/ui/card"
 
-// CanvasWidget renders the map surface and writes only the selected trade area.
-// Filtering stays derived from store state so the SVG stays presentational.
+// CanvasWidget은 지도 표면을 렌더링하고 선택된 상권만 스토어에 기록한다.
+// 필터링은 스토어 상태에서 파생해서 SVG는 표시 역할에 머물게 한다.
 export function CanvasWidget() {
   const activePersona = useMapStore((state) => state.activePersona)
   const budgetRange = useMapStore((state) => state.budgetRange)

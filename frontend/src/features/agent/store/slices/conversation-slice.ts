@@ -10,8 +10,8 @@ export type ConversationSlice = {
   setIsResponding: (isResponding: boolean) => void
 }
 
-// ConversationSlice keeps generic chat state only. Map prompts and report
-// navigation stay in the map chat widget and its reply builder.
+// 대화 상태 조각은 공용 채팅 상태만 가진다. 지도용 프롬프트와 리포트 이동은
+// 지도 채팅 위젯과 응답 생성 로직에 둔다.
 export const createConversationSlice: StateCreator<ConversationSlice> = (
   set
 ) => ({

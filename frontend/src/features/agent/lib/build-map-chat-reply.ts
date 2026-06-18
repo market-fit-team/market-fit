@@ -1,8 +1,8 @@
 import type { ChatMessage } from "@/features/agent/types/chat"
 import type { DistrictData } from "@/features/startup/lib/data"
 
-// Temporary map-agent responses for the current wireframe. Replace this file
-// when the real agent API supplies answers.
+// 현재 와이어프레임용 임시 지도 에이전트 응답이다.
+// 실제 에이전트 API가 응답을 제공하면 이 파일을 교체한다.
 export const initialMapChatMessage: ChatMessage = {
   role: "assistant",
   content:

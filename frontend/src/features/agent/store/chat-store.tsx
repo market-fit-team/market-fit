@@ -9,7 +9,7 @@ import {
 
 export type ChatState = ConversationSlice
 
-// Chat store is provider-scoped and keeps conversation state outside map UI state.
+// 채팅 스토어는 프로바이더 범위로 생성하고, 대화 상태를 지도 화면 상태와 분리한다.
 const createChatStore = (initialState?: Partial<ChatState>) =>
   createStore<ChatState>()((set, get, api) => ({
     ...createConversationSlice(set, get, api),

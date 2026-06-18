@@ -22,7 +22,7 @@ export function CreatePost() {
       onSuccess: () => {
         setContent("")
         setMediaAttachmentIds([])
-        // invalidate post list
+        // 게시글 목록 캐시 무효화
         void invalidateGetPostsByCursorSuspenseInfinite(queryClient)
         toast.success("게시글 작성 완료")
       },

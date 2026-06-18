@@ -21,7 +21,7 @@ import {
 
 export type MapState = FilterSlice & LayoutSlice & PersonaSlice & SelectionSlice
 
-// Map store is scoped by MapStoreProvider so a route remount starts fresh map UI state.
+// 지도 스토어는 MapStoreProvider 범위에 묶어서 라우트가 다시 마운트되면 UI 상태도 새로 시작한다.
 const createMapStore = (initialState?: Partial<MapState>) =>
   createStore<MapState>()((set, get, api) => ({
     ...createFilterSlice(set, get, api),

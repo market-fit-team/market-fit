@@ -9,7 +9,7 @@ export type SelectionSlice = {
   setSelectedTradeAreaId: (selectedTradeAreaId: TradeAreaId | null) => void
 }
 
-// Selection drives both the map highlight and the result dock.
+// 선택 상태는 지도 하이라이트와 결과 도크를 함께 구동한다.
 export const createSelectionSlice: StateCreator<SelectionSlice> = (set) => ({
   activeResultTab: "traffic",
   selectedTradeAreaId: districtsData[0]?.id ?? null,

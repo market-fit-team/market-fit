@@ -25,7 +25,7 @@ export function CreateScheduledPost() {
         setContent("")
         setScheduledAt("")
         setMediaAttachmentIds([])
-        // Post 요청에 특정 파라미터가 Required일 때에 getQueryKey로 우회할 수 있다.
+        // 예약 게시글 요청에 필수 파라미터가 있을 때는 getQueryKey로 우회할 수 있다.
         void queryClient.invalidateQueries({
           queryKey: getGetScheduledPostsQueryKey(),
         })

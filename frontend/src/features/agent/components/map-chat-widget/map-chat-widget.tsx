@@ -25,8 +25,8 @@ type MapChatWidgetProps = {
   selectedTradeArea: DistrictData | null
 }
 
-// MapChatWidget is the agent chat UI specialized for the map page.
-// It receives map context through props instead of importing the map store.
+// MapChatWidget은 지도 페이지에 붙는 에이전트 채팅 UI다.
+// 지도 스토어를 직접 불러오지 않고 필요한 지도 맥락만 속성으로 받는다.
 export function MapChatWidget({
   onClose,
   selectedTradeArea,

@@ -6,7 +6,7 @@ export type PersonaSlice = {
   setActivePersona: (activePersona: string | null) => void
 }
 
-// Persona state bridges onboarding output to map recommendations.
+// 페르소나 상태는 온보딩 결과와 지도 추천을 연결한다.
 export const createPersonaSlice: StateCreator<PersonaSlice> = (set) => ({
   activePersona: null,
   clearActivePersona: () => set({ activePersona: null }),

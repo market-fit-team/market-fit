@@ -1,14 +1,14 @@
-// Commercial district (상권) definition
+// 상권 데이터 정의
 export interface DistrictData {
   id: string
   nameKo: string
   nameEn: string
   desc: string
-  avgSales: number // in KRW (ten thousand won, 만원)
-  yoySalesChange: number // percentage
-  densityScore: number // 1-100 scale (100 is high density)
-  survivalRate3Year: number // percentage
-  footTrafficHourly: { hour: string; traffic: number }[] // traffic in thousands
+  avgSales: number // 만원 단위 월평균 매출
+  yoySalesChange: number // 전년 대비 증감률
+  densityScore: number // 1~100 상권 밀집도 점수
+  survivalRate3Year: number // 3년 생존율
+  footTrafficHourly: { hour: string; traffic: number }[] // 천 명 단위 시간대별 유동인구
   footTrafficGender: { name: string; value: number }[]
   footTrafficAge: { ageGroup: string; percentage: number }[]
   topSectors: {
@@ -22,16 +22,6 @@ export interface DistrictData {
     minCapital: number
     rating: number
   }[]
-}
-
-export interface CurationArticle {
-  id: string
-  title: string
-  summary: string
-  category: "Trend" | "Guide" | "Policy"
-  readTime: string
-  date: string
-  imageUrl?: string
 }
 
 export interface OnboardingQuestion {
@@ -50,11 +40,11 @@ export interface PersonaResult {
   desc: string
   accentColor: string
   recommendedSectors: string[]
-  recommendedDistricts: string[] // references DistrictData.id
+  recommendedDistricts: string[] // DistrictData.id 참조
   franchises: string[]
 }
 
-// 1. Districts data
+// 1. 상권 데이터
 export const districtsData: DistrictData[] = [
   {
     id: "gangnam",
@@ -303,50 +293,7 @@ export const districtsData: DistrictData[] = [
   },
 ]
 
-// 2. Curation Articles
-export const curationArticles: CurationArticle[] = [
-  {
-    id: "art-1",
-    title:
-      "2026 서울시 신규 자영업 트렌드: 소규모 배달 전문 vs 초대형 쇼룸 카페",
-    summary:
-      "금리 하락기에 맞물린 서울 주요 상권의 상반된 트렌드를 조명합니다. 소자본 1인 창업과 하이엔드 오프라인 매장의 생존 전략을 데이터로 분석했습니다.",
-    category: "Trend",
-    readTime: "5분 분량",
-    date: "2026-06-10",
-  },
-  {
-    id: "art-2",
-    title:
-      "상가 임대차 보호법 개정안 핵심 가이드: 환산보증금과 권리금 보장 범위",
-    summary:
-      "초보 창업가가 계약서 날인 전에 반드시 알아야 할 법률적 체크포인트와 임대료 연 상승 한도(5%) 계산법을 예시와 함께 알기 쉽게 설명합니다.",
-    category: "Guide",
-    readTime: "7분 분량",
-    date: "2026-06-05",
-  },
-  {
-    id: "art-3",
-    title:
-      "성수동 팝업스토어 성황, 배후 상권 식음료 매출에 미치는 경제 효과는?",
-    summary:
-      "성수동 테마팝업 오픈 시 반경 300m 이내 일반 요식업 매장의 카드 긁힘 횟수와 주말 매출 상승 추이를 빅데이터 분석을 통해 수치화했습니다.",
-    category: "Policy",
-    readTime: "4분 분량",
-    date: "2026-05-28",
-  },
-  {
-    id: "art-4",
-    title: "동네 상권에서 1등 하기: 인근 오피스 거주민 타겟 로컬 브랜딩 방법론",
-    summary:
-      "대형 상권이 아닌 주거밀착형 상권에서 재방문율 80% 이상을 확보한 반찬전문점, 골목 베이커리 대표님들이 공유하는 단골 확보 영업 노하우.",
-    category: "Guide",
-    readTime: "6분 분량",
-    date: "2026-05-15",
-  },
-]
-
-// 3. Onboarding Questionnaire
+// 2. 온보딩 질문지
 export const onboardingQuestions: OnboardingQuestion[] = [
   {
     id: 1,
@@ -434,7 +381,7 @@ export const onboardingQuestions: OnboardingQuestion[] = [
   },
 ]
 
-// 4. Onboarding results (Personas)
+// 3. 온보딩 결과 페르소나
 export const personaResults: Record<string, PersonaResult> = {
   DELIVERY: {
     id: "DELIVERY",

@@ -15,8 +15,8 @@ import { getSelectedTradeArea } from "@/features/map/lib/map-selectors"
 import { useMapStore } from "@/features/map/store/map-store"
 import { Button } from "@/shared/components/ui/button"
 
-// MapView owns the map page frame: left filter panel, center canvas,
-// bottom result dock, and right agent panel.
+// MapView는 지도 페이지 프레임을 소유한다.
+// 왼쪽 필터, 중앙 지도, 하단 결과, 오른쪽 에이전트 패널 배치를 여기서 결정한다.
 export function MapView() {
   const searchParams = useSearchParams()
   const personaQuery = searchParams.get("persona")
@@ -36,7 +36,7 @@ export function MapView() {
   const selectedTradeArea = getSelectedTradeArea(selectedTradeAreaId)
 
   useEffect(() => {
-    // The route query overrides persisted onboarding persona for shared links.
+    // 공유 링크에서는 라우트 쿼리가 저장된 온보딩 페르소나보다 우선한다.
     const nextPersona = personaQuery || getPersistedPersona()
 
     if (nextPersona) {
@@ -58,7 +58,7 @@ export function MapView() {
 
   return (
     <div className="relative flex h-[calc(100vh-64px)] flex-1 overflow-hidden bg-muted/40">
-      {/* Left sidebar: layout shell only. FilterWidget owns the filter form. */}
+      {/* 왼쪽 사이드바는 레이아웃 껍데기만 맡고, 필터 폼은 FilterWidget이 소유한다. */}
       <div
         className={`absolute top-4 bottom-4 left-4 z-20 w-80 transition-transform duration-300 ${
           isFilterOpen ? "translate-x-0" : "-translate-x-[calc(100%+16px)]"
@@ -80,10 +80,10 @@ export function MapView() {
         </Button>
       )}
 
-      {/* Center stage: the SVG map and legend live in the canvas widget. */}
+      {/* 중앙 영역의 SVG 지도와 범례는 CanvasWidget 안에 둔다. */}
       <CanvasWidget />
 
-      {/* Result dock follows the left sidebar state so it does not sit under it. */}
+      {/* 결과 도크는 왼쪽 사이드바 상태를 따라 겹치지 않게 배치한다. */}
       <div
         className={`absolute right-0 bottom-4 z-10 px-4 md:px-8 ${
           isFilterOpen ? "left-80" : "left-0"
@@ -92,7 +92,7 @@ export function MapView() {
         <ResultWidget />
       </div>
 
-      {/* Right sidebar: layout shell only. MapChatWidget owns chat behavior. */}
+      {/* 오른쪽 사이드바는 레이아웃 껍데기만 맡고, 채팅 동작은 MapChatWidget이 소유한다. */}
       <div
         className={`absolute top-4 right-4 bottom-4 z-20 w-80 transition-transform duration-300 ${
           isChatOpen ? "translate-x-0" : "translate-x-[calc(100%+16px)]"

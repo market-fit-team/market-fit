@@ -13,7 +13,7 @@ export type FilterSlice = {
   targetDemographic: TargetDemographic
 }
 
-// These values are the applied map filters that canvas and filter widgets share.
+// CanvasWidget과 FilterWidget이 공유하는 적용된 지도 필터 값이다.
 export const createFilterSlice: StateCreator<FilterSlice> = (set) => ({
   budgetRange: "all",
   recommendationsOnly: false,

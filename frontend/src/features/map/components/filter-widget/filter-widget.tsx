@@ -21,8 +21,8 @@ import {
   NativeSelectOption,
 } from "@/shared/components/ui/native-select"
 
-// FilterWidget owns the search controls shown inside MapView's left sidebar.
-// It does not know where the sidebar is positioned.
+// FilterWidget은 MapView의 왼쪽 사이드바에 들어가는 검색 컨트롤을 소유한다.
+// 사이드바가 어디에 배치되는지는 알지 않는다.
 export function FilterWidget() {
   const router = useRouter()
   const activePersona = useMapStore((state) => state.activePersona)
