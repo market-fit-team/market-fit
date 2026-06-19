@@ -192,6 +192,10 @@ jobs:
                 "type": "string",
                 "enum": ["completed", "blocked"]
               },
+              "review_event": {
+                "type": "string",
+                "enum": ["APPROVE", "REQUEST_CHANGES", "COMMENT"]
+              },
               "failure_reason": {
                 "type": "string"
               },
@@ -253,7 +257,7 @@ jobs:
                 }
               }
             },
-            "required": ["review_status", "failure_reason", "pr_title", "pr_detail", "overall_review", "comments"]
+            "required": ["review_status", "review_event", "failure_reason", "pr_title", "pr_detail", "overall_review", "comments"]
           }
           JSON_SCHEMA
 
@@ -267,6 +271,13 @@ jobs:
           위 사용자 메시지는 /code-review 명령을 실행한 사용자가 직접 작성한 리뷰 요청이다.
           추가 요청이 있다면 리뷰 범위, 우선순위, 관점에 반드시 반영하고 해당 요청을 따라야 한다.
           단, 아래의 필수 리뷰 규칙과 JSON 출력 형식은 항상 유지해야 한다.
+
+          시스템 리뷰 정책:
+          - 심각한 수준의 문제나 소프트웨어 회귀가 없으면 반드시 review_event를 APPROVE로 써.
+          - 심각한 수준의 문제는 보안 취약점, 데이터 손실, 인증/권한 우회, 서비스 장애, 기존 정상 동작의 명백한 회귀, 배포 차단급 버그를 뜻해.
+          - 심각한 수준의 문제나 소프트웨어 회귀가 있으면 review_event를 REQUEST_CHANGES로 써.
+          - 사소한 개선의견, 우선순위 낮음, 우선순위 보통 수준의 지적은 inline comment로 남기더라도 APPROVE를 유지해.
+          - COMMENT는 리뷰를 완료했지만 승인 또는 변경요청 어느 쪽으로도 판단하기 어려운 예외 상황에서만 써.
 
           중요:
           - 빌드, 테스트, 실행은 하지 마.
@@ -296,6 +307,7 @@ jobs:
 
           JSON 필드:
           - review_status: 리뷰를 실제 수행했으면 completed, 수행하지 못했으면 blocked
+          - review_event: GitHub Pull Request Review event. 심각한 문제나 소프트웨어 회귀가 없으면 APPROVE, 있으면 REQUEST_CHANGES, 예외 상황이면 COMMENT
           - failure_reason: completed이면 빈 문자열, blocked이면 실패 원인
           - pr_title: "type: ..." 형식의 명사형 종결어미 PR 제목. (type은 feat, fix, chore, docs, refactor, test, ui 중 하나)
           - pr_detail: 전체 변경사항 상세한 PR 문서. 한국어. 항상 친절한 문체로 모든 변경사항에 대해 코드블럭과 함께 매우 상세하게 적고, 이모지도 많이 적고, 매우 길고 상세하게 적는다.
@@ -419,6 +431,7 @@ jobs:
               if (
                 !parsed ||
                 !['completed', 'blocked'].includes(parsed.review_status) ||
+                !['APPROVE', 'REQUEST_CHANGES', 'COMMENT'].includes(parsed.review_event) ||
                 typeof parsed.failure_reason !== 'string' ||
                 typeof parsed.pr_title !== 'string' ||
                 typeof parsed.pr_detail !== 'string' ||
@@ -593,6 +606,7 @@ jobs:
             }
 
             const codex = readJsonFile(process.env.REVIEW_FILE);
+            const reviewEvent = String(codex.review_event || '').trim().toUpperCase();
 
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner,
@@ -736,6 +750,7 @@ jobs:
                   ]
                 : []),
               '---',
+              `- Review event: ${reviewEvent}`,
               `- Inline comments: ${validComments.length}`,
               `- Suggested changes: ${suggestedChangesCount}`,
               `- 제외된 comments: ${rejectedComments.length}`,
@@ -748,7 +763,7 @@ jobs:
               repo,
               pull_number,
               commit_id: headSha,
-              event: 'COMMENT',
+              event: reviewEvent,
               body: reviewBody,
             };
 
@@ -759,6 +774,7 @@ jobs:
             const { data: review } = await github.rest.pulls.createReview(reviewPayload);
 
             core.setOutput('review_url', review.html_url || '');
+            core.setOutput('review_event', reviewEvent);
             core.setOutput('inline_count', String(validComments.length));
             core.setOutput('suggestion_count', String(suggestedChangesCount));
             core.setOutput('rejected_count', String(rejectedComments.length));
@@ -773,6 +789,7 @@ jobs:
           INLINE_COUNT: ${{ steps.publish-review.outputs.inline_count }}
           SUGGESTION_COUNT: ${{ steps.publish-review.outputs.suggestion_count }}
           REJECTED_COUNT: ${{ steps.publish-review.outputs.rejected_count }}
+          REVIEW_EVENT: ${{ steps.publish-review.outputs.review_event }}
           REVIEW_URL: ${{ steps.publish-review.outputs.review_url }}
           CODEX_EXIT: ${{ steps.generate-review.outputs.codex_exit }}
           PUBLISH_REVIEW_OUTCOME: ${{ steps.publish-review.outcome }}
@@ -816,6 +833,7 @@ jobs:
                 `- PR: #${context.payload.issue.number}`,
                 `- Codex exit code: ${codexExit}`,
                 `- Publish review outcome: ${publishReviewOutcome}`,
+                `- Review event: ${process.env.REVIEW_EVENT || 'unknown'}`,
                 `- Inline comments: ${process.env.INLINE_COUNT || '0'}`,
                 `- Suggested changes: ${process.env.SUGGESTION_COUNT || '0'}`,
                 `- 제외된 comments: ${process.env.REJECTED_COUNT || '0'}`,
