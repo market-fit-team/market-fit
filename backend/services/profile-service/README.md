@@ -12,7 +12,7 @@
   - **응답 (Response)**:
     ```json
     {
-      "authentik_user_uuid": "string (uuid)",
+      "uuid": "string (uuid)",
       "display_name": "string | null",
       "age": "integer | null",
       "job": "string | null",

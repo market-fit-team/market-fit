@@ -55,7 +55,7 @@ MSA나 프론트엔드에서 현재 로그인된 사용자의 프로필 정보(`
 - **응답 (Response)**:
   ```json
   {
-    "authentik_user_uuid": "string (uuid) - user_profile.uuid와 동일",
+    "uuid": "string (uuid) - user_profile.uuid와 동일",
     "display_name": "string | null",
     "age": "integer | null",
     "job": "string | null",

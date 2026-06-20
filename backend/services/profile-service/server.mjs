@@ -1,37 +1,32 @@
-import express from "express"
-import { createRemoteJWKSet, jwtVerify } from "jose"
-import { z } from "zod"
+import express from "express";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import { z } from "zod";
 
-const app = express()
-app.use(express.json())
+const app = express();
+app.use(express.json());
 
-const PORT = Number(process.env.PORT || 3001)
-const JWKS_URL = process.env.JWKS_URL
-const JWT_ISSUER = process.env.JWT_ISSUER
-const JWT_AUDIENCE = process.env.JWT_AUDIENCE
+const PORT = Number(process.env.PORT || 3001);
+const JWKS_URL = process.env.JWKS_URL;
+const JWT_ISSUER = process.env.JWT_ISSUER;
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
 const JWT_ALGS = (process.env.JWT_ALGS || process.env.JWT_ALGORITHM || "RS256")
   .split(",")
   .map((value) => value.trim())
-  .filter(Boolean)
+  .filter(Boolean);
 const AUTHENTIK_API_URL = (
   process.env.AUTHENTIK_API_URL || "http://authentik-server:9000/api/v3"
-).replace(/\/+$/, "")
-const AUTHENTIK_SERVICE_ROLE_KEY = process.env.AUTHENTIK_SERVICE_ROLE_KEY
+).replace(/\/+$/, "");
+const AUTHENTIK_SERVICE_ROLE_KEY = process.env.AUTHENTIK_SERVICE_ROLE_KEY;
 
-if (
-  !JWKS_URL ||
-  !JWT_ISSUER ||
-  !JWT_AUDIENCE ||
-  !AUTHENTIK_SERVICE_ROLE_KEY
-) {
+if (!JWKS_URL || !JWT_ISSUER || !JWT_AUDIENCE || !AUTHENTIK_SERVICE_ROLE_KEY) {
   console.error(
-    "[profile-service] Missing env: JWKS_URL / JWT_ISSUER / JWT_AUDIENCE / AUTHENTIK_SERVICE_ROLE_KEY"
-  )
-  process.exit(1)
+    "[profile-service] Missing env: JWKS_URL / JWT_ISSUER / JWT_AUDIENCE / AUTHENTIK_SERVICE_ROLE_KEY",
+  );
+  process.exit(1);
 }
 
-const jwks = createRemoteJWKSet(new URL(JWKS_URL))
-const profileFieldKeys = ["display_name", "age", "job", "avatar_seed"]
+const jwks = createRemoteJWKSet(new URL(JWKS_URL));
+const profileFieldKeys = ["display_name", "age", "job", "avatar_seed"];
 
 const profileUpdateSchema = z
   .object({
@@ -43,7 +38,7 @@ const profileUpdateSchema = z
   .strict()
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one profile field is required",
-  })
+  });
 
 const jwtUserProfileSchema = z.object({
   uuid: z.string().uuid(),
@@ -51,29 +46,31 @@ const jwtUserProfileSchema = z.object({
   age: z.number().int().nullable().optional(),
   job: z.string().nullable().optional(),
   avatar_seed: z.string().nullable().optional(),
-})
+});
 
 const isRecord = (value) =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const toNullableString = (value) => {
-  return typeof value === "string" ? value : null
-}
+  return typeof value === "string" ? value : null;
+};
 
 const toNullableInteger = (value) => {
-  return Number.isInteger(value) ? value : null
-}
+  return Number.isInteger(value) ? value : null;
+};
 
 const extractJwtUserProfile = (payload) => {
   if (!isRecord(payload)) {
     throw createHttpError(
       400,
       "INVALID_USER_PROFILE_CLAIMS",
-      "JWT payload is not an object"
-    )
+      "JWT payload is not an object",
+    );
   }
 
-  const parsedUserProfile = jwtUserProfileSchema.safeParse(payload.user_profile)
+  const parsedUserProfile = jwtUserProfileSchema.safeParse(
+    payload.user_profile,
+  );
   if (!parsedUserProfile.success) {
     throw createHttpError(
       400,
@@ -85,36 +82,24 @@ const extractJwtUserProfile = (payload) => {
           message: issue.message,
           path: issue.path,
         })),
-      }
-    )
+      },
+    );
   }
 
-  return parsedUserProfile.data
-}
-
-const buildProfileResponseFromClaims = (payload) => {
-  const userProfile = extractJwtUserProfile(payload)
-
-  return {
-    authentik_user_uuid: userProfile.uuid,
-    display_name: toNullableString(userProfile.display_name),
-    age: toNullableInteger(userProfile.age),
-    job: toNullableString(userProfile.job),
-    avatar_seed: toNullableString(userProfile.avatar_seed),
-  }
-}
+  return parsedUserProfile.data;
+};
 
 const buildProfileResponseFromAuthentikUser = (user) => {
-  const attributes = isRecord(user?.attributes) ? user.attributes : {}
+  const attributes = isRecord(user?.attributes) ? user.attributes : {};
 
   return {
-    authentik_user_uuid: toNullableString(user?.uuid),
+    uuid: toNullableString(user?.uuid),
     display_name: toNullableString(attributes.display_name),
     age: toNullableInteger(attributes.age),
     job: toNullableString(attributes.job),
     avatar_seed: toNullableString(attributes.avatar_seed),
-  }
-}
+  };
+};
 
 const profileOpenApiDocument = {
   openapi: "3.0.3",
@@ -160,7 +145,8 @@ const profileOpenApiDocument = {
       patch: {
         operationId: "patchMyProfile",
         tags: ["profile"],
-        summary: "Update current profile in authentik with JWT and service role key",
+        summary:
+          "Update current profile in authentik with JWT and service role key",
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -226,15 +212,9 @@ const profileOpenApiDocument = {
     schemas: {
       ProfileResponse: {
         type: "object",
-        required: [
-          "authentik_user_uuid",
-          "display_name",
-          "age",
-          "job",
-          "avatar_seed",
-        ],
+        required: ["uuid", "display_name", "age", "job", "avatar_seed"],
         properties: {
-          authentik_user_uuid: {
+          uuid: {
             type: "string",
             format: "uuid",
             nullable: true,
@@ -306,47 +286,51 @@ const profileOpenApiDocument = {
       },
     },
   },
-}
+};
 
 const readJsonResponse = async (response) => {
-  const text = await response.text()
+  const text = await response.text();
 
   if (!text) {
-    return null
+    return null;
   }
 
   try {
-    return JSON.parse(text)
+    return JSON.parse(text);
   } catch {
-    return { raw: text }
+    return { raw: text };
   }
-}
+};
 
 const createHttpError = (status, error, detail, extra = {}) => {
-  return { status, body: { error, detail, ...extra } }
-}
+  return { status, body: { error, detail, ...extra } };
+};
 
 const getBearerToken = (authorizationHeader) => {
   if (!authorizationHeader) {
-    return null
+    return null;
   }
 
-  const [scheme, token] = authorizationHeader.split(" ")
+  const [scheme, token] = authorizationHeader.split(" ");
   if (scheme !== "Bearer" || !token) {
-    return null
+    return null;
   }
 
-  return token
-}
+  return token;
+};
 
 const requireCurrentUserUuid = (payload) => {
-  return extractJwtUserProfile(payload).uuid
-}
+  return extractJwtUserProfile(payload).uuid;
+};
 
 const verifyAccessToken = async (authorizationHeader) => {
-  const accessToken = getBearerToken(authorizationHeader)
+  const accessToken = getBearerToken(authorizationHeader);
   if (!accessToken) {
-    throw createHttpError(401, "NO_AUTH_HEADER", "Authorization Bearer token is required")
+    throw createHttpError(
+      401,
+      "NO_AUTH_HEADER",
+      "Authorization Bearer token is required",
+    );
   }
 
   try {
@@ -354,42 +338,46 @@ const verifyAccessToken = async (authorizationHeader) => {
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
       algorithms: JWT_ALGS,
-    })
+    });
 
-    return payload
+    return payload;
   } catch (error) {
-    throw createHttpError(401, "INVALID_JWT", error.message)
+    throw createHttpError(401, "INVALID_JWT", error.message);
   }
-}
+};
 
 const findAuthentikUserByUuid = async (userUuid) => {
-  const url = new URL(`${AUTHENTIK_API_URL}/core/users/`)
-  url.searchParams.set("uuid", userUuid)
-  url.searchParams.set("page_size", "1")
+  const url = new URL(`${AUTHENTIK_API_URL}/core/users/`);
+  url.searchParams.set("uuid", userUuid);
+  url.searchParams.set("page_size", "1");
 
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${AUTHENTIK_SERVICE_ROLE_KEY}`,
     },
-  })
+  });
 
-  const body = await readJsonResponse(response)
+  const body = await readJsonResponse(response);
   if (!response.ok) {
     throw createHttpError(
       502,
       "AUTHENTIK_USER_LOOKUP_FAILED",
       `authentik lookup failed with status ${response.status}`,
-      { upstream: body }
-    )
+      { upstream: body },
+    );
   }
 
-  const user = Array.isArray(body?.results) ? body.results[0] : null
+  const user = Array.isArray(body?.results) ? body.results[0] : null;
   if (!user) {
-    throw createHttpError(404, "AUTHENTIK_USER_NOT_FOUND", "authentik user was not found")
+    throw createHttpError(
+      404,
+      "AUTHENTIK_USER_NOT_FOUND",
+      "authentik user was not found",
+    );
   }
 
-  return user
-}
+  return user;
+};
 
 const patchAuthentikUser = async (pk, patchPayload) => {
   const response = await fetch(`${AUTHENTIK_API_URL}/core/users/${pk}/`, {
@@ -399,123 +387,130 @@ const patchAuthentikUser = async (pk, patchPayload) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(patchPayload),
-  })
+  });
 
-  const body = await readJsonResponse(response)
+  const body = await readJsonResponse(response);
   if (!response.ok) {
     throw createHttpError(
       502,
       "AUTHENTIK_USER_UPDATE_FAILED",
       `authentik update failed with status ${response.status}`,
-      { upstream: body }
-    )
+      { upstream: body },
+    );
   }
 
-  return body
-}
+  return body;
+};
 
 const authenticateRequest = async (req, res, next) => {
   try {
-    res.locals.jwtPayload = await verifyAccessToken(req.headers.authorization)
-    next()
+    res.locals.jwtPayload = await verifyAccessToken(req.headers.authorization);
+    next();
   } catch (error) {
-    next(error)
+    next(error);
   }
-}
+};
 
 app.get("/v3/api-docs", (_req, res) => {
-  res.json(profileOpenApiDocument)
-})
+  res.json(profileOpenApiDocument);
+});
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true })
-})
+  res.json({ ok: true });
+});
 
 app.get("/user-profile", authenticateRequest, async (req, res, next) => {
   try {
-    const authentikUserUuid = requireCurrentUserUuid(res.locals.jwtPayload)
-    const user = await findAuthentikUserByUuid(authentikUserUuid)
-    res.json(buildProfileResponseFromAuthentikUser(user))
+    const authentikUserUuid = requireCurrentUserUuid(res.locals.jwtPayload);
+    const user = await findAuthentikUserByUuid(authentikUserUuid);
+    res.json(buildProfileResponseFromAuthentikUser(user));
   } catch (error) {
-    next(error)
+    next(error);
   }
-})
+});
 
 app.patch("/user-profile", authenticateRequest, async (req, res, next) => {
   try {
-    const jwtPayload = res.locals.jwtPayload
-    const authentikUserUuid = requireCurrentUserUuid(jwtPayload)
-    const updateBody = profileUpdateSchema.parse(req.body)
-    const user = await findAuthentikUserByUuid(authentikUserUuid)
-    const currentAttributes = isRecord(user.attributes) ? user.attributes : {}
-    const nextAttributes = { ...currentAttributes }
+    const jwtPayload = res.locals.jwtPayload;
+    const authentikUserUuid = requireCurrentUserUuid(jwtPayload);
+    const updateBody = profileUpdateSchema.parse(req.body);
+    const user = await findAuthentikUserByUuid(authentikUserUuid);
+    const currentAttributes = isRecord(user.attributes) ? user.attributes : {};
+    const nextAttributes = { ...currentAttributes };
 
     // null을 보내면 해당 프로필 키를 삭제하고, 값이 있으면 덮어쓴다.
     for (const key of profileFieldKeys) {
       if (!(key in updateBody)) {
-        continue
+        continue;
       }
 
       if (updateBody[key] === null) {
-        delete nextAttributes[key]
-        continue
+        delete nextAttributes[key];
+        continue;
       }
 
-      nextAttributes[key] = updateBody[key]
+      nextAttributes[key] = updateBody[key];
     }
 
     const updatedUser = await patchAuthentikUser(user.pk, {
       attributes: nextAttributes,
-    })
+    });
 
-    res.json(buildProfileResponseFromAuthentikUser(updatedUser))
+    res.json(buildProfileResponseFromAuthentikUser(updatedUser));
   } catch (error) {
     if (error instanceof z.ZodError) {
       return next(
-        createHttpError(400, "INVALID_PROFILE_UPDATE_BODY", "Profile update body is invalid", {
-          issues: error.issues.map((issue) => ({
-            code: issue.code,
-            message: issue.message,
-            path: issue.path,
-          })),
-        })
-      )
+        createHttpError(
+          400,
+          "INVALID_PROFILE_UPDATE_BODY",
+          "Profile update body is invalid",
+          {
+            issues: error.issues.map((issue) => ({
+              code: issue.code,
+              message: issue.message,
+              path: issue.path,
+            })),
+          },
+        ),
+      );
     }
 
-    next(error)
+    next(error);
   }
-})
+});
 
 app.use((_req, res) => {
   res.status(404).json({
     error: "NOT_FOUND",
-  })
-})
+  });
+});
 
 app.use((error, _req, res, _next) => {
-  const status = Number.isInteger(error?.status) ? error.status : 500
+  const status = Number.isInteger(error?.status) ? error.status : 500;
   const body = isRecord(error?.body)
     ? error.body
     : {
         error: "INTERNAL_SERVER_ERROR",
         detail: error?.message || "Unexpected error",
-      }
+      };
 
   if (status >= 500) {
-    console.error("[profile-service] request failed", error)
+    console.error("[profile-service] request failed", error);
   }
 
-  res.status(status).json(body)
-})
+  res.status(status).json(body);
+});
 
 const server = app.listen(PORT, () => {
-  console.log(`[profile-service] listening on :${PORT}`)
-})
+  console.log(`[profile-service] listening on :${PORT}`);
+});
 
 // Docker 환경에서 PID 1로 실행될 때 종료 지연을 막기 위한 SIGTERM 핸들러다.
 process.on("SIGTERM", () => {
-  console.log("[profile-service] SIGTERM received. Shutting down gracefully...")
+  console.log(
+    "[profile-service] SIGTERM received. Shutting down gracefully...",
+  );
   server.close(() => {
-    process.exit(0)
-  })
-})
+    process.exit(0);
+  });
+});
