@@ -29,7 +29,7 @@ export function UserNav() {
   return (
     <div>
       <div>
-        Signed in as <b>{session.user.name}</b> ({session.user.email})
+        Signed in as <b>{session.user.name}</b>
       </div>
       <Button
         onClick={async () => {

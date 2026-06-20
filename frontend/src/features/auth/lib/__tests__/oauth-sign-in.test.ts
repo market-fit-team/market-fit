@@ -24,7 +24,7 @@ describe("buildOAuthSignInPayload", () => {
       providerId: "authentik",
       callbackURL: "/example/dashboard",
       errorCallbackURL: "/login?callbackURL=%2Fexample%2Fdashboard&error=oauth",
-      scopes: ["openid", "profile", "email"],
+      scopes: ["openid", "profile", "email", "user_profile"],
     })
   })
 
@@ -38,7 +38,7 @@ describe("buildOAuthSignInPayload", () => {
       providerId: "authentik",
       callbackURL: "/",
       errorCallbackURL: "/login?callbackURL=%2F&error=oauth",
-      scopes: ["openid", "profile", "email"],
+      scopes: ["openid", "profile", "email", "user_profile"],
     })
   })
 })

@@ -40,7 +40,7 @@ export const auth = betterAuth({
           clientId: env.AUTHENTIK_CLIENT_ID,
           clientSecret: env.AUTHENTIK_CLIENT_SECRET,
           discoveryUrl: env.AUTHENTIK_DISCOVERY_URL,
-          scopes: ["openid", "profile", "email"],
+          scopes: ["openid", "profile", "email", "user_profile"],
         },
       ],
     }),
@@ -77,7 +77,7 @@ await authClient.signIn.oauth2({
   providerId: "authentik",
   callbackURL,
   errorCallbackURL,
-  scopes: ["openid", "profile", "email"],
+  scopes: ["openid", "profile", "user_profile"],
 })
 ```
 

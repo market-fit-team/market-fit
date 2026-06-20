@@ -153,6 +153,28 @@ entries:
       name: pickle-web-google-login
     id: pickle-web-google-login
 
+  # Pickle Web 사용자 프로필 claim
+  - model: authentik_providers_oauth2.scopemapping
+    state: present
+    identifiers:
+      managed: pickle-web/oauth-scope-user-profile
+    id: pickle-web-user-profile-scope
+    attrs:
+      managed: pickle-web/oauth-scope-user-profile
+      name: pickle-web-user-profile
+      scope_name: user_profile
+      description: Pickle Web 사용자 UUID와 프로필 claim
+      expression: |
+        return {
+            "user_profile": {
+                "uuid": str(request.user.uuid),
+                "display_name": request.user.attributes.get("display_name"),
+                "age": request.user.attributes.get("age"),
+                "job": request.user.attributes.get("job"),
+                "avatar_seed": request.user.attributes.get("avatar_seed"),
+            }
+        }
+
   - model: authentik_flows.flowstagebinding
     state: present
     identifiers:
@@ -210,6 +232,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+        - !KeyOf pickle-web-user-profile-scope
 
   # Pickle Web 애플리케이션
   - model: authentik_core.application

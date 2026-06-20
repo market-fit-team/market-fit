@@ -6,15 +6,16 @@ import { HeaderAuthButtonFallback } from "@/features/auth/components/header/head
 import { HeaderAuthLoginButton } from "@/features/auth/components/header/header-auth-login-button"
 import { HeaderAuthLogoutButton } from "@/features/auth/components/header/header-auth-logout-button"
 
-const { getServerSessionMock, pushMock, signOutMock, usePathnameMock } =
-  vi.hoisted(() => {
+const { pushMock, signOutMock, usePathnameMock, useSessionMock } = vi.hoisted(
+  () => {
     return {
-      getServerSessionMock: vi.fn(),
       pushMock: vi.fn(),
       signOutMock: vi.fn(),
       usePathnameMock: vi.fn(),
+      useSessionMock: vi.fn(),
     }
-  })
+  }
+)
 
 vi.mock("next/navigation", () => ({
   usePathname: usePathnameMock,
@@ -25,19 +26,20 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/features/auth/lib/auth-client", () => ({
   signOut: signOutMock,
-}))
-
-vi.mock("@/features/auth/lib/server-session", () => ({
-  getServerSession: getServerSessionMock,
+  useSession: useSessionMock,
 }))
 
 describe("Header auth buttons", () => {
   beforeEach(() => {
-    getServerSessionMock.mockReset()
     pushMock.mockReset()
     signOutMock.mockReset()
     usePathnameMock.mockReset()
+    useSessionMock.mockReset()
     usePathnameMock.mockReturnValue("/map")
+    useSessionMock.mockReturnValue({
+      data: null,
+      isPending: false,
+    })
   })
 
   it("renders a login link with the current pathname as callbackURL", () => {
@@ -84,10 +86,13 @@ describe("Header auth buttons", () => {
     expect(pushMock).toHaveBeenCalledWith("/")
   })
 
-  it("renders the login button when the server session is missing", async () => {
-    getServerSessionMock.mockResolvedValue(null)
+  it("renders the login button when the session is missing", () => {
+    useSessionMock.mockReturnValue({
+      data: null,
+      isPending: false,
+    })
 
-    render(await HeaderAuthButton())
+    render(<HeaderAuthButton />)
 
     expect(screen.getByRole("link", { name: "로그인" })).toHaveAttribute(
       "href",
@@ -95,14 +100,28 @@ describe("Header auth buttons", () => {
     )
   })
 
-  it("renders the logout button when the server session exists", async () => {
-    getServerSessionMock.mockResolvedValue({
-      user: {
-        name: "홍길동",
-      },
+  it("renders the fallback while the client session is loading", () => {
+    useSessionMock.mockReturnValue({
+      data: null,
+      isPending: true,
     })
 
-    render(await HeaderAuthButton())
+    const { container } = render(<HeaderAuthButton />)
+
+    expect(container.firstChild).toHaveAttribute("data-slot", "skeleton")
+  })
+
+  it("renders the logout button when the session exists", () => {
+    useSessionMock.mockReturnValue({
+      data: {
+        user: {
+          name: "홍길동",
+        },
+      },
+      isPending: false,
+    })
+
+    render(<HeaderAuthButton />)
 
     expect(screen.getByRole("button", { name: "로그아웃" })).toHaveAttribute(
       "title",

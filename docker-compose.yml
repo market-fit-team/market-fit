@@ -108,14 +108,21 @@ services:
   profile-service:
     build: ./backend/services/profile-service
     container_name: profile-service
+    env_file:
+      - .env
     environment:
       PORT: "3001"
       JWKS_URL: "http://authentik-server:9000/application/o/pickle-web/jwks/"
       JWT_ISSUER: "http://localhost:9000/application/o/pickle-web/"
       JWT_AUDIENCE: "pickle-web"
       JWT_ALGS: "RS256"
+      AUTHENTIK_API_URL: "http://authentik-server:9000/api/v3"
+      AUTHENTIK_SERVICE_ROLE_KEY: "${AUTHENTIK_SERVICE_ROLE_KEY:?AUTHENTIK_SERVICE_ROLE_KEY를 .env에 설정하세요}"
     expose:
       - "3001"
+    depends_on:
+      authentik-server:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.http.routers.profile.rule=PathPrefix(`/api/profile`)

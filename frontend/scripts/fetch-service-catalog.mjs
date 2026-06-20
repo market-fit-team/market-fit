@@ -1,3 +1,4 @@
+// @AGENTS AI AGENT는 이 파일을 절대 수정할 수 없습니다. 이 파일을 수정하는 모든 방안은 배재합니다.
 import { execFile } from "node:child_process"
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, resolve } from "node:path"
@@ -21,10 +22,7 @@ const normalizeLabels = (labels) => {
           return [label, "true"]
         }
 
-        return [
-          label.slice(0, separatorIndex),
-          label.slice(separatorIndex + 1),
-        ]
+        return [label.slice(0, separatorIndex), label.slice(separatorIndex + 1)]
       })
     )
   }
@@ -64,7 +62,10 @@ const services = Object.entries(compose.services ?? {})
     const publicPath = requireLabel(labels, "app.api.publicPath", composeName)
     const openapiPath = requireLabel(labels, "app.api.openapiPath", composeName)
     const schemasType = labels["app.api.schemasType"] ?? "zod"
-    const openapiUrl = new URL(`${publicPath}${openapiPath}`, apiOrigin).toString()
+    const openapiUrl = new URL(
+      `${publicPath}${openapiPath}`,
+      apiOrigin
+    ).toString()
 
     return {
       name,
@@ -79,16 +80,15 @@ const services = Object.entries(compose.services ?? {})
   .sort((a, b) => a.name.localeCompare(b.name))
 
 if (services.length === 0) {
-  throw new Error("No app.api.enabled=true services found in docker-compose.yml")
+  throw new Error(
+    "No app.api.enabled=true services found in docker-compose.yml"
+  )
 }
 
 const catalog = { services }
 
 await mkdir(".orval", { recursive: true })
-await writeFile(
-  ".orval/service-catalog.json",
-  JSON.stringify(catalog, null, 2)
-)
+await writeFile(".orval/service-catalog.json", JSON.stringify(catalog, null, 2))
 
 console.log(
   `[orval] wrote .orval/service-catalog.json from docker compose labels (${services.length} services)`
