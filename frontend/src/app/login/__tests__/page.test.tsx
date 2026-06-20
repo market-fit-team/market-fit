@@ -93,7 +93,9 @@ describe("/login page", () => {
           callbackURL: "/example/dashboard",
         }),
       })
-    ).rejects.toThrow("NEXT_REDIRECT:/profile?callbackURL=%2Fexample%2Fdashboard")
+    ).rejects.toThrow(
+      "NEXT_REDIRECT:/profile?callbackURL=%2Fexample%2Fdashboard"
+    )
 
     expect(redirectMock).toHaveBeenCalledWith(
       "/profile?callbackURL=%2Fexample%2Fdashboard"
