@@ -1,24 +1,4 @@
 services:
-  frontend-db:
-    image: postgres:17-alpine
-    container_name: frontend-db
-    restart: unless-stopped
-    ports:
-      - "5662:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: frontend_db
-      TZ: Asia/Seoul
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d frontend_db"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
-
-
   authentik-db:
     image: postgres:17-alpine
     container_name: authentik-db
@@ -282,7 +262,6 @@ services:
       - app.api.schemasType=zod
 
 volumes:
-  postgres_data:
   authentik_postgres_data:
   community_postgres_data:
   redis_data:

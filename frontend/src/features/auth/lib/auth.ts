@@ -2,20 +2,12 @@
 import { betterAuth } from "better-auth"
 import { nextCookies } from "better-auth/next-js"
 import { genericOAuth } from "better-auth/plugins"
-import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { env } from "@/shared/config/env"
-import { db } from "@/shared/db"
-import * as schema from "@/shared/db/schema"
 
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   trustedOrigins: [env.BETTER_AUTH_URL],
-
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema,
-  }),
 
   plugins: [
     genericOAuth({
