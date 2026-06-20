@@ -50,8 +50,8 @@ services:
       - traefik.http.services.authentik.loadbalancer.server.port=9000
       - app.api.enabled=true
       - app.api.name=authentik-users
-      - app.api.publicPath=/api/authentik
-      - app.api.openapiPath=/api/v3/schema/?format=json
+      - app.api.publicPath=/api/authentik/api/v3
+      - app.api.openapiPath=/schema/?format=json
       - app.api.schemasType=typescript
     depends_on:
       authentik-db:
