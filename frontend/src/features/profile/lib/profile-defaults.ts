@@ -1,8 +1,8 @@
 import { customAlphabet } from "nanoid"
 import { uniqueNamesGenerator } from "unique-names-generator"
 
-const DISPLAY_NAME_MIN_LENGTH = 3
-const DISPLAY_NAME_MAX_LENGTH = 9
+export const DISPLAY_NAME_MIN_LENGTH = 3
+export const DISPLAY_NAME_MAX_LENGTH = 20
 const safeAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 const createShortSuffix = customAlphabet(safeAlphabet, 2)
 const createAvatarSeed = customAlphabet(safeAlphabet, 12)
@@ -44,8 +44,10 @@ type ProfileSessionUser = {
   job?: string | null
 }
 
-export const DISPLAY_NAME_REGEX =
-  /^(?!default$)(?![0-9])[A-Za-z가-힣0-9]{3,9}$/i
+export const DISPLAY_NAME_REGEX = new RegExp(
+  `^(?!default$)(?![0-9])[A-Za-z가-힣0-9]{${DISPLAY_NAME_MIN_LENGTH},${DISPLAY_NAME_MAX_LENGTH}}$`,
+  "i"
+)
 
 export const isProfileSetupRequired = (user: ProfileSessionUser) => {
   const displayName = user.displayName?.trim()

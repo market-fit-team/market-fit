@@ -1,6 +1,10 @@
 import { z } from "zod"
-import { DISPLAY_NAME_REGEX } from "./profile-defaults"
-import { JOBS } from "./profile-jobs"
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+  DISPLAY_NAME_REGEX,
+} from "@/features/profile/lib/profile-defaults"
+import { JOBS } from "@/features/profile/lib/profile-jobs"
 
 export const profileFormSchema = z.object({
   age: z
@@ -14,8 +18,14 @@ export const profileFormSchema = z.object({
   displayName: z
     .string()
     .trim()
-    .min(3, "닉네임은 3자 이상이어야 합니다.")
-    .max(9, "닉네임은 9자 이하여야 합니다.")
+    .min(
+      DISPLAY_NAME_MIN_LENGTH,
+      `닉네임은 ${DISPLAY_NAME_MIN_LENGTH}자 이상이어야 합니다.`
+    )
+    .max(
+      DISPLAY_NAME_MAX_LENGTH,
+      `닉네임은 ${DISPLAY_NAME_MAX_LENGTH}자 이하여야 합니다.`
+    )
     .refine(
       (value) => value.toLowerCase() !== "default",
       "default는 사용할 수 없습니다."

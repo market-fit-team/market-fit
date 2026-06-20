@@ -4,12 +4,14 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Avatar from "boring-avatars"
 import { RefreshCcw } from "lucide-react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { authClient } from "@/features/auth/lib/auth-client"
 import { AUTHENTIK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
 import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
   createProfileAvatarSeed,
   resolveProfileCompletionRedirectTarget,
 } from "@/features/profile/lib/profile-defaults"
@@ -40,6 +42,7 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/shared/components/ui/native-select"
+import { Spinner } from "@/shared/components/ui/spinner"
 
 type RefreshTokenResult = {
   data?: {
@@ -56,7 +59,16 @@ type ProfileFormProps = {
   requiresInitialization: boolean
 }
 
-const avatarColors = ["#0f172a", "#1d4ed8", "#0ea5e9", "#f59e0b", "#f97316"]
+const avatarColors = [
+  "#FFABAB",
+  "#FFCC99",
+  "#FFFF99",
+  "#CCFFCC",
+  "#99CCFF",
+  "#CC99FF",
+  "#FF99CC",
+  "#99FFFF",
+]
 
 const getErrorMessage = (error: unknown) => {
   if (
@@ -105,31 +117,32 @@ export function ProfileForm({
     resolver: zodResolver(profileFormSchema),
   })
 
-  const avatarSeed = form.watch("avatarSeed")
+  const avatarSeed = useWatch({
+    control: form.control,
+    name: "avatarSeed",
+  })
   const canSubmit =
     form.formState.isValid &&
     !isPending &&
     (requiresInitialization || form.formState.isDirty)
 
   const handleSubmit = (values: ProfileFormValues) => {
-    startTransition(() => {
-      void (async () => {
-        try {
-          await refreshAuthToken()
-          await patchMyProfile({
-            age: values.age === "" ? null : Number(values.age),
-            avatar_seed: values.avatarSeed,
-            display_name: values.displayName,
-            job: values.job === "" ? null : values.job,
-          })
-          await refreshAuthToken()
-          await refetch()
-          toast.success("프로필을 저장했습니다.")
-          router.push(resolveProfileCompletionRedirectTarget(callbackURL))
-        } catch (error) {
-          toast.error(getErrorMessage(error))
-        }
-      })()
+    startTransition(async () => {
+      try {
+        await refreshAuthToken()
+        await patchMyProfile({
+          age: values.age === "" ? null : Number(values.age),
+          avatar_seed: values.avatarSeed,
+          display_name: values.displayName,
+          job: values.job === "" ? null : values.job,
+        })
+        await refreshAuthToken()
+        await refetch()
+        toast.success("프로필을 저장했습니다.")
+        router.push(resolveProfileCompletionRedirectTarget(callbackURL))
+      } catch (error) {
+        toast.error(getErrorMessage(error))
+      }
     })
   }
 
@@ -189,13 +202,13 @@ export function ProfileForm({
               <FieldContent>
                 <Input
                   id="display-name"
-                  maxLength={9}
+                  maxLength={DISPLAY_NAME_MAX_LENGTH}
                   placeholder="닉네임을 입력하세요"
                   {...form.register("displayName")}
                 />
                 <FieldDescription>
-                  3~9자, 공백/특수문자 없이 영문, 한글, 숫자만 사용할 수
-                  있습니다.
+                  {DISPLAY_NAME_MIN_LENGTH}~{DISPLAY_NAME_MAX_LENGTH}자,
+                  공백/특수문자 없이 영문, 한글, 숫자만 사용할 수 있습니다.
                 </FieldDescription>
                 <FieldError errors={[form.formState.errors.displayName]} />
               </FieldContent>
@@ -236,7 +249,11 @@ export function ProfileForm({
 
           <div className="flex justify-end">
             <Button disabled={!canSubmit} type="submit">
-              {isPending ? "저장 중..." : "저장하고 계속하기"}
+              {isPending ? (
+                <Spinner className="size-3.5" />
+              ) : (
+                "저장하고 계속하기"
+              )}
             </Button>
           </div>
         </form>

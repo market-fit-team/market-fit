@@ -1,6 +1,6 @@
 # AGENTS
 
-- 주석은 한국어로 작성한다.
+- 주석은 한국어로 작성한다. 테스트 설명 및 jsdoc 등도 한글로 작성한다.
 - 새로운 기능을 구현하기 전 꼭 자신이 수정하는 폴더의 AGENTS.md을 읽고 폴더 구조를 파악한 후 수정해야 한다. 폴더 구조는 각 프로젝트의 docs 내의 architecture.md 또는 app-structure.md 를 참고한다.
 - 문서를 작성할 때에는 [writing-docs.md](docs/agents/writing-docs.md)를 참고한다.
 - 신규 백엔드 서비스를 생성할 때에는 [new-svc.md](docs/agents/new-svc.md)를 참고한다.
