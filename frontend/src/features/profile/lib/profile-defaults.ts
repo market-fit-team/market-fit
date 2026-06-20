@@ -1,11 +1,9 @@
-import { customAlphabet } from "nanoid"
+import { customAlphabet, nanoid } from "nanoid"
 import { uniqueNamesGenerator } from "unique-names-generator"
 
 export const DISPLAY_NAME_MIN_LENGTH = 3
 export const DISPLAY_NAME_MAX_LENGTH = 20
-const safeAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
-const createShortSuffix = customAlphabet(safeAlphabet, 2)
-const createAvatarSeed = customAlphabet(safeAlphabet, 12)
+const createShortSuffix = customAlphabet("0123456789", 4)
 
 const shortAdjectives = [
   "aqua",
@@ -67,7 +65,8 @@ export const createProfileDisplayName = () => {
       dictionaries: [shortAdjectives, shortAnimals],
       separator: "",
       length: 2,
-    }).toLowerCase()
+      style: "capital",
+    })
     const candidate = `${base}${createShortSuffix()}`
 
     if (
@@ -79,11 +78,11 @@ export const createProfileDisplayName = () => {
     }
   }
 
-  return `user${customAlphabet(safeAlphabet, 5)()}`
+  return `User${customAlphabet("0123456789", 5)()}`
 }
 
 export const createProfileAvatarSeed = () => {
-  return createAvatarSeed()
+  return nanoid(12)
 }
 
 export const resolveProfileDraft = (user: ProfileSessionUser) => {

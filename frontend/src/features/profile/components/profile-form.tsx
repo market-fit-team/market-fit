@@ -114,6 +114,7 @@ export function ProfileForm({
       job: initialJob ?? "",
     },
     mode: "onChange",
+    delayError: 300,
     resolver: zodResolver(profileFormSchema),
   })
 

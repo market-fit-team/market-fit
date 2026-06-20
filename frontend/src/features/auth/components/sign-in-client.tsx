@@ -1,8 +1,9 @@
 // src/features/auth/components/sign-in-client.tsx
 "use client"
 
-import { useState } from "react"
-import { AlertCircle, ArrowRight } from "lucide-react"
+import { useEffect, useState } from "react"
+import { ArrowRight } from "lucide-react"
+import { toast } from "sonner"
 import { authClient } from "@/features/auth/lib/auth-client"
 import {
   getDefaultLoginOption,
@@ -12,11 +13,6 @@ import {
   OAUTH_LOGIN_ERROR,
   buildOAuthSignInPayload,
 } from "@/features/auth/lib/oauth-sign-in"
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/shared/components/ui/alert"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import {
@@ -28,6 +24,12 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card"
 
+const showLoginErrorToast = () => {
+  toast.error("로그인을 완료하지 못했습니다.", {
+    description: "잠시 후 다시 시도해주시기 바랍니다",
+  })
+}
+
 export default function SignInClient({
   callbackURL,
   error,
@@ -36,11 +38,13 @@ export default function SignInClient({
   error?: string
 }) {
   const [activeOptionId, setActiveOptionId] = useState<string | null>(null)
-  const [errorMessage, setErrorMessage] = useState(
-    error === OAUTH_LOGIN_ERROR
-      ? "로그인을 완료하지 못했습니다. 다시 시도해 주세요."
-      : undefined
-  )
+
+  useEffect(() => {
+    if (error === OAUTH_LOGIN_ERROR) {
+      showLoginErrorToast()
+    }
+  }, [error])
+
   const defaultLoginOption = getDefaultLoginOption()
 
   return (
@@ -61,14 +65,6 @@ export default function SignInClient({
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {errorMessage ? (
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" />
-            <AlertTitle>로그인 실패</AlertTitle>
-            <AlertDescription>{errorMessage}</AlertDescription>
-          </Alert>
-        ) : null}
-
         <div className="space-y-2">
           {loginOptions.map((loginOption) => {
             const isSubmitting = activeOptionId === loginOption.id
@@ -86,20 +82,18 @@ export default function SignInClient({
                 onClick={async () => {
                   if (isDisabled) return
 
-                  setErrorMessage(undefined)
                   setActiveOptionId(loginOption.id)
 
                   try {
-                    await authClient.signIn.oauth2(
+                    const result = await authClient.signIn.oauth2(
                       buildOAuthSignInPayload({
                         callbackURL,
                         loginOption,
                       })
                     )
+                    if (result?.error) throw result.error
                   } catch {
-                    setErrorMessage(
-                      "로그인을 시작하지 못했습니다. 다시 시도해 주세요."
-                    )
+                    showLoginErrorToast()
                   } finally {
                     setActiveOptionId(null)
                   }
