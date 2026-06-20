@@ -12,6 +12,17 @@ const { getServerSessionMock, redirectMock, oauth2Mock } = vi.hoisted(() => {
   }
 })
 
+const createCompletedSession = () => {
+  return {
+    user: {
+      id: "user-1",
+      displayName: "홍길동1234",
+      avatarSeed: "avatar-seed-1",
+    },
+    session: { id: "session-1" },
+  }
+}
+
 vi.mock("next/navigation", () => ({
   redirect: redirectMock,
 }))
@@ -36,10 +47,7 @@ describe("/login page", () => {
   })
 
   it("인증된 사용자를 유효한 콜백 URL로 리다이렉트한다", async () => {
-    getServerSessionMock.mockResolvedValue({
-      user: { id: "user-1" },
-      session: { id: "session-1" },
-    })
+    getServerSessionMock.mockResolvedValue(createCompletedSession())
 
     await expect(
       LoginPage({
@@ -54,10 +62,7 @@ describe("/login page", () => {
   })
 
   it("인증된 사용자를 잘못된 콜백 URL에 대해 루트로 리다이렉트한다", async () => {
-    getServerSessionMock.mockResolvedValue({
-      user: { id: "user-1" },
-      session: { id: "session-1" },
-    })
+    getServerSessionMock.mockResolvedValue(createCompletedSession())
 
     await expect(
       LoginPage({
@@ -69,6 +74,30 @@ describe("/login page", () => {
     ).rejects.toThrow("NEXT_REDIRECT:/")
 
     expect(redirectMock).toHaveBeenCalledWith("/")
+  })
+
+  it("프로필 설정이 끝나지 않은 사용자를 프로필 페이지로 리다이렉트한다", async () => {
+    getServerSessionMock.mockResolvedValue({
+      user: {
+        id: "user-1",
+        displayName: "default",
+        avatarSeed: "default",
+      },
+      session: { id: "session-1" },
+    })
+
+    await expect(
+      LoginPage({
+        params: Promise.resolve({}),
+        searchParams: Promise.resolve({
+          callbackURL: "/example/dashboard",
+        }),
+      })
+    ).rejects.toThrow("NEXT_REDIRECT:/profile?callbackURL=%2Fexample%2Fdashboard")
+
+    expect(redirectMock).toHaveBeenCalledWith(
+      "/profile?callbackURL=%2Fexample%2Fdashboard"
+    )
   })
 
   it("인증되지 않은 사용자에게 로그인 카드를 렌더링한다", async () => {

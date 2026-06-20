@@ -3,9 +3,10 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import SignInClient from "@/features/auth/components/sign-in-client"
 
-const { oauth2Mock } = vi.hoisted(() => {
+const { oauth2Mock, toastErrorMock } = vi.hoisted(() => {
   return {
     oauth2Mock: vi.fn(),
+    toastErrorMock: vi.fn(),
   }
 })
 
@@ -17,9 +18,16 @@ vi.mock("@/features/auth/lib/auth-client", () => ({
   },
 }))
 
+vi.mock("sonner", () => ({
+  toast: {
+    error: toastErrorMock,
+  },
+}))
+
 describe("SignInClient", () => {
   beforeEach(() => {
     oauth2Mock.mockReset()
+    toastErrorMock.mockReset()
   })
 
   it("authentik 제공자 페이로드와 함께 Better Auth oauth2 로그인을 호출한다", async () => {
@@ -68,11 +76,16 @@ describe("SignInClient", () => {
     })
   })
 
-  it("콜백에서 발생한 oauth 에러 메시지를 보여준다", () => {
+  it("콜백에서 발생한 oauth 에러 토스트를 띄운다", async () => {
     render(<SignInClient callbackURL="/" error="oauth" />)
 
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "로그인을 완료하지 못했습니다. 다시 시도해 주세요."
-    )
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        "로그인을 완료하지 못했습니다.",
+        {
+          description: "잠시 후 다시 시도해주시기 바랍니다",
+        }
+      )
+    })
   })
 })
