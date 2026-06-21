@@ -7,3 +7,5 @@ export type MapTab = "sectors" | "demographics" | "traffic"
 export type BudgetRange = "all" | "low" | "high"
 
 export type TargetDemographic = "all" | "20" | "30" | "50"
+
+export type DongCode = string

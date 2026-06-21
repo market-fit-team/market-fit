@@ -5,6 +5,16 @@ import type {
 } from "@/features/map/types/map"
 import { districtsData, personaResults } from "@/features/startup/lib/data"
 
+// 기존 mock 상권 id를 테스트용 polygon id로 변환
+// 백엔드 연결 시 이 매핑과 추천 selector를 제거
+const polygonTradeAreaIds: Record<TradeAreaId, TradeAreaId[]> = {
+  gangnam: ["1123064"],
+  itaewon: ["1103065"],
+  jongno: ["1101061"],
+  mapo: ["1114066"],
+  seongdong: ["1104066"],
+}
+
 type FilteredTradeAreaInput = {
   activePersona: string | null
   budgetRange: BudgetRange
@@ -83,3 +93,16 @@ export const getFilteredTradeAreas = ({
 
 export const getFilteredTradeAreaIds = (input: FilteredTradeAreaInput) =>
   new Set(getFilteredTradeAreas(input).map((district) => district.id))
+
+export const getRecommendedTradeAreaIds = (activePersona: string | null) => {
+  if (!activePersona) {
+    return []
+  }
+
+  const legacyTradeAreaIds =
+    personaResults[activePersona]?.recommendedDistricts ?? []
+
+  return legacyTradeAreaIds.flatMap(
+    (tradeAreaId) => polygonTradeAreaIds[tradeAreaId] ?? []
+  )
+}

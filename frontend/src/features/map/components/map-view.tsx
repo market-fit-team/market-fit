@@ -80,8 +80,10 @@ export function MapView() {
         </Button>
       )}
 
-      {/* 중앙 영역의 SVG 지도와 범례는 CanvasWidget 안에 둔다. */}
-      <CanvasWidget />
+      {/* 지도는 모든 패널 아래에 고정되는 배경 레이어다. */}
+      <div className="absolute inset-0 z-0">
+        <CanvasWidget />
+      </div>
 
       {/* 결과 도크는 왼쪽 사이드바 상태를 따라 겹치지 않게 배치한다. */}
       <div
