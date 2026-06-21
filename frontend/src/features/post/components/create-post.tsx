@@ -2,65 +2,94 @@
 
 import { useState } from "react"
 import { toast } from "sonner"
-import { useQueryClient } from "@tanstack/react-query"
-import { ImageUpload } from "@/features/media/components/image-upload"
-import {
-  invalidateGetPostsByCursorSuspenseInfinite,
-  useCreatePost,
-} from "@/shared/api/generated/community/endpoints/posts/posts"
-import { problemDetailSchema } from "@/shared/api/problem-detail-schema"
+import { createPost } from "@/features/post/api/post-api"
+import type { PostCategory } from "@/features/post/types/post"
 import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@/shared/components/ui/native-select"
 import { Textarea } from "@/shared/components/ui/textarea"
 
 export function CreatePost() {
+  const [title, setTitle] = useState("")
+  const [summary, setSummary] = useState("")
   const [content, setContent] = useState("")
-  const [mediaAttachmentIds, setMediaAttachmentIds] = useState<number[]>([])
-  const queryClient = useQueryClient()
+  const [category, setCategory] = useState<PostCategory>("TREND")
+  const [readTimeMinutes, setReadTimeMinutes] = useState(5)
+  const [isPending, setIsPending] = useState(false)
 
-  const { mutate: createPost, isPending } = useCreatePost({
-    mutation: {
-      onSuccess: () => {
-        setContent("")
-        setMediaAttachmentIds([])
-        // 게시글 목록 캐시 무효화
-        void invalidateGetPostsByCursorSuspenseInfinite(queryClient)
-        toast.success("게시글 작성 완료")
-      },
-      onError: (error) => {
-        console.error("Create post failed", error)
-        const parsedError = problemDetailSchema.safeParse(error)
-        toast.error(parsedError.data?.detail ?? "게시글 작성 실패")
-      },
-    },
-  })
+  const handleSubmit = async (event: React.SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!title.trim() || !summary.trim() || !content.trim()) return
 
-  const handleUploadSuccess = (mediaId: number) => {
-    setMediaAttachmentIds((prev) => [...prev, mediaId])
-  }
-
-  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!content.trim() && mediaAttachmentIds.length === 0) return
-
-    createPost({
-      data: {
-        content: content,
-        mediaAttachmentIds: mediaAttachmentIds,
-      },
-    })
+    setIsPending(true)
+    try {
+      await createPost({
+        title,
+        summary,
+        content,
+        category,
+        readTimeMinutes,
+      })
+      setTitle("")
+      setSummary("")
+      setContent("")
+      toast.success("게시글 작성 완료")
+    } catch {
+      toast.error("게시글 작성 실패")
+    } finally {
+      setIsPending(false)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <Input
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        placeholder="제목"
+        maxLength={200}
+        disabled={isPending}
+      />
+      <Input
+        value={summary}
+        onChange={(event) => setSummary(event.target.value)}
+        placeholder="요약"
+        maxLength={500}
+        disabled={isPending}
+      />
       <Textarea
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(event) => setContent(event.target.value)}
         placeholder="내용을 입력하세요"
         disabled={isPending}
       />
-      <ImageUpload onUploadSuccess={handleUploadSuccess} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <NativeSelect
+          value={category}
+          onChange={(event) => setCategory(event.target.value as PostCategory)}
+          disabled={isPending}
+        >
+          <NativeSelectOption value="TREND">시장 트렌드</NativeSelectOption>
+          <NativeSelectOption value="GUIDE">
+            창업 실무 가이드
+          </NativeSelectOption>
+          <NativeSelectOption value="POLICY">정책/법률</NativeSelectOption>
+        </NativeSelect>
+        <Input
+          type="number"
+          min={1}
+          max={120}
+          value={readTimeMinutes}
+          onChange={(event) => setReadTimeMinutes(Number(event.target.value))}
+          disabled={isPending}
+          aria-label="예상 읽기 시간"
+        />
+      </div>
       <Button type="submit" disabled={isPending}>
-        등록
+        {isPending ? "등록 중..." : "등록"}
       </Button>
     </form>
   )

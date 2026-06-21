@@ -1,0 +1,88 @@
+package com.marketfit.post.api.post;
+
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.marketfit.post.api.post.dto.CrawlSummaryRequest;
+import com.marketfit.post.application.report.PostCrawlSummaryFacade;
+import com.marketfit.post.core.post.Post;
+import com.marketfit.post.core.post.PostCategory;
+import com.marketfit.post.core.post.PostDraft;
+import com.marketfit.post.core.post.PostSourceType;
+import com.marketfit.post.core.post.PostVisibility;
+
+class PostCrawlSummaryControllerTest {
+
+    @Test
+    void X_User_Id와_요청을_Facade에_전달하고_응답_DTO를_반환한다() throws Exception {
+        PostCrawlSummaryFacade facade = org.mockito.Mockito.mock(PostCrawlSummaryFacade.class);
+        PostCrawlSummaryController controller = new PostCrawlSummaryController(facade);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        ObjectMapper objectMapper = new ObjectMapper();
+        CrawlSummaryRequest request = new CrawlSummaryRequest(
+                "https://example.com/article",
+                "AI 채용 트렌드",
+                null,
+                PostVisibility.PUBLIC
+        );
+        Post saved = Post.create(
+                "user-31",
+                "user-31",
+                new PostDraft(
+                        "AI 채용 트렌드 요약 리포트",
+                        "최근 AI 엔지니어 수요가 증가하고 있습니다.",
+                        "# AI 채용 트렌드",
+                        PostCategory.TREND,
+                        3,
+                        PostSourceType.LLM_REPORT,
+                        "https://example.com/article",
+                        "기사 제목",
+                        Instant.now(),
+                        "OPENAI:gpt-4o-mini"
+                )
+        );
+        UUID sourceId = UUID.randomUUID();
+        saved.configureCrawlSource(sourceId, PostVisibility.PUBLIC);
+        when(facade.create(eq("user-31"), eq(request))).thenReturn(saved);
+
+        mockMvc.perform(post("/api/posts/crawl-summary")
+                        .header("X-User-Id", "user-31")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("AI 채용 트렌드 요약 리포트"))
+                .andExpect(jsonPath("$.sourceType").value("LLM_REPORT"))
+                .andExpect(jsonPath("$.sourceId").value(sourceId.toString()))
+                .andExpect(jsonPath("$.content").doesNotExist());
+    }
+
+    @Test
+    void X_User_Id가_없으면_400을_반환한다() throws Exception {
+        PostCrawlSummaryController controller = new PostCrawlSummaryController(
+                org.mockito.Mockito.mock(PostCrawlSummaryFacade.class)
+        );
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(post("/api/posts/crawl-summary")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "rawContent": "원문",
+                                  "visibility": "PUBLIC"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+}

@@ -1,17 +1,9 @@
-export type MainPostCategory = "Trend" | "Guide" | "Policy"
+import type {
+  MainPostCarouselSection,
+  PostCategory,
+  PostSummary,
+} from "@/features/post/types/post"
 
-export interface MainPostItem {
-  id: string
-  title: string
-  summary: string
-  category: MainPostCategory
-  readTime: string
-  date: string
-}
-
-export interface MainPostCarouselSection {
-  id: string
-  title: string
-  description: string
-  posts: MainPostItem[]
-}
+export type MainPostCategory = PostCategory
+export type MainPostItem = PostSummary
+export type { MainPostCarouselSection }
