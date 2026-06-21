@@ -1,0 +1,156 @@
+/** 설문 문항 목 데이터 (질문지.md 기반) */
+export interface SurveyOption {
+  code: string
+  label: string
+}
+
+export interface SurveyQuestion {
+  id: string
+  /** 단일 선택 or 복수 선택 */
+  selectionType: "single" | "multi"
+  prompt: string
+  maxSelections: number | null
+  options: SurveyOption[]
+}
+
+export const SURVEY_QUESTIONS: SurveyQuestion[] = [
+  {
+    id: "q1",
+    selectionType: "single",
+    prompt: "내 가게에 가장 자주 왔으면 하는 손님은 어떤 분인가요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "집 근처라 자주 오는 동네 주민" },
+      { code: "B", label: "점심이나 퇴근길에 들르는 직장인" },
+      { code: "C", label: "일부러 찾아오는 목적형 손님" },
+      { code: "D", label: "주말에 가족이나 연인과 오는 손님" },
+    ],
+  },
+  {
+    id: "q2",
+    selectionType: "single",
+    prompt: "가게가 가장 바빴으면 하는 시간대는 언제인가요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "평일 점심" },
+      { code: "B", label: "평일 저녁" },
+      { code: "C", label: "주말 낮" },
+      { code: "D", label: "주말 저녁" },
+    ],
+  },
+  {
+    id: "q3",
+    selectionType: "single",
+    prompt: "자리 고를 때 지하철역과의 거리는 얼마나 중요하다고 느끼시나요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "역이 가까워야 거의 안심이 된다" },
+      { code: "B", label: "가까우면 좋지만 절대 조건은 아니다" },
+      { code: "C", label: "크게 신경 쓰지 않는다" },
+      { code: "D", label: "골목이나 생활권 안쪽도 괜찮다" },
+    ],
+  },
+  {
+    id: "q4",
+    selectionType: "single",
+    prompt: "창업 초기에 가장 중요하게 생각하는 것은 무엇인가요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "초기 투자금을 최대한 낮게 시작하는 것" },
+      { code: "B", label: "투자금이 들더라도 좋은 자리를 잡는 것" },
+      { code: "C", label: "초반 수익이 늦어도 버틸 여유를 남기는 것" },
+      { code: "D", label: "빠르게 매출을 만들고 회수하는 것" },
+    ],
+  },
+  {
+    id: "q5",
+    selectionType: "single",
+    prompt: "같은 돈을 쓴다면 어디에 더 쓰고 싶으신가요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "월세와 보증금 부담을 낮추는 데" },
+      { code: "B", label: "월세가 높아도 더 좋은 위치를 잡는 데" },
+      { code: "C", label: "운영자금까지 남겨두는 데" },
+      { code: "D", label: "초반 홍보와 빠른 자리 잡기에" },
+    ],
+  },
+  {
+    id: "q6",
+    selectionType: "single",
+    prompt: "창업 후 1~2년 동안 어떤 흐름이 더 마음 편할 것 같나요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "크게 안 벌어도 꾸준히 유지되는 흐름" },
+      { code: "B", label: "변동이 있어도 성장 가능성이 큰 흐름" },
+      { code: "C", label: "위험은 적지만 확장성도 크지 않은 흐름" },
+      { code: "D", label: "리스크가 있더라도 빨리 커질 수 있는 흐름" },
+    ],
+  },
+  {
+    id: "q7",
+    selectionType: "single",
+    prompt: "경쟁이 많은 상권을 보면 어떤 생각이 드나요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "이미 수요가 검증된 곳이라 오히려 괜찮다" },
+      { code: "B", label: "굳이 그 안에서 싸우고 싶지는 않다" },
+      { code: "C", label: "내가 더 잘할 수 있다면 들어갈 수 있다" },
+      { code: "D", label: "상황을 조금 더 지켜본 뒤 판단하고 싶다" },
+    ],
+  },
+  {
+    id: "q8",
+    selectionType: "single",
+    prompt: "내가 생각하는 좋은 상권은 어떤 모습에 더 가깝나요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "아파트와 빌라가 많아 생활 수요가 보이는 곳" },
+      { code: "B", label: "오피스 건물이 많아 점심과 퇴근 수요가 보이는 곳" },
+      { code: "C", label: "역세권이라 유동인구가 계속 흐르는 곳" },
+      { code: "D", label: "너무 한쪽으로 치우치지 않은 혼합형 상권" },
+    ],
+  },
+  {
+    id: "q9",
+    selectionType: "single",
+    prompt: "장사가 안 되는 날, 어떤 상황이 가장 불안할 것 같나요?",
+    maxSelections: null,
+    options: [
+      { code: "A", label: "평일 점심에 직장인 손님이 안 오는 것" },
+      { code: "B", label: "저녁 시간인데 가게가 한산한 것" },
+      { code: "C", label: "주말인데 생각보다 조용한 것" },
+      { code: "D", label: "며칠 연속으로 전체 흐름이 꺾이는 것" },
+    ],
+  },
+  {
+    id: "q10",
+    selectionType: "multi",
+    prompt: "자영업을 통해 이루고 싶은 것을 골라주세요. (최대 3가지)",
+    maxSelections: 3,
+    options: [
+      { code: "A", label: "안정적인 생활 기반" },
+      { code: "B", label: "높은 수익과 확장 가능성" },
+      { code: "C", label: "자유로운 시간과 운영 방식" },
+      { code: "D", label: "동네에서 오래 인정받는 가게" },
+      { code: "E", label: "내 감각이 드러나는 브랜드" },
+    ],
+  },
+]
+
+/** 업종 카테고리 목 데이터 */
+export interface CategoryOption {
+  code: string
+  label: string
+  emoji: string
+}
+
+export const CATEGORY_OPTIONS: CategoryOption[] = [
+  { code: "CS100005", label: "제과점", emoji: "🥐" },
+  { code: "CS100006", label: "카페·음료", emoji: "☕" },
+  { code: "CS100007", label: "한식당", emoji: "🍚" },
+  { code: "CS100008", label: "분식·패스트푸드", emoji: "🍜" },
+  { code: "CS100009", label: "치킨·피자", emoji: "🍕" },
+  { code: "CS100010", label: "술집·주점", emoji: "🍺" },
+  { code: "CS100011", label: "미용·뷰티", emoji: "💇" },
+  { code: "CS100012", label: "편의점·소매", emoji: "🏪" },
+]

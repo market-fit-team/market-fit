@@ -5,10 +5,5 @@ export default async function Page(
 ) {
   const { base36 } = await props.params
 
-  return (
-    <TwoTowerClient
-      initialProfileCode={base36}
-      syncPathWithProfileCode
-    />
-  )
+  return <TwoTowerClient initialProfileCode={base36} syncPathWithProfileCode />
 }
