@@ -44,7 +44,7 @@ class TwoTowerApiTestCase(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["model_id"], "onboarding_two_tower")
         self.assertEqual(payload["profile_code_prefix"], "r")
-        self.assertEqual(payload["profile_schema_version"], 1)
+        self.assertEqual(payload["profile_schema_version"], 2)
         self.assertGreater(len(payload["feature_controls"]), 0)
         self.assertGreater(len(payload["sample_profiles"]), 0)
         self.assertGreater(len(payload["item_preview"]), 0)
@@ -60,15 +60,15 @@ class TwoTowerApiTestCase(unittest.TestCase):
                     "user_id": "test-user",
                     "profile_name": "테스트 제과형",
                     "preferred_category_code": "CS100005",
-                    "budget_level": 2,
-                    "stability_level": 5,
-                    "subway_dependency_level": 2,
-                    "weekend_preference_level": 3,
-                    "evening_preference_level": 2,
-                    "resident_focus_level": 5,
-                    "worker_focus_level": 1,
-                    "rent_sensitivity_level": 5,
-                    "competition_tolerance_level": 1,
+                    "budget_level": 0.25,
+                    "stability_level": 1.0,
+                    "subway_dependency_level": 0.25,
+                    "weekend_preference_level": 0.5,
+                    "evening_preference_level": 0.25,
+                    "resident_focus_level": 1.0,
+                    "worker_focus_level": 0.0,
+                    "rent_sensitivity_level": 1.0,
+                    "competition_tolerance_level": 0.0,
                 },
             },
         )
@@ -78,7 +78,7 @@ class TwoTowerApiTestCase(unittest.TestCase):
         self.assertEqual(payload["user_profile"]["preferred_category_code"], "CS100005")
         self.assertEqual(len(payload["recommendations"]), 5)
         self.assertTrue(payload["profile_code"].startswith("r"))
-        self.assertEqual(payload["profile_schema_version"], 1)
+        self.assertEqual(payload["profile_schema_version"], 2)
         self.assertIn(
             "제과점",
             [item["service_category_name"] for item in payload["recommendations"][:3]],
@@ -111,15 +111,15 @@ class TwoTowerApiTestCase(unittest.TestCase):
                     "user_id": "saved-user",
                     "profile_name": "저장 테스트 프로필",
                     "preferred_category_code": "CS100005",
-                    "budget_level": 2,
-                    "stability_level": 5,
-                    "subway_dependency_level": 2,
-                    "weekend_preference_level": 3,
-                    "evening_preference_level": 2,
-                    "resident_focus_level": 5,
-                    "worker_focus_level": 1,
-                    "rent_sensitivity_level": 5,
-                    "competition_tolerance_level": 1,
+                    "budget_level": 0.25,
+                    "stability_level": 1.0,
+                    "subway_dependency_level": 0.25,
+                    "weekend_preference_level": 0.5,
+                    "evening_preference_level": 0.25,
+                    "resident_focus_level": 1.0,
+                    "worker_focus_level": 0.0,
+                    "rent_sensitivity_level": 1.0,
+                    "competition_tolerance_level": 0.0,
                 },
             },
         )
@@ -150,15 +150,15 @@ class TwoTowerApiTestCase(unittest.TestCase):
                     "user_id": "shared-demo",
                     "profile_name": "공유 테스트",
                     "preferred_category_code": "CS100003",
-                    "budget_level": 3,
-                    "stability_level": 3,
-                    "subway_dependency_level": 5,
-                    "weekend_preference_level": 2,
-                    "evening_preference_level": 2,
-                    "resident_focus_level": 1,
-                    "worker_focus_level": 5,
-                    "rent_sensitivity_level": 3,
-                    "competition_tolerance_level": 3,
+                    "budget_level": 0.5,
+                    "stability_level": 0.5,
+                    "subway_dependency_level": 1.0,
+                    "weekend_preference_level": 0.25,
+                    "evening_preference_level": 0.25,
+                    "resident_focus_level": 0.0,
+                    "worker_focus_level": 1.0,
+                    "rent_sensitivity_level": 0.5,
+                    "competition_tolerance_level": 0.5,
                 },
             },
         )

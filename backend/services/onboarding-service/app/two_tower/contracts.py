@@ -2,22 +2,41 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+USER_TOWER_SCORE_FIELDS = (
+    "budget_level",
+    "stability_level",
+    "subway_dependency_level",
+    "weekend_preference_level",
+    "evening_preference_level",
+    "resident_focus_level",
+    "worker_focus_level",
+    "rent_sensitivity_level",
+    "competition_tolerance_level",
+)
 
 
 class UserProfilePayload(BaseModel):
     user_id: str = Field(default="ad_hoc_user", description="프로필 식별자")
     profile_name: str = Field(default="사용자 조정 프로필", description="프론트에 표시할 프로필 이름")
     preferred_category_code: str = Field(default="CS100001", description="선호 업종 코드")
-    budget_level: int = Field(default=3, ge=1, le=5, description="예산 허용치")
-    stability_level: int = Field(default=3, ge=1, le=5, description="안정성 선호도")
-    subway_dependency_level: int = Field(default=3, ge=1, le=5, description="지하철 의존도")
-    weekend_preference_level: int = Field(default=3, ge=1, le=5, description="주말 매출 선호도")
-    evening_preference_level: int = Field(default=3, ge=1, le=5, description="저녁 운영 선호도")
-    resident_focus_level: int = Field(default=3, ge=1, le=5, description="거주민 수요 집중도")
-    worker_focus_level: int = Field(default=3, ge=1, le=5, description="직장인 수요 집중도")
-    rent_sensitivity_level: int = Field(default=3, ge=1, le=5, description="임대료 민감도")
-    competition_tolerance_level: int = Field(default=3, ge=1, le=5, description="경쟁 허용도")
+    budget_level: float = Field(default=0.5, ge=0, le=1, description="예산 허용치")
+    stability_level: float = Field(default=0.5, ge=0, le=1, description="안정성 선호도")
+    subway_dependency_level: float = Field(default=0.5, ge=0, le=1, description="지하철 의존도")
+    weekend_preference_level: float = Field(default=0.5, ge=0, le=1, description="주말 매출 선호도")
+    evening_preference_level: float = Field(default=0.5, ge=0, le=1, description="저녁 운영 선호도")
+    resident_focus_level: float = Field(default=0.5, ge=0, le=1, description="거주민 수요 집중도")
+    worker_focus_level: float = Field(default=0.5, ge=0, le=1, description="직장인 수요 집중도")
+    rent_sensitivity_level: float = Field(default=0.5, ge=0, le=1, description="임대료 민감도")
+    competition_tolerance_level: float = Field(default=0.5, ge=0, le=1, description="경쟁 허용도")
+
+    @field_validator(*USER_TOWER_SCORE_FIELDS, mode="after")
+    @classmethod
+    def round_score(cls, value: float) -> float:
+        """공유 코드와 캐시 키가 흔들리지 않도록 0.01 단위로 정규화한다."""
+
+        return round(float(value), 2)
 
 
 class TrainRequest(BaseModel):
@@ -46,8 +65,9 @@ class FeatureControl(BaseModel):
     name: str
     label: str
     description: str
-    minimum: int = Field(default=1)
-    maximum: int = Field(default=5)
+    minimum: float = Field(default=0)
+    maximum: float = Field(default=1)
+    step: float = Field(default=0.01)
 
 
 class CategoryOption(BaseModel):

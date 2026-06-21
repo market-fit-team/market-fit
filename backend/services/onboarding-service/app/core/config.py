@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     database_echo: bool = False
     auto_create_schema: bool = True
     demo_auth_user_uuid: str = "123e4567-e89b-12d3-a456-426614174000"
+    bootstrap_train_if_missing: bool = True
+    bootstrap_train_epochs: int = 1
+    bootstrap_seed_demo_profile: bool = False
+    bootstrap_migrate_legacy_schema: bool = True
+    bootstrap_sync_profile_codes: bool = True
 
     model_config = SettingsConfigDict(env_prefix="ONBOARDING_SERVICE_")
 

@@ -16,6 +16,8 @@ uv run python -m app.models.onboarding_two_tower.train --epochs 16
 uv run python -m unittest discover -s tests -v
 ```
 
+현재 유저 타워 수치 파라미터는 모두 `0.00 ~ 1.00` 범위의 실수이며, API 진입 시 `0.01` 단위로 정규화한다.
+
 ## /two-tower/catalog
 
 `/two-tower/catalog`은 예제 화면 첫 렌더링에 필요한 고정 데이터를 모은다.
@@ -42,15 +44,15 @@ feature_controls
     "user_id": "saved-user",
     "profile_name": "저장 테스트 프로필",
     "preferred_category_code": "CS100005",
-    "budget_level": 2,
-    "stability_level": 5,
-    "subway_dependency_level": 2,
-    "weekend_preference_level": 3,
-    "evening_preference_level": 2,
-    "resident_focus_level": 5,
-    "worker_focus_level": 1,
-    "rent_sensitivity_level": 5,
-    "competition_tolerance_level": 1
+    "budget_level": 0.25,
+    "stability_level": 1.0,
+    "subway_dependency_level": 0.25,
+    "weekend_preference_level": 0.5,
+    "evening_preference_level": 0.25,
+    "resident_focus_level": 1.0,
+    "worker_focus_level": 0.0,
+    "rent_sensitivity_level": 1.0,
+    "competition_tolerance_level": 0.0
   }
 }
 ```
@@ -62,10 +64,10 @@ feature_controls
 `/two-tower/profiles/code/{profile_code}`는 base36 공유 코드만으로 현재 유저 타워 점수를 복원한다.
 
 ```text
-r + version + category + group1 + group2 + group3
+r + version + category + group1(4) + group2(4) + group3(4)
 ```
 
-`group1`, `group2`, `group3`는 9개 수치 파라미터를 3개씩 묶어 압축한 값이다.
+현재 버전 2 공유 코드는 15글자 길이이며, `0.01` 단위로 양자화한 9개 수치 파라미터를 3개씩 묶어 압축한다. 기존 9글자 버전 1 코드도 읽기 전용으로 복원한다.
 
 ## docker-compose.yml
 

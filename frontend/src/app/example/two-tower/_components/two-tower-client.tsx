@@ -7,8 +7,6 @@ import {
   BrainCircuit,
   Check,
   Copy,
-  Minus,
-  Plus,
   Radar,
   RefreshCw,
   Save,
@@ -42,10 +40,12 @@ import {
   CardTitle,
 } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
-import { Progress } from "@/shared/components/ui/progress"
+import { Slider } from "@/shared/components/ui/slider"
 
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.max(minimum, Math.min(maximum, value))
+
+const normalizeScore = (value: number) => Number(clamp(value, 0, 1).toFixed(2))
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("ko-KR", {
@@ -86,6 +86,15 @@ const matchPercent = (score: number, scores: number[]) => {
   return Math.round(((score - minimum) / (maximum - minimum)) * 100)
 }
 
+const formatScore = (value: number) => `${Math.round(value * 100)}점`
+
+const formatRawScore = (value: number) => value.toFixed(2)
+
+type ScoreField = keyof Omit<
+  UserProfile,
+  "user_id" | "profile_name" | "preferred_category_code"
+>
+
 function MetricCard({
   label,
   value,
@@ -108,21 +117,22 @@ function MetricCard({
   )
 }
 
-function FeatureStepper({
+function FeatureSlider({
   control,
   value,
-  onStep,
+  onPreview,
+  onCommit,
 }: {
   control: FeatureControl
   value: number
-  onStep: (nextValue: number) => void
+  onPreview: (nextValue: number) => void
+  onCommit: (nextValue: number) => void
 }) {
-  const progressValue =
-    ((value - control.minimum) / (control.maximum - control.minimum)) * 100
+  const normalizedValue = normalizeScore(value)
 
   return (
     <Card className="bg-white/80 py-0 shadow-sm backdrop-blur-sm">
-      <CardContent className="space-y-3 px-4 py-4">
+      <CardContent className="space-y-4 px-4 py-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-medium text-foreground">{control.label}</div>
@@ -131,33 +141,33 @@ function FeatureStepper({
             </div>
           </div>
           <Badge variant="outline" className="bg-background/80">
-            {value} / {control.maximum}
+            {formatRawScore(normalizedValue)}
           </Badge>
         </div>
-        <Progress value={progressValue} className="h-1.5" />
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={() =>
-              onStep(clamp(value - 1, control.minimum, control.maximum))
-            }
-            disabled={value <= control.minimum}
-          >
-            <Minus />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            onClick={() =>
-              onStep(clamp(value + 1, control.minimum, control.maximum))
-            }
-            disabled={value >= control.maximum}
-          >
-            <Plus />
-          </Button>
+        <div className="space-y-3">
+          <Slider
+            value={[normalizedValue]}
+            min={control.minimum}
+            max={control.maximum}
+            step={control.step}
+            onValueChange={(nextValue) => {
+              const valueFromSlider = nextValue[0]
+              if (typeof valueFromSlider === "number") {
+                onPreview(normalizeScore(valueFromSlider))
+              }
+            }}
+            onValueCommit={(nextValue) => {
+              const valueFromSlider = nextValue[0]
+              if (typeof valueFromSlider === "number") {
+                onCommit(normalizeScore(valueFromSlider))
+              }
+            }}
+          />
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>0.00</span>
+            <span>{formatScore(normalizedValue)}</span>
+            <span>1.00</span>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -302,23 +312,39 @@ export function TwoTowerClient({
     void requestPrediction(nextProfile)
   }
 
-  const updateField = (
-    field: keyof Omit<
-      UserProfile,
-      "user_id" | "profile_name" | "preferred_category_code"
-    >,
-    value: number
-  ) => {
+  const buildAdjustedProfile = (
+    baseProfile: UserProfile,
+    patch: Partial<UserProfile>
+  ): UserProfile => ({
+    ...baseProfile,
+    profile_name: initialProfileCode
+      ? "공유 코드 조정 프로필"
+      : "사용자 조정 프로필",
+    ...patch,
+  })
+
+  const previewField = (field: ScoreField, value: number) => {
+    setProfile((currentProfile) => {
+      if (!currentProfile) {
+        return currentProfile
+      }
+
+      return buildAdjustedProfile(currentProfile, {
+        [field]: normalizeScore(value),
+      })
+    })
+  }
+
+  const commitField = (field: ScoreField, value: number) => {
     if (!profile) {
       return
     }
 
-    const nextProfile = {
-      ...profile,
-      profile_name: initialProfileCode ? "공유 코드 조정 프로필" : "사용자 조정 프로필",
-      [field]: value,
-    }
-    applyProfile(nextProfile)
+    applyProfile(
+      buildAdjustedProfile(profile, {
+        [field]: normalizeScore(value),
+      })
+    )
   }
 
   const updateCategory = (code: string) => {
@@ -326,11 +352,9 @@ export function TwoTowerClient({
       return
     }
 
-    applyProfile({
-      ...profile,
-      profile_name: initialProfileCode ? "공유 코드 조정 프로필" : "사용자 조정 프로필",
+    applyProfile(buildAdjustedProfile(profile, {
       preferred_category_code: code,
-    })
+    }))
   }
 
   const copyShareUrl = async () => {
@@ -380,9 +404,10 @@ export function TwoTowerClient({
                 </h1>
                 <p className="max-w-2xl text-sm leading-6 text-white/80">
                   지금 단계에서는 설문지를 만들기 전에 유저 타워 점수 자체를
-                  직접 조정합니다. 같은 점수 조합은 같은 base36 공유 코드로
-                  묶이고, JWT의 user_profile.uuid 기준으로 현재 프로필을 저장할
-                  수 있습니다.
+                  직접 조정합니다. 내부 점수는 0에서 1 사이의 실수로 관리하고,
+                  화면에서는 100점 기준으로 읽기 쉽게 보여줍니다. 같은 점수
+                  조합은 같은 base36 공유 코드로 묶이고, JWT의
+                  user_profile.uuid 기준으로 현재 프로필을 저장할 수 있습니다.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-xs text-white/80">
@@ -569,7 +594,8 @@ export function TwoTowerClient({
               <CardHeader>
                 <CardTitle>User Tower Console</CardTitle>
                 <CardDescription>
-                  설문지는 나중에 이 점수들을 자동 조정하는 입력 장치로 붙습니다.
+                  설문지는 나중에 이 0~1 파라미터들을 자동 조정하는 입력 장치로
+                  붙습니다.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pb-6">
@@ -597,12 +623,15 @@ export function TwoTowerClient({
 
                 <div className="grid gap-4 lg:grid-cols-2">
                   {catalog?.feature_controls.map((control) => (
-                    <FeatureStepper
+                    <FeatureSlider
                       key={control.name}
                       control={control}
                       value={profile?.[control.name] ?? control.minimum}
-                      onStep={(nextValue) =>
-                        updateField(control.name, nextValue)
+                      onPreview={(nextValue) =>
+                        previewField(control.name, nextValue)
+                      }
+                      onCommit={(nextValue) =>
+                        commitField(control.name, nextValue)
                       }
                     />
                   ))}

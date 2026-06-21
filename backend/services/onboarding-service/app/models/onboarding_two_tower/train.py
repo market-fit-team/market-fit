@@ -15,6 +15,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
 from app.models.onboarding_two_tower.user_profiles import (
     USER_NUMERIC_FIELDS,
+    USER_TOWER_FEATURE_SCALE,
     build_user_item_labels,
     load_user_profiles,
 )
@@ -139,7 +140,7 @@ def build_model(users: pd.DataFrame, items: pd.DataFrame) -> Any:
 
         def call(self, features: dict[str, Any]) -> Any:
             parts = [self.embeddings[name](self.lookups[name](features[name])) for name in USER_STRING_FEATURES]
-            numeric = [tf.cast(features[name], tf.float32)[:, tf.newaxis] / 5.0 for name in USER_NUMERIC_FIELDS]
+            numeric = [tf.cast(features[name], tf.float32)[:, tf.newaxis] for name in USER_NUMERIC_FIELDS]
             return self.dense(tf.concat([*parts, *numeric], axis=1))
 
     class ItemTower(tf.keras.Model):
@@ -285,6 +286,7 @@ def train_and_save(epochs: int = 20) -> dict[str, Any]:
         "final_loss": round(float(history.history["loss"][-1]), 6),
         "hit_rate_at_3": round(hit_count / len(users), 6),
         "mrr": round(float(np.mean(reciprocal_ranks)), 6),
+        "user_tower_feature_scale": USER_TOWER_FEATURE_SCALE,
         "artifact_paths": {
             "user_tower": ".artifacts/onboarding_two_tower/user_tower.weights.h5",
             "item_tower": ".artifacts/onboarding_two_tower/item_tower.weights.h5",

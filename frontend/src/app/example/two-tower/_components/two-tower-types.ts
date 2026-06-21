@@ -22,6 +22,7 @@ export type FeatureControl = {
   description: string
   minimum: number
   maximum: number
+  step: number
 }
 
 export type CategoryOption = {
@@ -84,7 +85,7 @@ export type StoredUserTowerProfile = {
   share_url: string
   source: string
   updated_at: string | null
-  raw_answers: Record<string, string> | null
+  raw_answers: Record<string, unknown> | null
   user_profile: UserProfile
 }
 

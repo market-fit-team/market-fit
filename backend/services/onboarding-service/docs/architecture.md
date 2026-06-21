@@ -25,6 +25,8 @@ user_tower_profiles
 + raw_answers json
 ```
 
+수치 파라미터는 전부 `0.00 ~ 1.00` 실수로 저장한다.
+
 ```text
 user_tower_prediction_cache
 + profile_code
@@ -37,11 +39,13 @@ user_tower_prediction_cache
 
 ## app/two_tower/codecs.py
 
-`app/two_tower/codecs.py`는 현재 유저 타워 점수를 9글자 base36 공유 코드로 바꾼다.
+`app/two_tower/codecs.py`는 현재 유저 타워 점수를 base36 공유 코드로 바꾼다.
 
 ```text
-r + version(1) + category(1) + score_group_1(2) + score_group_2(2) + score_group_3(2)
+r + version(1) + category(1) + score_group_1(4) + score_group_2(4) + score_group_3(4)
 ```
+
+현재 버전 2 공유 코드는 총 15글자이며, 9개 점수를 `0.01` 단위로 양자화해 3개씩 묶는다. 예전 버전 1의 9글자 코드도 읽기 전용으로 복원한다.
 
 점수 그룹은 아래 순서대로 3개씩 묶는다.
 
@@ -104,15 +108,15 @@ user_profile
     "user_id": "demo-user",
     "profile_name": "사용자 조정 프로필",
     "preferred_category_code": "CS100005",
-    "budget_level": 2,
-    "stability_level": 5,
-    "subway_dependency_level": 2,
-    "weekend_preference_level": 3,
-    "evening_preference_level": 2,
-    "resident_focus_level": 5,
-    "worker_focus_level": 1,
-    "rent_sensitivity_level": 5,
-    "competition_tolerance_level": 1
+    "budget_level": 0.25,
+    "stability_level": 1.0,
+    "subway_dependency_level": 0.25,
+    "weekend_preference_level": 0.5,
+    "evening_preference_level": 0.25,
+    "resident_focus_level": 1.0,
+    "worker_focus_level": 0.0,
+    "rent_sensitivity_level": 1.0,
+    "competition_tolerance_level": 0.0
   }
 }
 ```
@@ -149,7 +153,7 @@ profile_code
 
 `app/models/onboarding_two_tower/train.py`는 현재 retrieval 모델을 학습한다.
 
-지금은 사용자 식별자 `user_id`를 모델 입력에서 빼고 아래 피처만 사용한다.
+지금은 사용자 식별자 `user_id`를 모델 입력에서 빼고 아래 피처만 사용한다. 수치 파라미터는 모두 `0.00 ~ 1.00` 범위다.
 
 ```text
 user tower

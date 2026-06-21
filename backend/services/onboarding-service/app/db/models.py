@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Index, Integer, SmallInteger, String, UniqueConstraint
+from sqlalchemy import JSON, DateTime, Float, Index, Integer, SmallInteger, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -28,15 +28,15 @@ class UserTowerProfileRecord(Base):
     user_id: Mapped[str] = mapped_column(String(64), nullable=False)
     profile_name: Mapped[str] = mapped_column(String(128), nullable=False)
     preferred_category_code: Mapped[str] = mapped_column(String(32), nullable=False)
-    budget_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    stability_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    subway_dependency_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    weekend_preference_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    evening_preference_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    resident_focus_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    worker_focus_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    rent_sensitivity_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    competition_tolerance_level: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    budget_level: Mapped[float] = mapped_column(Float, nullable=False)
+    stability_level: Mapped[float] = mapped_column(Float, nullable=False)
+    subway_dependency_level: Mapped[float] = mapped_column(Float, nullable=False)
+    weekend_preference_level: Mapped[float] = mapped_column(Float, nullable=False)
+    evening_preference_level: Mapped[float] = mapped_column(Float, nullable=False)
+    resident_focus_level: Mapped[float] = mapped_column(Float, nullable=False)
+    worker_focus_level: Mapped[float] = mapped_column(Float, nullable=False)
+    rent_sensitivity_level: Mapped[float] = mapped_column(Float, nullable=False)
+    competition_tolerance_level: Mapped[float] = mapped_column(Float, nullable=False)
     raw_answers: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utc_now)
     updated_at: Mapped[datetime] = mapped_column(

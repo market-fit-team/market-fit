@@ -145,7 +145,7 @@ async def get_saved_profile_response(
         {
             "profile": _build_profile_state(
                 auth_user_uuid=auth_user_uuid,
-                profile_code=record.profile_code,
+                profile_code=prediction.profile_code,
                 source=record.source,
                 updated_at=record.updated_at.isoformat(),
                 raw_answers=record.raw_answers,
