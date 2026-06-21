@@ -287,6 +287,26 @@ services:
       - app.api.openapiPath=/v3/api-docs
       - app.api.schemasType=zod
 
+  onboarding-service:
+    build: ./backend/services/onboarding-service
+    container_name: onboarding-service
+    expose:
+      - "8000"
+    volumes:
+      - ./backend/services/onboarding-service/.artifacts:/app/.artifacts
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.onboarding.rule=PathPrefix(`/api/onboarding`)
+      - traefik.http.routers.onboarding.entrypoints=web
+      - traefik.http.routers.onboarding.middlewares=onboarding-strip,api-cors
+      - traefik.http.middlewares.onboarding-strip.stripprefix.prefixes=/api/onboarding
+      - traefik.http.services.onboarding.loadbalancer.server.port=8000
+      - app.api.enabled=true
+      - app.api.name=onboarding
+      - app.api.publicPath=/api/onboarding
+      - app.api.openapiPath=/openapi.json
+      - app.api.schemasType=zod
+
 volumes:
   authentik_postgres_data:
   community_postgres_data:
