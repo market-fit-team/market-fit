@@ -352,9 +352,11 @@ export function TwoTowerClient({
       return
     }
 
-    applyProfile(buildAdjustedProfile(profile, {
-      preferred_category_code: code,
-    }))
+    applyProfile(
+      buildAdjustedProfile(profile, {
+        preferred_category_code: code,
+      })
+    )
   }
 
   const copyShareUrl = async () => {
@@ -376,7 +378,8 @@ export function TwoTowerClient({
 
   const scores = prediction?.recommendations.map((item) => item.score) ?? []
   const topRecommendation = prediction?.recommendations[0] ?? null
-  const shareCode = prediction?.profile_code ?? resolvedProfile?.profile.profile_code
+  const shareCode =
+    prediction?.profile_code ?? resolvedProfile?.profile.profile_code
   const shareUrl = prediction?.share_url ?? resolvedProfile?.profile.share_url
   const isDirty = useMemo(() => {
     if (!resolvedProfile || !prediction) {
@@ -406,8 +409,8 @@ export function TwoTowerClient({
                   지금 단계에서는 설문지를 만들기 전에 유저 타워 점수 자체를
                   직접 조정합니다. 내부 점수는 0에서 1 사이의 실수로 관리하고,
                   화면에서는 100점 기준으로 읽기 쉽게 보여줍니다. 같은 점수
-                  조합은 같은 base36 공유 코드로 묶이고, JWT의
-                  user_profile.uuid 기준으로 현재 프로필을 저장할 수 있습니다.
+                  조합은 같은 base36 공유 코드로 묶이고, JWT의 user_profile.uuid
+                  기준으로 현재 프로필을 저장할 수 있습니다.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-xs text-white/80">
@@ -499,8 +502,8 @@ export function TwoTowerClient({
               <CardHeader>
                 <CardTitle>저장 상태</CardTitle>
                 <CardDescription>
-                  JWT의 <span className="font-mono">user_profile.uuid</span>
-                  에 대응하는 현재 프로필 저장 지점입니다.
+                  JWT의 <span className="font-mono">user_profile.uuid</span>에
+                  대응하는 현재 프로필 저장 지점입니다.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pb-6">
@@ -548,7 +551,10 @@ export function TwoTowerClient({
                     {isDirty ? "저장 전 변경 있음" : "저장 상태와 일치"}
                   </Badge>
                   <Badge variant="outline">
-                    마지막 저장 {formatDateTime(resolvedProfile?.profile.updated_at ?? null)}
+                    마지막 저장{" "}
+                    {formatDateTime(
+                      resolvedProfile?.profile.updated_at ?? null
+                    )}
                   </Badge>
                 </div>
 

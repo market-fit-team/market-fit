@@ -14,7 +14,7 @@ export const DEMO_AUTH_USER_UUID =
   process.env.NEXT_PUBLIC_TWO_TOWER_DEMO_AUTH_USER_UUID ??
   "123e4567-e89b-12d3-a456-426614174000"
 
-const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
+const fetchJson = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -31,7 +31,8 @@ const fetchJson = async <T,>(path: string, init?: RequestInit): Promise<T> => {
   return response.json() as Promise<T>
 }
 
-export const fetchCatalog = () => fetchJson<CatalogResponse>("/two-tower/catalog")
+export const fetchCatalog = () =>
+  fetchJson<CatalogResponse>("/two-tower/catalog")
 
 export const fetchPrediction = (userProfile: UserProfile, topK = 5) =>
   fetchJson<PredictResponse>("/two-tower/predict", {
@@ -52,7 +53,9 @@ export const fetchSavedProfile = async (
   authUserUuid: string,
   topK = 5
 ): Promise<ResolvedProfileResponse | null> => {
-  const response = await fetch(`${API_BASE_URL}/two-tower/profiles/users/${authUserUuid}?top_k=${topK}`)
+  const response = await fetch(
+    `${API_BASE_URL}/two-tower/profiles/users/${authUserUuid}?top_k=${topK}`
+  )
 
   if (response.status === 404) {
     return null
