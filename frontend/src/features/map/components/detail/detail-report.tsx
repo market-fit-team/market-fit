@@ -10,12 +10,24 @@ import { FranchiseStartupCostCard } from "@/features/map/components/detail/franc
 import { detailReportMock } from "@/features/map/lib/detail-report-mock"
 import { districtsData } from "@/features/startup/lib/data"
 
-function DetailReportContent() {
+type DetailReportMode = "modal" | "page"
+
+function DetailReportContent({ mode }: { mode: DetailReportMode }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const districtId = searchParams.get("district") || "1123064" // 기본값: 강남
   const district =
     districtsData.find((d) => d.id === districtId) || districtsData[0]
+
+  // 모달(인터셉트)에서는 뒤로가기로 지도 슬롯만 닫는다. 직접 진입·새로고침한
+  // 풀페이지에서는 히스토리가 없거나 외부일 수 있어 /map으로 안전하게 보낸다.
+  const handleBack = () => {
+    if (mode === "modal") {
+      router.back()
+      return
+    }
+    router.push("/map")
+  }
 
   return (
     <div className="min-h-full bg-muted/30 px-4 py-8 sm:px-6 lg:px-8">
@@ -23,7 +35,7 @@ function DetailReportContent() {
         <div>
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={handleBack}
             className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -51,7 +63,11 @@ function DetailReportContent() {
   )
 }
 
-export function DetailReport() {
+export function DetailReport({
+  mode = "page",
+}: {
+  mode?: DetailReportMode
+}) {
   return (
     <Suspense
       fallback={
@@ -60,7 +76,7 @@ export function DetailReport() {
         </div>
       }
     >
-      <DetailReportContent />
+      <DetailReportContent mode={mode} />
     </Suspense>
   )
 }

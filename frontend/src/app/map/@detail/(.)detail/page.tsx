@@ -6,7 +6,7 @@ import { DetailReport } from "@/features/map/components/detail/detail-report"
 export default function InterceptedMapDetailPage() {
   return (
     <div className="fixed inset-0 z-60 overflow-y-auto bg-background">
-      <DetailReport />
+      <DetailReport mode="modal" />
     </div>
   )
 }
