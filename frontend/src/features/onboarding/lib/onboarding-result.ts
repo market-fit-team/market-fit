@@ -36,7 +36,7 @@ export const ONBOARDING_PROFILE_METRIC_KEYS: OnboardingMetricKey[] = [
   "competition_tolerance_level",
 ]
 
-export const ONBOARDING_RECOMMENDATION_SCORE_MIN = -1
+export const ONBOARDING_RECOMMENDATION_SCORE_MIN = 0
 export const ONBOARDING_RECOMMENDATION_SCORE_MAX = 1
 
 const AREA_PROFILE_LABELS: Record<string, string> = {
@@ -93,11 +93,11 @@ export const getMetricBarClassName = (value: number) => {
 }
 
 export const getRecommendationScoreTextClassName = (score: number) => {
-  if (score >= 0.15) {
+  if (score >= 0.7) {
     return "text-emerald-600 dark:text-emerald-400"
   }
 
-  if (score > -0.15) {
+  if (score >= 0.4) {
     return "text-amber-600 dark:text-amber-400"
   }
 

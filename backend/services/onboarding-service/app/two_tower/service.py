@@ -35,10 +35,11 @@ from app.two_tower.repository import (
 
 profile_repository = UserTowerProfileRepository()
 prediction_cache_repository = UserTowerPredictionCacheRepository()
+RECOMMENDATION_SCORE_SCALE = "minmax_zero_to_one_v1"
 
 
 def build_model_signature(metadata: dict[str, Any]) -> str:
-    return f"{metadata['model_id']}:{metadata['trained_at']}"
+    return f"{metadata['model_id']}:{metadata['trained_at']}:{RECOMMENDATION_SCORE_SCALE}"
 
 
 def build_share_url(profile_code: str) -> str:
