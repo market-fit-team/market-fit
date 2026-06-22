@@ -37,11 +37,10 @@ export function OnboardingResultContent({
                 분석 완료
               </Badge>
               <h1 className="text-2xl font-bold text-foreground md:text-3xl">
-                성향 기반 업종·상권 추천 결과
+                창업 성향 분석 결과
               </h1>
               <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-                설문으로 계산한 창업 성향을 바탕으로 추천 업종을 먼저 보여주고,
-                선택한 업종에 따라 상권 추천을 이어서 탐색할 수 있습니다.
+                설문 결과를 토대로 다양한 업종과 상권을 추천받으세요.
               </p>
             </div>
 

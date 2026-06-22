@@ -1,7 +1,6 @@
 "use client"
 
 import { Suspense, useMemo, useState, useTransition } from "react"
-import { Sparkles } from "lucide-react"
 import { OnboardingResultPredictionPanelQuery } from "@/features/onboarding/components/result/onboarding-result-prediction-panel-query"
 import { OnboardingResultPredictionPanelSkeleton } from "@/features/onboarding/components/result/onboarding-result-prediction-panel-skeleton"
 import type { OnboardingCategoryRecommendation } from "@/features/onboarding/types/onboarding"
@@ -169,17 +168,6 @@ export function OnboardingResultCategoryExplorer({
       </div>
 
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <span className="h-4 w-1 rounded-full bg-primary" />
-            추천 상권
-          </div>
-          <Badge variant="outline" className="gap-1.5 rounded-full">
-            <Sparkles className="h-3.5 w-3.5" />
-            {selectedCategory.service_category_name}
-          </Badge>
-        </div>
-
         <Suspense
           key={selectedCategory.service_category_code}
           fallback={<OnboardingResultPredictionPanelSkeleton />}

@@ -89,7 +89,7 @@ export function QuestionCard({
               aria-pressed={isSelected}
               onClick={() => handleOptionClick(option.code)}
               onKeyDown={(event) => handleOptionKeyDown(event, option.code)}
-              className={`group relative flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-all duration-200 ease-out ${
+              className={`group relative flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-all duration-200 ease-out select-none ${
                 isSelected
                   ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
                   : "border-border bg-card hover:border-primary/30 hover:bg-accent/50 hover:shadow-sm"

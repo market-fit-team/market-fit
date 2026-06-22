@@ -43,7 +43,6 @@ type SurveyQuestionMotionFrameProps = {
 function SurveyQuestionMotionFrame({
   answer,
   direction,
-  isTransitioning,
   onAnswer,
   onTransitionComplete,
   question,
@@ -70,7 +69,7 @@ function SurveyQuestionMotionFrame({
 
         onTransitionComplete()
       }}
-      className={isTransitioning ? "pointer-events-none h-full" : "h-full"}
+      className={!isPresent ? "pointer-events-none h-full" : "h-full"}
     >
       <QuestionCard question={question} answer={answer} onAnswer={onAnswer} />
     </motion.div>
@@ -207,13 +206,12 @@ export function OnboardingSurveyClient() {
         </nav>
 
         <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>로그인 없이도 결과를 볼 수 있습니다.</span>
           <button
             type="button"
             onClick={handleReset}
-            className="font-medium underline-offset-4 hover:text-foreground hover:underline"
+            className="ml-auto font-medium underline-offset-4 hover:text-foreground hover:underline"
           >
-            처음부터 다시
+            다시하기
           </button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ChartColumnIncreasing, RotateCcw } from "lucide-react"
+import { RotateCcw } from "lucide-react"
 import { RecommendationCard } from "@/features/onboarding/components/result/recommendation-card"
 import { getOnboardingEntryPath } from "@/features/onboarding/lib/onboarding-result"
 import type { OnboardingRecommendation } from "@/features/onboarding/types/onboarding"
@@ -47,20 +47,6 @@ export function OnboardingResultPredictionPanel({
           </CardContent>
         </Card>
       )}
-
-      <Card className="border-border/60 bg-muted/15">
-        <CardContent className="flex flex-col gap-3 py-5">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <ChartColumnIncreasing className="h-4 w-4 text-primary" />
-            결과 해석 팁
-          </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            추천 결과는 설문 응답 기반 성향 점수와 상권 특징을 함께 반영한
-            참고용 분석입니다. 실제 창업 전에는 현장 조사와 비용 검토를 함께
-            진행하는 편이 안전합니다.
-          </p>
-        </CardContent>
-      </Card>
 
       <div className="flex flex-col gap-3 border-t border-border/30 pt-4 sm:flex-row">
         <Button asChild variant="outline" className="w-full sm:flex-1">

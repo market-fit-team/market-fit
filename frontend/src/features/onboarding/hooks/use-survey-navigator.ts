@@ -155,13 +155,14 @@ export function useSurveyNavigator({
       questionId !== currentQuestion.id ||
       currentQuestion.selection_type !== "single" ||
       typeof value !== "string" ||
-      isTransitioning ||
       isLastStep
     ) {
       return
     }
 
-    beginTransition(state.activeStep + 1, "forward", true)
+    setTimeout(() => {
+      beginTransition(state.activeStep + 1, "forward", true)
+    }, 150)
   }
 
   const completeTransition = () => {
