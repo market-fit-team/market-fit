@@ -8,6 +8,14 @@
 현재 저장소 전체 production build는 범위 밖 `src/shared/api/generated` 산출물이 없는
 환경에서 실패할 수 있다. Post 기능 테스트는 생성 API 모듈과 독립적으로 실행한다.
 
+## Generated API 전환 TODO
+
+현재 `src/shared/api/generated/post` 모듈은 아직 생성되지 않아 `api/`의 직접 fetch 구현을
+임시로 유지한다. `docker compose up -d`로 `post-service`를 실행한 뒤 루트에서
+`make api-gen`을 실행하면 OpenAPI 문서로 React Query hooks와 타입을 생성할 수 있다.
+생성물이 준비되면 feature의 직접 fetch와 중복 타입을 generated API 사용 방식으로
+전환한다.
+
 ## CrawlSummaryCreateWidgetContainer
 
 생성 응답의 `debug.notificationEligible`이 `true`이면 프랜차이즈 관련 알림 대상

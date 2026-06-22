@@ -292,6 +292,19 @@ services:
       - agent_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U agent -d agent"]
+  post-db:
+    image: postgres:17-alpine
+    container_name: post-db
+    ports:
+      - "5664:5432"
+    environment:
+      POSTGRES_DB: post
+      POSTGRES_USER: post
+      POSTGRES_PASSWORD: post
+    volumes:
+      - post_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U post -d post"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -447,7 +460,39 @@ services:
       - app.api.publicPath=/api/onboarding
       - app.api.openapiPath=/openapi.json
       - app.api.schemasType=zod
-
+  post-service:
+    build: ./backend/services/post-service
+    container_name: post-service
+    depends_on:
+      post-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      authentik-server:
+        condition: service_started
+    environment:
+      POST_DB_URL: jdbc:postgresql://post-db:5432/post
+      POST_DB_USERNAME: post
+      POST_DB_PASSWORD: post
+      RABBITMQ_HOST: rabbitmq
+      JWKS_URL: http://authentik-server:9000/application/o/pickle-web/jwks/
+      JWT_ISSUER: http://localhost:9000/application/o/pickle-web/
+      JWT_AUDIENCE: pickle-web
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    expose:
+      - "8080"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.post.rule=PathPrefix(`/api/post`)
+      - traefik.http.routers.post.entrypoints=web
+      - traefik.http.routers.post.middlewares=post-strip,api-cors
+      - traefik.http.middlewares.post-strip.stripprefix.prefixes=/api/post
+      - traefik.http.services.post.loadbalancer.server.port=8080
+      - app.api.enabled=true
+      - app.api.name=post
+      - app.api.publicPath=/api/post
+      - app.api.openapiPath=/v3/api-docs
+      - app.api.schemasType=zod
 volumes:
   authentik_postgres_data:
   community_postgres_data:
@@ -455,5 +500,6 @@ volumes:
   backend_postgres_data:
   agent_postgres_data:
   agent_langgraph_api_data:
+  post_postgres_data:
   redis_data:
   minio_data:
