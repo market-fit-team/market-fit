@@ -12,8 +12,10 @@ import {
   DEFAULT_ONBOARDING_TOP_K,
   buildSaveSurveyResultRequest,
 } from "@/features/onboarding/lib/onboarding-form"
-import { getOnboardingLoginPath } from "@/features/onboarding/lib/onboarding-routes"
-import type { OnboardingSurveyResult } from "@/features/onboarding/types/onboarding"
+import {
+  getOnboardingLoginPath,
+  getOnboardingResultPath,
+} from "@/features/onboarding/lib/onboarding-routes"
 import {
   invalidateGetMySurveyProfileSurveysMeProfileGet,
   usePutMySurveyProfileSurveysMeProfilePut,
@@ -22,12 +24,10 @@ import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { Spinner } from "@/shared/components/ui/spinner"
 
-type OnboardingResultActionsProps = {
-  result: OnboardingSurveyResult
-}
+type OnboardingResultActionsProps = { profileCode: string }
 
 export function OnboardingResultActions({
-  result,
+  profileCode,
 }: OnboardingResultActionsProps) {
   const pathname = usePathname()
   const queryClient = useQueryClient()
@@ -55,7 +55,12 @@ export function OnboardingResultActions({
 
   const handleCopyShare = async () => {
     try {
-      await navigator.clipboard.writeText(result.profile.share_url)
+      const shareUrl = new URL(
+        getOnboardingResultPath(profileCode),
+        window.location.origin
+      ).toString()
+
+      await navigator.clipboard.writeText(shareUrl)
       setIsCopied(true)
       window.setTimeout(() => setIsCopied(false), 2000)
       toast.success("공유 링크를 복사했습니다.")
@@ -69,9 +74,7 @@ export function OnboardingResultActions({
   const handleSave = () => {
     saveResult({
       data: buildSaveSurveyResultRequest({
-        profileCode: result.profile.profile_code,
-        profileName: result.profile.user_profile.profile_name,
-        surveyResponseId: result.survey_response_id,
+        profileCode,
       }),
     })
   }
@@ -126,7 +129,7 @@ export function OnboardingResultActions({
       ) : null}
 
       <Badge variant="outline" className="font-mono text-[10px]">
-        {result.profile.profile_code}
+        {profileCode}
       </Badge>
     </div>
   )

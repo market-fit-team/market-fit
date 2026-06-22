@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { onboardingResultFixture } from "@/features/onboarding/testing/onboarding-fixtures"
 import {
   buildOnboardingInsights,
   formatPopulation,
   formatSalesAmount,
   getAreaProfileLabel,
-} from "../onboarding-result"
+} from "@/features/onboarding/lib/onboarding-result"
+import { onboardingResultFixture } from "@/features/onboarding/testing/onboarding-fixtures"
 
 describe("onboarding-result", () => {
   it("매출 금액을 억 또는 만 단위로 포맷한다", () => {

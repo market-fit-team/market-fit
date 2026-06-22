@@ -1,8 +1,5 @@
-import type {
-  OnboardingSurveyResult,
-  OnboardingUserProfile,
-} from "@/features/onboarding/types/onboarding"
-import { ONBOARDING_ENTRY_PATH } from "./onboarding-routes"
+import { ONBOARDING_ENTRY_PATH } from "@/features/onboarding/lib/onboarding-routes"
+import type { OnboardingUserProfile } from "@/features/onboarding/types/onboarding"
 
 export type OnboardingMetricKey =
   | "stability_level"
@@ -38,6 +35,9 @@ export const ONBOARDING_PROFILE_METRIC_KEYS: OnboardingMetricKey[] = [
   "subway_dependency_level",
   "competition_tolerance_level",
 ]
+
+export const ONBOARDING_RECOMMENDATION_SCORE_MIN = -1
+export const ONBOARDING_RECOMMENDATION_SCORE_MAX = 1
 
 const AREA_PROFILE_LABELS: Record<string, string> = {
   commercial: "상업형",
@@ -93,11 +93,11 @@ export const getMetricBarClassName = (value: number) => {
 }
 
 export const getRecommendationScoreTextClassName = (score: number) => {
-  if (score >= 3) {
+  if (score >= 0.15) {
     return "text-emerald-600 dark:text-emerald-400"
   }
 
-  if (score >= 2.5) {
+  if (score > -0.15) {
     return "text-amber-600 dark:text-amber-400"
   }
 
@@ -146,11 +146,4 @@ export const buildOnboardingInsights = (profile: OnboardingUserProfile) => {
           : "입지 투자에 적극적인 편이라 프리미엄 상권도 검토할 수 있습니다.",
     },
   ] as const
-}
-
-export const getResultStoryArgs = (result: OnboardingSurveyResult) => {
-  return {
-    predictionCount: result.prediction.recommendations.length,
-    profileCode: result.profile.profile_code,
-  }
 }

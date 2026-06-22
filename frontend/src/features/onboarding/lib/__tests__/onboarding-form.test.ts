@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { onboardingSurveyFixture } from "@/features/onboarding/testing/onboarding-fixtures"
 import {
   DEFAULT_ONBOARDING_TOP_K,
   buildSaveSurveyResultRequest,
   buildSurveyPreviewRequest,
   hasAnsweredQuestion,
-} from "../onboarding-form"
+} from "@/features/onboarding/lib/onboarding-form"
+import { onboardingSurveyFixture } from "@/features/onboarding/testing/onboarding-fixtures"
 
 describe("onboarding-form", () => {
   it("단일 선택 문항 응답 여부를 판별한다", () => {
@@ -37,14 +37,10 @@ describe("onboarding-form", () => {
   it("설문 저장 요청 payload를 생성한다", () => {
     const request = buildSaveSurveyResultRequest({
       profileCode: "abc123",
-      profileName: "내 결과",
-      surveyResponseId: 42,
     })
 
     expect(request).toEqual({
       profile_code: "abc123",
-      profile_name: "내 결과",
-      survey_response_id: 42,
       top_k: DEFAULT_ONBOARDING_TOP_K,
     })
   })

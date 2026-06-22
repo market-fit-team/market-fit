@@ -1,8 +1,10 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { QuestionCard } from "@/features/onboarding/components/survey/question-card"
+import { SurveyProgress } from "@/features/onboarding/components/survey/survey-progress"
 import { getOnboardingErrorMessage } from "@/features/onboarding/lib/onboarding-error"
 import {
   buildSurveyPreviewRequest,
@@ -13,11 +15,10 @@ import { useOnboardingStore } from "@/features/onboarding/stores/onboarding-stor
 import { usePreviewActiveSurveySurveysActivePreviewPost } from "@/shared/api/generated/onboarding/endpoints/survey/survey"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
-import { QuestionCard } from "./question-card"
-import { SurveyProgress } from "./survey-progress"
 
 export function OnboardingSurveyClient() {
   const router = useRouter()
+  const [isRedirectPending, startRedirectTransition] = useTransition()
   const survey = useOnboardingStore((state) => state.survey)
   const answers = useOnboardingStore((state) => state.answers)
   const currentStep = useOnboardingStore((state) => state.currentStep)
@@ -33,7 +34,9 @@ export function OnboardingSurveyClient() {
       mutation: {
         onSuccess: (result) => {
           toast.success("설문 분석을 완료했습니다.")
-          router.push(getOnboardingResultPath(result.profile.profile_code))
+          startRedirectTransition(() => {
+            router.push(getOnboardingResultPath(result.profile.profile_code))
+          })
         },
         onError: (error) => {
           toast.error(
@@ -45,6 +48,7 @@ export function OnboardingSurveyClient() {
         },
       },
     })
+  const isSubmitting = isPending || isRedirectPending
 
   useEffect(() => {
     return () => {
@@ -107,14 +111,18 @@ export function OnboardingSurveyClient() {
 
   return (
     <div className="min-h-[calc(100dvh-3.5rem)] bg-gradient-to-br from-background via-background to-accent/20">
-      {isPending ? (
+      {isSubmitting ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="flex animate-in flex-col items-center gap-4 duration-300 fade-in zoom-in">
             <div className="relative h-12 w-12">
               <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
               <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-primary" />
             </div>
-            <p className="text-sm text-muted-foreground">분석 중입니다...</p>
+            <p className="text-sm text-muted-foreground">
+              {isPending
+                ? "분석 중입니다..."
+                : "결과 페이지로 이동 중입니다..."}
+            </p>
           </div>
         </div>
       ) : null}
@@ -150,7 +158,7 @@ export function OnboardingSurveyClient() {
             variant="ghost"
             size="lg"
             onClick={() => moveToStep(currentStep - 1)}
-            disabled={currentStep === 0 || isPending}
+            disabled={currentStep === 0 || isSubmitting}
             className="flex-1"
           >
             이전
@@ -161,7 +169,7 @@ export function OnboardingSurveyClient() {
             onClick={
               isLastStep ? handleSubmit : () => moveToStep(currentStep + 1)
             }
-            disabled={!canAdvance || isPending}
+            disabled={!canAdvance || isSubmitting}
             className="flex-[2]"
           >
             {isLastStep ? "결과 보기" : "다음"}

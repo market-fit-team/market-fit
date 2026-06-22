@@ -1,13 +1,10 @@
 import "server-only"
+import { DEFAULT_ONBOARDING_API_ORIGIN } from "@/features/onboarding/lib/onboarding-defaults"
 import {
   SurveyDefinitionResponse,
   type SurveyDefinitionResponseOutput,
-  SurveyResultEnvelope,
-  type SurveyResultEnvelopeOutput,
 } from "@/shared/api/generated/onboarding/schemas"
 import { problemDetailSchema } from "@/shared/api/problem-detail-schema"
-import { DEFAULT_ONBOARDING_API_ORIGIN } from "./onboarding-defaults"
-import { getOnboardingErrorStatus } from "./onboarding-error"
 
 const resolveOnboardingApiOrigin = () => {
   return process.env.NEXT_PUBLIC_API_ORIGIN ?? DEFAULT_ONBOARDING_API_ORIGIN
@@ -73,18 +70,3 @@ export const getActiveOnboardingSurveyDefinition =
       }
     )
   }
-
-export const getOnboardingSurveyResultByCode = async (
-  code: string
-): Promise<SurveyResultEnvelopeOutput> => {
-  return fetchPublicOnboardingJson(
-    `/surveys/results/${encodeURIComponent(code)}?top_k=5`,
-    SurveyResultEnvelope,
-    {
-      method: "GET",
-      next: { revalidate: 3600 },
-    }
-  )
-}
-
-export { getOnboardingErrorStatus }

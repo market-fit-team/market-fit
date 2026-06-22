@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
+import { OnboardingResultContent } from "@/features/onboarding/components/result/onboarding-result-content"
+import { OnboardingResultPredictionPanel } from "@/features/onboarding/components/result/onboarding-result-prediction-panel"
 import { onboardingResultFixture } from "@/features/onboarding/testing/onboarding-fixtures"
 import { Button } from "@/shared/components/ui/button"
-import { OnboardingResultContent } from "../onboarding-result-content"
 
 const meta = {
   title: "Onboarding/Result/OnboardingResultContent",
@@ -16,7 +17,13 @@ const meta = {
         <Button size="sm">내 결과 저장</Button>
       </div>
     ),
-    result: onboardingResultFixture,
+    predictionPanel: (
+      <OnboardingResultPredictionPanel
+        recommendations={onboardingResultFixture.prediction.recommendations}
+      />
+    ),
+    profileCode: onboardingResultFixture.profile.profile_code,
+    userProfile: onboardingResultFixture.profile.user_profile,
   },
   parameters: {
     layout: "fullscreen",

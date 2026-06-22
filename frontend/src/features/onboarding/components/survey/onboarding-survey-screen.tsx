@@ -1,6 +1,6 @@
+import { OnboardingSurveyClient } from "@/features/onboarding/components/survey/onboarding-survey-client"
 import { OnboardingStoreProvider } from "@/features/onboarding/stores/onboarding-store"
 import type { OnboardingSurvey } from "@/features/onboarding/types/onboarding"
-import { OnboardingSurveyClient } from "./onboarding-survey-client"
 
 type OnboardingSurveyScreenProps = {
   survey: OnboardingSurvey

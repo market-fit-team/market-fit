@@ -78,7 +78,7 @@ export function useOnboardingStore<T>(
 
   if (!onboardingStoreContext) {
     throw new Error(
-      "useOnboardingStore must be used within OnboardingStoreProvider"
+      "useOnboardingStore는 OnboardingStoreProvider 내부에서만 사용할 수 있습니다."
     )
   }
 

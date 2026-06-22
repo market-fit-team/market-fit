@@ -2,9 +2,9 @@ import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { QuestionCard } from "@/features/onboarding/components/survey/question-card"
 import { onboardingSurveyFixture } from "@/features/onboarding/testing/onboarding-fixtures"
 import type { OnboardingSurveyAnswerValue } from "@/features/onboarding/types/onboarding"
-import { QuestionCard } from "../question-card"
 
 function QuestionCardHarness({
   initialAnswer,
@@ -64,14 +64,12 @@ describe("QuestionCard", () => {
       screen.getByRole("button", { name: /동네에서 오래 인정받는 가게/ })
     )
 
-    expect(document.querySelectorAll("button svg.text-primary")).toHaveLength(3)
+    expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(3)
     expect(
       screen.getByRole("button", { name: /안정적인 생활 기반/ })
     ).toHaveTextContent("안정적인 생활 기반")
     expect(
-      screen
-        .getByRole("button", { name: /동네에서 오래 인정받는 가게/ })
-        .querySelector("svg.text-primary")
-    ).toBeNull()
+      screen.getByRole("button", { name: /동네에서 오래 인정받는 가게/ })
+    ).toHaveAttribute("aria-pressed", "false")
   })
 })

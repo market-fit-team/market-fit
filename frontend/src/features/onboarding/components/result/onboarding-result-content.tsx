@@ -1,39 +1,29 @@
-import Link from "next/link"
-import {
-  ChartColumnIncreasing,
-  Lightbulb,
-  RotateCcw,
-  Sparkles,
-} from "lucide-react"
-import {
-  buildOnboardingInsights,
-  getOnboardingEntryPath,
-} from "@/features/onboarding/lib/onboarding-result"
-import type { OnboardingSurveyResult } from "@/features/onboarding/types/onboarding"
+import { Lightbulb, Sparkles } from "lucide-react"
+import { ProfileRadar } from "@/features/onboarding/components/result/profile-radar"
+import { ProfileSummary } from "@/features/onboarding/components/result/profile-summary"
+import { buildOnboardingInsights } from "@/features/onboarding/lib/onboarding-result"
+import type { OnboardingUserProfile } from "@/features/onboarding/types/onboarding"
 import { Badge } from "@/shared/components/ui/badge"
-import { Button } from "@/shared/components/ui/button"
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/shared/components/ui/card"
-import { ProfileRadar } from "./profile-radar"
-import { ProfileSummary } from "./profile-summary"
-import { RecommendationCard } from "./recommendation-card"
 
 type OnboardingResultContentProps = {
   actions?: React.ReactNode
-  result: OnboardingSurveyResult
+  predictionPanel: React.ReactNode
+  profileCode: string
+  userProfile: OnboardingUserProfile
 }
 
 export function OnboardingResultContent({
   actions,
-  result,
+  predictionPanel,
+  profileCode,
+  userProfile,
 }: OnboardingResultContentProps) {
-  const profile = result.profile
-  const userProfile = profile.user_profile
-  const recommendations = result.prediction.recommendations
   const insights = buildOnboardingInsights(userProfile)
 
   return (
@@ -50,8 +40,7 @@ export function OnboardingResultContent({
                 맞춤 상권 추천 결과
               </h1>
               <p className="max-w-lg text-sm leading-relaxed text-muted-foreground">
-                {userProfile.profile_name}님의 창업 성향을 기준으로 추천 상권{" "}
-                {recommendations.length}곳을 정리했습니다.
+                입력한 창업 성향 점수를 기준으로 추천 상권을 분석했습니다.
               </p>
             </div>
 
@@ -74,7 +63,7 @@ export function OnboardingResultContent({
               </Card>
 
               <ProfileSummary
-                profileCode={profile.profile_code}
+                profileCode={profileCode}
                 userProfile={userProfile}
               />
 
@@ -104,43 +93,7 @@ export function OnboardingResultContent({
           </aside>
 
           <section className="space-y-5 lg:col-span-7">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <span className="h-4 w-1 rounded-full bg-primary" />
-              추천 상권 TOP {recommendations.length}
-            </h2>
-
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              {recommendations.map((recommendation, index) => (
-                <RecommendationCard
-                  key={recommendation.item_id}
-                  item={recommendation}
-                  delay={index * 80}
-                />
-              ))}
-            </div>
-
-            <Card className="border-border/60 bg-muted/15">
-              <CardContent className="flex flex-col gap-3 py-5">
-                <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <ChartColumnIncreasing className="h-4 w-4 text-primary" />
-                  결과 해석 팁
-                </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  추천 결과는 설문 응답 기반 성향 점수와 상권 특징을 함께 반영한
-                  참고용 분석입니다. 실제 창업 전에는 현장 조사와 비용 검토를
-                  함께 진행하는 편이 안전합니다.
-                </p>
-              </CardContent>
-            </Card>
-
-            <div className="flex flex-col gap-3 border-t border-border/30 pt-4 sm:flex-row">
-              <Button asChild variant="outline" className="w-full sm:flex-1">
-                <Link href={getOnboardingEntryPath()}>
-                  <RotateCcw className="h-4 w-4" />
-                  설문 다시 하기
-                </Link>
-              </Button>
-            </div>
+            {predictionPanel}
           </section>
         </div>
       </div>

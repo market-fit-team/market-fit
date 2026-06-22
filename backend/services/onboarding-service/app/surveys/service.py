@@ -213,6 +213,8 @@ def _score_question_effects(
 def _score_definition(
     definition: SurveyDefinitionResponse,
     request: SurveyPreviewRequest,
+    *,
+    question_lookup: dict[str, dict[str, Any]] | None = None,
 ) -> SurveyScoredProfile:
     if request.preferred_category_code not in _CATEGORY_CODES:
         raise HTTPException(status_code=422, detail="선호 업종 코드가 현재 카탈로그에 없다.")
@@ -221,14 +223,14 @@ def _score_definition(
     score_totals = {field_name: 0.0 for field_name in USER_NUMERIC_FIELDS}
     score_weights = {field_name: 0.0 for field_name in USER_NUMERIC_FIELDS}
 
-    question_lookup = {
+    resolved_question_lookup = question_lookup or {
         question.id: question.model_dump()
         for question in definition.questions
     }
     for question_id, answer_value in normalized_answers.items():
         selected_codes = [answer_value] if isinstance(answer_value, str) else answer_value
         _score_question_effects(
-            question=question_lookup[question_id],
+            question=resolved_question_lookup[question_id],
             selected_codes=selected_codes,
             score_totals=score_totals,
             score_weights=score_weights,
@@ -343,8 +345,20 @@ async def preview_survey_result(
     session: AsyncSession,
     request: SurveyPreviewRequest,
 ) -> SurveyResultEnvelope:
-    definition = await get_active_survey_definition(session)
-    scored = _score_definition(definition, request)
+    definition_record = await definition_repository.get_active(session)
+    if definition_record is None:
+        definition_record = await seed_active_survey_definition(session)
+        await session.commit()
+
+    definition = _build_definition_response(definition_record)
+    scored = _score_definition(
+        definition,
+        request,
+        question_lookup={
+            str(question["id"]): dict(question)
+            for question in definition_record.definition_json["questions"]
+        },
+    )
     prediction = await resolve_prediction_response(
         session=session,
         user_profile=scored.user_profile.model_dump(),

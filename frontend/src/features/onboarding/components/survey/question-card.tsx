@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from "react"
 import type {
   OnboardingSurveyAnswerValue,
   OnboardingSurveyQuestion,
@@ -66,6 +67,18 @@ export function QuestionCard({
     }
   }
 
+  const handleOptionKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+    optionCode: string
+  ) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return
+    }
+
+    event.preventDefault()
+    handleOptionClick(optionCode)
+  }
+
   return (
     <div className={`flex flex-col gap-6 ${animationClassName}`}>
       <div className="space-y-2" style={{ minHeight: 48 }}>
@@ -84,10 +97,13 @@ export function QuestionCard({
           const isSelected = isSelectedOption(answer, option.code, isSingle)
 
           return (
-            <button
+            <div
               key={option.code}
-              type="button"
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
               onClick={() => handleOptionClick(option.code)}
+              onKeyDown={(event) => handleOptionKeyDown(event, option.code)}
               className={`group relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left text-sm transition-all duration-200 ease-out ${
                 isSelected
                   ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
@@ -118,6 +134,7 @@ export function QuestionCard({
                   checked={isSelected}
                   className="pointer-events-none"
                   aria-hidden
+                  tabIndex={-1}
                 />
               )}
 
@@ -146,7 +163,7 @@ export function QuestionCard({
                   />
                 </svg>
               ) : null}
-            </button>
+            </div>
           )
         })}
       </div>

@@ -1,8 +1,8 @@
 import { useState } from "react"
 import type { Meta, StoryObj } from "@storybook/nextjs-vite"
+import { QuestionCard } from "@/features/onboarding/components/survey/question-card"
 import { onboardingSurveyFixture } from "@/features/onboarding/testing/onboarding-fixtures"
 import type { OnboardingSurveyAnswerValue } from "@/features/onboarding/types/onboarding"
-import { QuestionCard } from "../question-card"
 
 function QuestionCardStoryHarness({
   initialAnswer,

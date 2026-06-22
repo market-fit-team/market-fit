@@ -96,6 +96,9 @@ class SurveyApiTestCase(unittest.TestCase):
         self.assertEqual(preview_payload["prediction"]["survey_code"], "A")
         self.assertEqual(preview_payload["prediction"]["top_k"], 4)
         self.assertEqual(preview_payload["survey_response_id"], preview_payload["profile"]["survey_response_id"])
+        self.assertNotEqual(preview_payload["prediction"]["profile_code"], "r3a0b1hqb1hqb1hq")
+        self.assertNotEqual(preview_payload["profile"]["user_profile"]["budget_level"], 0.5)
+        self.assertNotEqual(preview_payload["profile"]["user_profile"]["stability_level"], 0.5)
 
         profile_code = preview_payload["prediction"]["profile_code"]
         public_response = self.client.get(f"/surveys/results/{profile_code}")
