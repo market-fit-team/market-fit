@@ -237,7 +237,7 @@ export const onboardingResultFixture: OnboardingSurveyResult = {
     recommendations: [
       {
         rank: 1,
-        score: 3.582114,
+        score: 1,
         item_id: "11230536:CS100005",
         area_name: "망원2동",
         service_category_name: "제과점",
@@ -253,7 +253,7 @@ export const onboardingResultFixture: OnboardingSurveyResult = {
       },
       {
         rank: 2,
-        score: 3.214782,
+        score: 0.65,
         item_id: "11140587:CS100005",
         area_name: "연남동",
         service_category_name: "제과점",
@@ -269,7 +269,7 @@ export const onboardingResultFixture: OnboardingSurveyResult = {
       },
       {
         rank: 3,
-        score: 2.981345,
+        score: 0.42,
         item_id: "11350612:CS100005",
         area_name: "성수1가",
         service_category_name: "제과점",
@@ -285,7 +285,7 @@ export const onboardingResultFixture: OnboardingSurveyResult = {
       },
       {
         rank: 4,
-        score: 2.756891,
+        score: 0.21,
         item_id: "11200498:CS100005",
         area_name: "합정동",
         service_category_name: "제과점",
@@ -301,7 +301,7 @@ export const onboardingResultFixture: OnboardingSurveyResult = {
       },
       {
         rank: 5,
-        score: 2.543217,
+        score: 0,
         item_id: "11410322:CS100005",
         area_name: "이태원1동",
         service_category_name: "제과점",

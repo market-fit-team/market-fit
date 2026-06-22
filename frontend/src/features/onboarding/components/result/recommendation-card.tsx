@@ -29,13 +29,7 @@ export function RecommendationCard({
     ONBOARDING_RECOMMENDATION_SCORE_MIN,
     Math.min(ONBOARDING_RECOMMENDATION_SCORE_MAX, item.score)
   )
-  const scoreBarWidth = `${Math.abs(clampedScore) * 50}%`
-  const scoreBarAlignmentClassName =
-    clampedScore >= 0 ? "left-1/2" : "right-1/2"
-  const scoreBarColorClassName =
-    clampedScore >= 0
-      ? "bg-gradient-to-r from-primary/60 to-primary"
-      : "bg-gradient-to-l from-orange-500/80 to-rose-500/80"
+  const scoreBarWidth = `${clampedScore * 100}%`
 
   return (
     <Card
@@ -76,21 +70,20 @@ export function RecommendationCard({
             <span className="text-muted-foreground">적합도 점수</span>
             <span
               className={`text-sm font-bold ${getRecommendationScoreTextClassName(
-                item.score
+                clampedScore
               )}`}
             >
-              {item.score.toFixed(2)}
+              {clampedScore.toFixed(2)}
             </span>
           </div>
           <div className="flex items-center justify-between text-[10px] text-muted-foreground tabular-nums">
-            <span>-1</span>
             <span>0</span>
+            <span>{Math.round(clampedScore * 100)}%</span>
             <span>1</span>
           </div>
           <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-background/90" />
             <div
-              className={`absolute inset-y-0 ${scoreBarAlignmentClassName} ${scoreBarColorClassName} transition-all duration-700 ease-out`}
+              className="h-full rounded-full bg-linear-to-r from-primary/60 to-primary transition-all duration-700 ease-out"
               style={{ width: scoreBarWidth }}
             />
           </div>

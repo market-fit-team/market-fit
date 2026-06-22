@@ -77,7 +77,11 @@ class CategoryOption(BaseModel):
 
 class RecommendationItem(BaseModel):
     rank: int
-    score: float
+    score: float = Field(
+        ge=0,
+        le=1,
+        description="전체 후보 점수 기준 0~1로 정규화한 추천 적합도",
+    )
     item_id: str
     area_name: str
     service_category_name: str
