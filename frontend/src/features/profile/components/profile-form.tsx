@@ -38,9 +38,12 @@ import {
 } from "@/shared/components/ui/field"
 import { Input } from "@/shared/components/ui/input"
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/shared/components/ui/native-select"
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select"
 import { Spinner } from "@/shared/components/ui/spinner"
 import { avatarColors } from "@/shared/lib/boring-avatars"
 
@@ -52,6 +55,8 @@ type ProfileFormProps = {
   initialJob: string | null
   requiresInitialization: boolean
 }
+
+const EMPTY_JOB_VALUE = "__none__"
 
 const getErrorMessage = (error: unknown) => {
   if (
@@ -97,6 +102,10 @@ export function ProfileForm({
   const avatarSeed = useWatch({
     control: form.control,
     name: "avatarSeed",
+  })
+  const selectedJob = useWatch({
+    control: form.control,
+    name: "job",
   })
   const canSubmit =
     form.formState.isValid &&
@@ -216,14 +225,36 @@ export function ProfileForm({
             <Field>
               <FieldLabel htmlFor="job">직업</FieldLabel>
               <FieldContent>
-                <NativeSelect id="job" {...form.register("job")}>
-                  <NativeSelectOption value="">선택 안 함</NativeSelectOption>
-                  {JOBS.map((job) => (
-                    <NativeSelectOption key={job} value={job}>
-                      {job}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                <Select
+                  name="job"
+                  value={selectedJob === "" ? EMPTY_JOB_VALUE : selectedJob}
+                  onValueChange={(value) => {
+                    form.setValue(
+                      "job",
+                      value === EMPTY_JOB_VALUE ? "" : value,
+                      {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      }
+                    )
+                  }}
+                >
+                  <SelectTrigger
+                    aria-invalid={form.formState.errors.job ? true : undefined}
+                    className="w-full"
+                    id="job"
+                  >
+                    <SelectValue placeholder="선택 안 함" />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value={EMPTY_JOB_VALUE}>선택 안 함</SelectItem>
+                    {JOBS.map((job) => (
+                      <SelectItem key={job} value={job}>
+                        {job}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FieldDescription>직업은 선택 입력입니다.</FieldDescription>
                 <FieldError errors={[form.formState.errors.job]} />
               </FieldContent>
