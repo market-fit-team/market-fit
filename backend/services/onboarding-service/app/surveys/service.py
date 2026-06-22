@@ -1,46 +1,85 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
-from app.db.models import SurveyDefinitionRecord, SurveyResponseRecord, UserTowerProfileRecord
-from app.models.onboarding_two_tower.user_profiles import CATEGORY_OPTIONS, USER_NUMERIC_FIELDS
+from app.models.onboarding_category_tower.contracts import (
+    CategoryRecommendation,
+    CategoryUserProfilePayload,
+)
+from app.models.onboarding_category_tower.runtime import (
+    evaluation_payload as category_evaluation_payload,
+)
+from app.models.onboarding_category_tower.runtime import (
+    predict_payload as category_predict_payload,
+)
+from app.models.onboarding_category_tower.user_profiles import (
+    USER_NUMERIC_FIELDS as CATEGORY_USER_NUMERIC_FIELDS,
+)
+from app.models.onboarding_two_tower.user_profiles import CATEGORY_OPTIONS
+from app.models.onboarding_two_tower.user_profiles import (
+    USER_NUMERIC_FIELDS as AREA_USER_NUMERIC_FIELDS,
+)
 from app.surveys.contracts import (
+    SaveSurveyProfileRequest,
     SaveSurveyResultRequest,
+    SavedSurveyResultListResponse,
+    SavedSurveyResultSummary,
     SurveyAnswerValidationRequest,
+    SurveyAreaRecommendationResponse,
     SurveyDefinitionResponse,
     SurveyDefinitionSummary,
     SurveyPreviewRequest,
-    SurveyResultEnvelope,
-    SurveyScoredProfile,
+    SurveyProfileStatusResponse,
+    SurveyResultResponse,
+    SurveyScoredProfiles,
 )
 from app.surveys.definitions import active_survey_definition
-from app.surveys.repository import SurveyDefinitionRepository, SurveyResponseRepository
-from app.two_tower.codecs import (
-    DEFAULT_SURVEY_CODE,
-    PROFILE_CODE_VERSION,
-    build_share_path,
-    decode_profile_code_details,
+from app.surveys.repository import (
+    CategoryPredictionCacheRepository,
+    SurveyDefinitionRepository,
+    SurveyResultRepository,
+    UserDefaultProfileRepository,
+    UserSavedResultRepository,
 )
-from app.two_tower.contracts import StoredUserTowerProfile, UserProfilePayload
-from app.two_tower.repository import UserTowerProfileRepository
-from app.two_tower.service import build_share_url, resolve_prediction_response
+from app.two_tower.codecs import (
+    InvalidResultCodeError,
+    build_share_path,
+    generate_result_code,
+    normalize_result_code,
+)
+from app.two_tower.contracts import AreaUserProfilePayload, PredictResponse, UserProfilePayload
+from app.two_tower.service import build_share_url, resolve_area_prediction
 
-# 설문 선택지의 원시 점수보다 문항 메타데이터를 더 믿도록 가중치를 둔다.
 PRIMARY_EFFECT_WEIGHT = 1.0
 SECONDARY_EFFECT_WEIGHT = 0.65
 DEFAULT_EFFECT_WEIGHT = 0.5
 NEUTRAL_USER_TOWER_SCORE = 0.5
+DEFAULT_CATEGORY_TOP_K = 20
+DEFAULT_AREA_TOP_K = 5
+CATEGORY_RECOMMENDATION_SCORE_SCALE = "category_retrieval_v1"
+AGE_FIELD_NAMES = [
+    "target_age_10_level",
+    "target_age_20_level",
+    "target_age_30_level",
+    "target_age_40_level",
+    "target_age_50_plus_level",
+]
 _CATEGORY_CODES = {option["code"] for option in CATEGORY_OPTIONS}
 
 definition_repository = SurveyDefinitionRepository()
-response_repository = SurveyResponseRepository()
-profile_repository = UserTowerProfileRepository()
+result_repository = SurveyResultRepository()
+category_prediction_cache_repository = CategoryPredictionCacheRepository()
+default_profile_repository = UserDefaultProfileRepository()
+saved_result_repository = UserSavedResultRepository()
 
 
-def _build_definition_summary(record: SurveyDefinitionRecord) -> SurveyDefinitionSummary:
+def _build_definition_summary(record: Any) -> SurveyDefinitionSummary:
     return SurveyDefinitionSummary(
         id=record.id,
         slug=record.slug,
@@ -53,20 +92,7 @@ def _build_definition_summary(record: SurveyDefinitionRecord) -> SurveyDefinitio
     )
 
 
-def _build_definition_summary_from_response(definition: SurveyDefinitionResponse) -> SurveyDefinitionSummary:
-    return SurveyDefinitionSummary(
-        id=definition.id,
-        slug=definition.slug,
-        version=definition.version,
-        survey_code=definition.survey_code,
-        scoring_version=definition.scoring_version,
-        title=definition.title,
-        description=definition.description,
-        question_count=definition.question_count,
-    )
-
-
-def _build_definition_response(record: SurveyDefinitionRecord) -> SurveyDefinitionResponse:
+def _build_definition_response(record: Any) -> SurveyDefinitionResponse:
     definition_json = dict(record.definition_json)
     return SurveyDefinitionResponse.model_validate(
         {
@@ -81,61 +107,6 @@ def _build_definition_response(record: SurveyDefinitionRecord) -> SurveyDefiniti
             "questions": definition_json["questions"],
         }
     )
-
-
-def _build_profile_state(
-    *,
-    auth_user_uuid: str | None,
-    survey: SurveyDefinitionSummary,
-    source: str,
-    profile_code: str,
-    user_profile: dict[str, Any],
-    raw_answers: dict[str, Any] | None,
-    survey_response_id: int | None,
-    updated_at: str | None,
-    scoring_version: str,
-) -> StoredUserTowerProfile:
-    return StoredUserTowerProfile(
-        auth_user_uuid=auth_user_uuid,
-        profile_code=profile_code,
-        profile_schema_version=PROFILE_CODE_VERSION,
-        survey_response_id=survey_response_id,
-        survey_slug=survey.slug,
-        survey_version=survey.version,
-        survey_code=survey.survey_code,
-        scoring_version=scoring_version,
-        share_path=build_share_path(profile_code),
-        share_url=build_share_url(profile_code),
-        source=source,
-        updated_at=updated_at,
-        raw_answers=raw_answers,
-        user_profile=UserProfilePayload.model_validate(user_profile),
-    )
-
-
-def _build_definition_summary_from_any(
-    definition: SurveyDefinitionRecord | SurveyDefinitionResponse,
-) -> SurveyDefinitionSummary:
-    if isinstance(definition, SurveyDefinitionRecord):
-        return _build_definition_summary(definition)
-    return _build_definition_summary_from_response(definition)
-
-
-def _user_profile_from_saved_record(record: UserTowerProfileRecord) -> dict[str, Any]:
-    return {
-        "user_id": record.user_id,
-        "profile_name": record.profile_name,
-        "preferred_category_code": record.preferred_category_code,
-        "budget_level": record.budget_level,
-        "stability_level": record.stability_level,
-        "subway_dependency_level": record.subway_dependency_level,
-        "weekend_preference_level": record.weekend_preference_level,
-        "evening_preference_level": record.evening_preference_level,
-        "resident_focus_level": record.resident_focus_level,
-        "worker_focus_level": record.worker_focus_level,
-        "rent_sensitivity_level": record.rent_sensitivity_level,
-        "competition_tolerance_level": record.competition_tolerance_level,
-    }
 
 
 def _find_option(question: dict[str, Any], option_code: str) -> dict[str, Any]:
@@ -157,7 +128,6 @@ def _validate_answers(definition: SurveyDefinitionResponse, answers: dict[str, A
             raise HTTPException(status_code=422, detail=f"{question.id} 응답이 비어 있다.")
 
         answer = answers[question.id]
-        # 저장 포맷을 한 가지로 유지하려고 여기서 단일/복수 선택 응답 형태를 먼저 정규화한다.
         SurveyAnswerValidationRequest(question=question, answer=answer)
         valid_codes = {option.code for option in question.options}
 
@@ -197,6 +167,8 @@ def _score_question_effects(
     for selected_code in selected_codes:
         option = _find_option(question, selected_code)
         for parameter_name, effect_value in option.get("effects", {}).items():
+            if parameter_name not in score_totals:
+                continue
             if parameter_name in question_primary:
                 base_weight = PRIMARY_EFFECT_WEIGHT
             elif parameter_name in question_secondary:
@@ -204,10 +176,26 @@ def _score_question_effects(
             else:
                 base_weight = DEFAULT_EFFECT_WEIGHT
 
-            # 복수선택 문항 하나가 전체 결과를 과도하게 끌고 가지 않도록 선택 수만큼 나눠 반영한다.
             applied_weight = base_weight / divisor
             score_totals[parameter_name] += float(effect_value) * applied_weight
             score_weights[parameter_name] += applied_weight
+
+
+def _normalize_age_distribution(payload: dict[str, Any]) -> dict[str, Any]:
+    total = sum(float(payload[field_name]) for field_name in AGE_FIELD_NAMES)
+    if total <= 0:
+        for field_name in AGE_FIELD_NAMES:
+            payload[field_name] = round(1 / len(AGE_FIELD_NAMES), 2)
+        return payload
+
+    normalized_values: list[float] = []
+    for field_name in AGE_FIELD_NAMES[:-1]:
+        normalized_values.append(round(float(payload[field_name]) / total, 2))
+    normalized_values.append(round(1.0 - sum(normalized_values), 2))
+
+    for field_name, normalized_value in zip(AGE_FIELD_NAMES, normalized_values, strict=True):
+        payload[field_name] = normalized_value
+    return payload
 
 
 def _score_definition(
@@ -215,13 +203,13 @@ def _score_definition(
     request: SurveyPreviewRequest,
     *,
     question_lookup: dict[str, dict[str, Any]] | None = None,
-) -> SurveyScoredProfile:
-    if request.preferred_category_code not in _CATEGORY_CODES:
-        raise HTTPException(status_code=422, detail="선호 업종 코드가 현재 카탈로그에 없다.")
-
+) -> SurveyScoredProfiles:
     normalized_answers = _validate_answers(definition, request.answers)
-    score_totals = {field_name: 0.0 for field_name in USER_NUMERIC_FIELDS}
-    score_weights = {field_name: 0.0 for field_name in USER_NUMERIC_FIELDS}
+
+    area_score_totals = {field_name: 0.0 for field_name in AREA_USER_NUMERIC_FIELDS}
+    area_score_weights = {field_name: 0.0 for field_name in AREA_USER_NUMERIC_FIELDS}
+    category_score_totals = {field_name: 0.0 for field_name in CATEGORY_USER_NUMERIC_FIELDS}
+    category_score_weights = {field_name: 0.0 for field_name in CATEGORY_USER_NUMERIC_FIELDS}
 
     resolved_question_lookup = question_lookup or {
         question.id: question.model_dump()
@@ -232,93 +220,163 @@ def _score_definition(
         _score_question_effects(
             question=resolved_question_lookup[question_id],
             selected_codes=selected_codes,
-            score_totals=score_totals,
-            score_weights=score_weights,
+            score_totals=area_score_totals,
+            score_weights=area_score_weights,
+        )
+        _score_question_effects(
+            question=resolved_question_lookup[question_id],
+            selected_codes=selected_codes,
+            score_totals=category_score_totals,
+            score_weights=category_score_weights,
         )
 
-    scored_payload: dict[str, Any] = {
-        "user_id": f"survey_{definition.survey_code.lower()}_preview",
+    area_payload: dict[str, Any] = {
+        "user_id": f"survey_{definition.survey_code.lower()}_area",
         "profile_name": request.profile_name,
-        "preferred_category_code": request.preferred_category_code,
     }
-    for field_name in USER_NUMERIC_FIELDS:
-        if score_weights[field_name] <= 0:
-            scored_payload[field_name] = NEUTRAL_USER_TOWER_SCORE
+    for field_name in AREA_USER_NUMERIC_FIELDS:
+        if area_score_weights[field_name] <= 0:
+            area_payload[field_name] = NEUTRAL_USER_TOWER_SCORE
         else:
-            scored_payload[field_name] = round(score_totals[field_name] / score_weights[field_name], 2)
+            area_payload[field_name] = round(area_score_totals[field_name] / area_score_weights[field_name], 2)
 
-    return SurveyScoredProfile(
+    category_payload: dict[str, Any] = {
+        "user_id": f"survey_{definition.survey_code.lower()}_category",
+        "profile_name": request.profile_name,
+    }
+    for field_name in CATEGORY_USER_NUMERIC_FIELDS:
+        if field_name in AGE_FIELD_NAMES:
+            category_payload[field_name] = (
+                round(category_score_totals[field_name] / category_score_weights[field_name], 2)
+                if category_score_weights[field_name] > 0
+                else 0.0
+            )
+            continue
+
+        if category_score_weights[field_name] <= 0:
+            category_payload[field_name] = NEUTRAL_USER_TOWER_SCORE
+        else:
+            category_payload[field_name] = round(
+                category_score_totals[field_name] / category_score_weights[field_name],
+                2,
+            )
+    category_payload = _normalize_age_distribution(category_payload)
+
+    return SurveyScoredProfiles(
         survey_code=definition.survey_code,
-        user_profile=UserProfilePayload.model_validate(scored_payload),
         answers=normalized_answers,
+        area_user_profile=AreaUserProfilePayload.model_validate(area_payload),
+        category_user_profile=CategoryUserProfilePayload.model_validate(category_payload),
     )
 
 
-def _require_survey_profile_code(profile_code: str) -> tuple[UserProfilePayload, str]:
-    try:
-        decoded = decode_profile_code_details(profile_code)
-    except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
-
-    if decoded.survey_code in (None, DEFAULT_SURVEY_CODE):
-        raise HTTPException(status_code=400, detail="설문 코드가 포함되지 않은 공유 코드다.")
-
-    return UserProfilePayload.model_validate(decoded.user_profile), str(decoded.survey_code)
-
-
-async def _get_required_definition_by_survey_code(
-    session: AsyncSession,
+def _build_answers_hash(
+    *,
     survey_code: str,
-) -> SurveyDefinitionRecord:
-    record = await definition_repository.get_by_survey_code(session, survey_code)
+    scoring_version: str,
+    answers: dict[str, Any],
+) -> str:
+    payload = {
+        "survey_code": survey_code,
+        "scoring_version": scoring_version,
+        "answers": answers,
+    }
+    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _build_area_profile_key(
+    *,
+    survey_code: str,
+    scoring_version: str,
+    area_user_profile: AreaUserProfilePayload,
+) -> str:
+    payload = {
+        "survey_code": survey_code,
+        "scoring_version": scoring_version,
+        "scores": {
+            field_name: getattr(area_user_profile, field_name)
+            for field_name in AREA_USER_NUMERIC_FIELDS
+        },
+    }
+    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _build_category_profile_key(
+    *,
+    survey_code: str,
+    scoring_version: str,
+    category_user_profile: CategoryUserProfilePayload,
+) -> str:
+    payload = {
+        "survey_code": survey_code,
+        "scoring_version": scoring_version,
+        "scores": {
+            field_name: getattr(category_user_profile, field_name)
+            for field_name in CATEGORY_USER_NUMERIC_FIELDS
+        },
+    }
+    serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _build_category_model_signature(metadata: dict[str, Any]) -> str:
+    return f"{metadata['model_id']}:{metadata['trained_at']}:{CATEGORY_RECOMMENDATION_SCORE_SCALE}"
+
+
+def _build_result_response(*, survey: Any, record: Any) -> SurveyResultResponse:
+    category_prediction = dict(record.category_recommendations_json)
+    return SurveyResultResponse(
+        survey=_build_definition_summary(survey),
+        result_code=record.result_code,
+        profile_name=record.profile_name,
+        share_path=build_share_path(record.result_code),
+        share_url=build_share_url(record.result_code),
+        area_user_profile=AreaUserProfilePayload.model_validate(record.area_user_profile_json),
+        category_user_profile=CategoryUserProfilePayload.model_validate(record.category_user_profile_json),
+        category_recommendations=[
+            CategoryRecommendation.model_validate(row)
+            for row in category_prediction["recommendations"]
+        ],
+        created_at=record.created_at,
+    )
+
+
+def _build_saved_result_summary(*, saved_record: Any, result_record: Any) -> SavedSurveyResultSummary:
+    return SavedSurveyResultSummary(
+        result_code=result_record.result_code,
+        profile_name=result_record.profile_name,
+        share_path=build_share_path(result_record.result_code),
+        share_url=build_share_url(result_record.result_code),
+        saved_source=saved_record.saved_source,
+        saved_label=saved_record.saved_label,
+        result_created_at=result_record.created_at,
+        saved_at=saved_record.updated_at,
+    )
+
+
+async def _get_active_definition_record(session: AsyncSession) -> Any:
+    record = await definition_repository.get_active(session)
     if record is None:
-        raise HTTPException(status_code=404, detail="해당 설문 코드를 찾지 못했다.")
+        record = await seed_active_survey_definition(session)
+        await session.commit()
     return record
 
 
-def _resolve_profile_snapshot(
-    *,
-    response_record: SurveyResponseRecord | None,
-    fallback_profile: UserProfilePayload,
-) -> tuple[dict[str, Any], dict[str, Any] | None]:
-    if response_record is None:
-        return fallback_profile.model_dump(), None
-    return dict(response_record.scored_profile_json), dict(response_record.answers_json)
+async def _resolve_result_record_by_code(session: AsyncSession, result_code: str) -> Any:
+    try:
+        normalized_result_code = normalize_result_code(result_code)
+    except InvalidResultCodeError as error:
+        raise HTTPException(status_code=404, detail="해당 결과 코드를 찾지 못했다.") from error
+
+    record = await result_repository.get_by_result_code(session, normalized_result_code)
+    if record is None:
+        raise HTTPException(status_code=404, detail="해당 결과 코드를 찾지 못했다.")
+    return record
 
 
-def _build_survey_envelope(
-    *,
-    survey: SurveyDefinitionRecord | SurveyDefinitionResponse,
-    auth_user_uuid: str | None,
-    survey_response_id: int | None,
-    source: str,
-    profile_code: str,
-    user_profile: dict[str, Any],
-    raw_answers: dict[str, Any] | None,
-    updated_at: str | None,
-    prediction: Any,
-) -> SurveyResultEnvelope:
-    survey_summary = _build_definition_summary_from_any(survey)
-    scoring_version = survey.scoring_version
-    return SurveyResultEnvelope(
-        survey=survey_summary,
-        survey_response_id=survey_response_id,
-        profile=_build_profile_state(
-            auth_user_uuid=auth_user_uuid,
-            survey=survey_summary,
-            source=source,
-            profile_code=profile_code,
-            user_profile=user_profile,
-            raw_answers=raw_answers,
-            survey_response_id=survey_response_id,
-            updated_at=updated_at,
-            scoring_version=scoring_version,
-        ),
-        prediction=prediction,
-    )
-
-
-async def seed_active_survey_definition(session: AsyncSession) -> SurveyDefinitionRecord:
+async def seed_active_survey_definition(session: AsyncSession) -> Any:
     definition_json = active_survey_definition()
     return await definition_repository.upsert_active_definition(
         session=session,
@@ -334,22 +392,17 @@ async def seed_active_survey_definition(session: AsyncSession) -> SurveyDefiniti
 
 
 async def get_active_survey_definition(session: AsyncSession) -> SurveyDefinitionResponse:
-    record = await definition_repository.get_active(session)
-    if record is None:
-        record = await seed_active_survey_definition(session)
-        await session.commit()
+    record = await _get_active_definition_record(session)
     return _build_definition_response(record)
 
 
 async def preview_survey_result(
     session: AsyncSession,
     request: SurveyPreviewRequest,
-) -> SurveyResultEnvelope:
-    definition_record = await definition_repository.get_active(session)
-    if definition_record is None:
-        definition_record = await seed_active_survey_definition(session)
-        await session.commit()
-
+    *,
+    auth_user_uuid: str | None = None,
+) -> SurveyResultResponse:
+    definition_record = await _get_active_definition_record(session)
     definition = _build_definition_response(definition_record)
     scored = _score_definition(
         definition,
@@ -359,72 +412,182 @@ async def preview_survey_result(
             for question in definition_record.definition_json["questions"]
         },
     )
-    prediction = await resolve_prediction_response(
-        session=session,
-        user_profile=scored.user_profile.model_dump(),
-        top_k=request.top_k,
-        survey_code=scored.survey_code,
-    )
-
-    response_record = await response_repository.create(
-        session=session,
-        survey_definition_id=definition.id,
-        survey_slug=definition.slug,
-        survey_version=definition.version,
+    answers_hash = _build_answers_hash(
         survey_code=definition.survey_code,
         scoring_version=definition.scoring_version,
-        source="guest",
-        profile_code=prediction.profile_code,
-        profile_schema_version=prediction.profile_schema_version,
-        profile_name=scored.user_profile.profile_name,
-        preferred_category_code=scored.user_profile.preferred_category_code,
+        answers=scored.answers,
+    )
+    area_profile_key = _build_area_profile_key(
+        survey_code=definition.survey_code,
+        scoring_version=definition.scoring_version,
+        area_user_profile=scored.area_user_profile,
+    )
+    category_profile_key = _build_category_profile_key(
+        survey_code=definition.survey_code,
+        scoring_version=definition.scoring_version,
+        category_user_profile=scored.category_user_profile,
+    )
+
+    category_metadata = await run_in_threadpool(category_evaluation_payload)
+    category_model_signature = _build_category_model_signature(category_metadata)
+    cached = await category_prediction_cache_repository.get(
+        session=session,
+        category_profile_key=category_profile_key,
+        model_signature=category_model_signature,
+        top_k=DEFAULT_CATEGORY_TOP_K,
+    )
+    if cached is None:
+        category_prediction_payload = await run_in_threadpool(
+            category_predict_payload,
+            user_profile=scored.category_user_profile.model_dump(),
+            top_k=DEFAULT_CATEGORY_TOP_K,
+        )
+        await category_prediction_cache_repository.upsert(
+            session=session,
+            category_profile_key=category_profile_key,
+            model_signature=category_model_signature,
+            top_k=DEFAULT_CATEGORY_TOP_K,
+            prediction_json=category_prediction_payload,
+        )
+    else:
+        category_prediction_payload = dict(cached.prediction_json)
+
+    result_code: str | None = None
+    for _ in range(10):
+        candidate = generate_result_code()
+        if await result_repository.get_by_result_code(session, candidate) is None:
+            result_code = candidate
+            break
+    if result_code is None:
+        raise HTTPException(status_code=500, detail="결과 코드를 생성하지 못했다.")
+
+    result_record = await result_repository.create(
+        session=session,
+        result_code=result_code,
+        survey_definition_id=definition.id,
+        source="authenticated" if auth_user_uuid else "guest",
+        profile_name=request.profile_name,
         answers_json=scored.answers,
-        scored_profile_json=scored.user_profile.model_dump(),
+        answers_hash=answers_hash,
+        area_user_profile_json=scored.area_user_profile.model_dump(),
+        category_user_profile_json=scored.category_user_profile.model_dump(),
+        area_profile_key=area_profile_key,
+        category_profile_key=category_profile_key,
+        category_recommendations_json=category_prediction_payload,
+    )
+    if auth_user_uuid is not None:
+        await saved_result_repository.upsert(
+            session=session,
+            auth_user_uuid=auth_user_uuid,
+            survey_result_id=result_record.id,
+            saved_source="survey_submit",
+        )
+
+    await session.commit()
+    return _build_result_response(survey=definition_record, record=result_record)
+
+
+async def get_survey_result_by_code(
+    session: AsyncSession,
+    result_code: str,
+) -> SurveyResultResponse:
+    result_record = await _resolve_result_record_by_code(session, result_code)
+    definition_record = await definition_repository.get_by_id(session, result_record.survey_definition_id)
+    if definition_record is None:
+        raise HTTPException(status_code=404, detail="설문 정의를 찾지 못했다.")
+    return _build_result_response(survey=definition_record, record=result_record)
+
+
+async def get_area_recommendations_by_result_code(
+    session: AsyncSession,
+    *,
+    result_code: str,
+    selected_category_code: str,
+    top_k: int = DEFAULT_AREA_TOP_K,
+) -> SurveyAreaRecommendationResponse:
+    if selected_category_code not in _CATEGORY_CODES:
+        raise HTTPException(status_code=422, detail="선택한 업종 코드가 현재 카탈로그에 없다.")
+
+    result_record = await _resolve_result_record_by_code(session, result_code)
+    area_profile_payload = dict(result_record.area_user_profile_json)
+    area_profile_payload["preferred_category_code"] = selected_category_code
+    prediction = await resolve_area_prediction(
+        session=session,
+        area_profile_key=result_record.area_profile_key,
+        user_profile=area_profile_payload,
+        selected_category_code=selected_category_code,
+        top_k=top_k,
     )
     await session.commit()
-    await session.refresh(response_record)
-
-    return _build_survey_envelope(
-        survey=definition,
-        auth_user_uuid=None,
-        survey_response_id=response_record.id,
-        source="survey",
-        profile_code=prediction.profile_code,
-        user_profile=scored.user_profile.model_dump(),
-        raw_answers=scored.answers,
-        updated_at=response_record.updated_at.isoformat(),
+    return SurveyAreaRecommendationResponse(
+        result_code=result_record.result_code,
+        selected_category_code=selected_category_code,
+        share_path=build_share_path(result_record.result_code),
+        share_url=build_share_url(result_record.result_code),
         prediction=prediction,
     )
 
 
-async def resolve_survey_result_by_code(
+async def set_default_survey_result_for_user(
     session: AsyncSession,
-    profile_code: str,
-    top_k: int,
-) -> SurveyResultEnvelope:
-    fallback_profile, survey_code = _require_survey_profile_code(profile_code)
-    definition_record = await _get_required_definition_by_survey_code(session, survey_code)
-    latest_response = await response_repository.get_latest_by_profile_code(session, profile_code.lower())
-    user_profile, raw_answers = _resolve_profile_snapshot(
-        response_record=latest_response,
-        fallback_profile=fallback_profile,
-    )
-    prediction = await resolve_prediction_response(
+    *,
+    auth_user_uuid: str,
+    request: SaveSurveyProfileRequest,
+) -> SurveyResultResponse:
+    result_record = await _resolve_result_record_by_code(session, request.result_code)
+    await default_profile_repository.upsert(
         session=session,
-        user_profile=user_profile,
-        top_k=top_k,
-        survey_code=definition_record.survey_code,
+        auth_user_uuid=auth_user_uuid,
+        survey_result_id=result_record.id,
     )
-    return _build_survey_envelope(
-        survey=definition_record,
-        auth_user_uuid=None,
-        survey_response_id=latest_response.id if latest_response is not None else None,
-        source="shared_url",
-        profile_code=prediction.profile_code,
-        user_profile=user_profile,
-        raw_answers=raw_answers,
-        updated_at=latest_response.updated_at.isoformat() if latest_response is not None else None,
-        prediction=prediction,
+    await saved_result_repository.upsert(
+        session=session,
+        auth_user_uuid=auth_user_uuid,
+        survey_result_id=result_record.id,
+        saved_source="default_profile",
+    )
+    definition_record = await definition_repository.get_by_id(session, result_record.survey_definition_id)
+    if definition_record is None:
+        raise HTTPException(status_code=404, detail="설문 정의를 찾지 못했다.")
+    await session.commit()
+    return _build_result_response(survey=definition_record, record=result_record)
+
+
+async def get_default_survey_result(
+    session: AsyncSession,
+    *,
+    auth_user_uuid: str,
+) -> SurveyResultResponse:
+    default_record = await default_profile_repository.get_by_auth_user_uuid(session, auth_user_uuid)
+    if default_record is None:
+        raise HTTPException(status_code=404, detail="기본 성향 프로필이 없다.")
+
+    result_record = await result_repository.get_by_id(session, default_record.survey_result_id)
+    if result_record is None:
+        raise HTTPException(status_code=404, detail="기본 성향 결과를 찾지 못했다.")
+
+    definition_record = await definition_repository.get_by_id(session, result_record.survey_definition_id)
+    if definition_record is None:
+        raise HTTPException(status_code=404, detail="설문 정의를 찾지 못했다.")
+    return _build_result_response(survey=definition_record, record=result_record)
+
+
+async def get_default_profile_status(
+    session: AsyncSession,
+    *,
+    auth_user_uuid: str,
+) -> SurveyProfileStatusResponse:
+    default_record = await default_profile_repository.get_by_auth_user_uuid(session, auth_user_uuid)
+    if default_record is None:
+        return SurveyProfileStatusResponse(has_default_profile=False, default_result_code=None)
+
+    result_record = await result_repository.get_by_id(session, default_record.survey_result_id)
+    if result_record is None:
+        return SurveyProfileStatusResponse(has_default_profile=False, default_result_code=None)
+
+    return SurveyProfileStatusResponse(
+        has_default_profile=True,
+        default_result_code=result_record.result_code,
     )
 
 
@@ -433,93 +596,67 @@ async def save_survey_result_for_user(
     *,
     auth_user_uuid: str,
     request: SaveSurveyResultRequest,
-) -> SurveyResultEnvelope:
-    fallback_profile, survey_code = _require_survey_profile_code(request.profile_code)
-    definition_record = await _get_required_definition_by_survey_code(session, survey_code)
-
-    response_record: SurveyResponseRecord | None = None
-    if request.survey_response_id is not None:
-        response_record = await response_repository.get_by_id(session, request.survey_response_id)
-        if response_record is None:
-            raise HTTPException(status_code=404, detail="설문 응답 이력을 찾지 못했다.")
-        if response_record.profile_code.lower() != request.profile_code.lower():
-            raise HTTPException(status_code=400, detail="설문 응답 이력과 공유 코드가 서로 다르다.")
-    else:
-        response_record = await response_repository.get_latest_by_profile_code(session, request.profile_code.lower())
-
-    user_profile, raw_answers = _resolve_profile_snapshot(
-        response_record=response_record,
-        fallback_profile=fallback_profile,
-    )
-    user_profile["user_id"] = f"auth_{auth_user_uuid}"
-    user_profile["profile_name"] = request.profile_name or user_profile.get("profile_name") or "내 설문 결과"
-    normalized_user_profile = UserProfilePayload.model_validate(user_profile).model_dump()
-
-    record = await profile_repository.upsert(
+) -> SavedSurveyResultSummary:
+    result_record = await _resolve_result_record_by_code(session, request.result_code)
+    saved_record = await saved_result_repository.upsert(
         session=session,
         auth_user_uuid=auth_user_uuid,
-        profile_code=request.profile_code.lower(),
-        schema_version=PROFILE_CODE_VERSION,
-        source="survey",
-        raw_answers=raw_answers,
-        user_profile=normalized_user_profile,
-        survey_definition_id=definition_record.id,
-        survey_response_id=response_record.id if response_record is not None else None,
-        survey_slug=definition_record.slug,
-        survey_version=definition_record.version,
-        survey_code=definition_record.survey_code,
-        scoring_version=definition_record.scoring_version,
-    )
-    prediction = await resolve_prediction_response(
-        session=session,
-        user_profile=normalized_user_profile,
-        top_k=request.top_k,
-        survey_code=definition_record.survey_code,
+        survey_result_id=result_record.id,
+        saved_source="manual_save",
+        saved_label=request.saved_label,
     )
     await session.commit()
-    await session.refresh(record)
-    return _build_survey_envelope(
-        survey=definition_record,
-        auth_user_uuid=auth_user_uuid,
-        survey_response_id=response_record.id if response_record is not None else None,
-        source=record.source,
-        profile_code=prediction.profile_code,
-        user_profile=normalized_user_profile,
-        raw_answers=record.raw_answers,
-        updated_at=record.updated_at.isoformat(),
-        prediction=prediction,
-    )
+    return _build_saved_result_summary(saved_record=saved_record, result_record=result_record)
 
 
-async def get_saved_survey_result(
+async def list_saved_survey_results(
     session: AsyncSession,
     *,
     auth_user_uuid: str,
-    top_k: int,
-) -> SurveyResultEnvelope:
-    record = await profile_repository.get_by_auth_user_uuid(session, auth_user_uuid)
-    if record is None or record.survey_code in (None, DEFAULT_SURVEY_CODE):
-        raise HTTPException(status_code=404, detail="저장된 설문 결과가 없다.")
+) -> SavedSurveyResultListResponse:
+    saved_records = await saved_result_repository.get_by_auth_user_uuid(session, auth_user_uuid)
+    default_record = await default_profile_repository.get_by_auth_user_uuid(session, auth_user_uuid)
+    result_records = await result_repository.get_by_ids(
+        session,
+        [record.survey_result_id for record in saved_records],
+    )
+    result_record_by_id = {record.id: record for record in result_records}
 
-    definition_record = await definition_repository.get_by_survey_code(session, str(record.survey_code))
-    if definition_record is None:
-        raise HTTPException(status_code=404, detail="저장된 설문 정의를 찾지 못했다.")
+    summaries: list[SavedSurveyResultSummary] = []
+    for saved_record in saved_records:
+        result_record = result_record_by_id.get(saved_record.survey_result_id)
+        if result_record is None:
+            continue
+        summaries.append(
+            _build_saved_result_summary(saved_record=saved_record, result_record=result_record)
+        )
 
-    user_profile = _user_profile_from_saved_record(record)
-    prediction = await resolve_prediction_response(
+    default_result_code: str | None = None
+    if default_record is not None:
+        default_result_record = result_record_by_id.get(default_record.survey_result_id)
+        if default_result_record is None:
+            default_result_record = await result_repository.get_by_id(session, default_record.survey_result_id)
+        if default_result_record is not None:
+            default_result_code = default_result_record.result_code
+
+    return SavedSurveyResultListResponse(
+        default_result_code=default_result_code,
+        results=summaries,
+    )
+
+
+async def delete_saved_survey_result_for_user(
+    session: AsyncSession,
+    *,
+    auth_user_uuid: str,
+    result_code: str,
+) -> None:
+    result_record = await _resolve_result_record_by_code(session, result_code)
+    deleted = await saved_result_repository.delete_one(
         session=session,
-        user_profile=user_profile,
-        top_k=top_k,
-        survey_code=definition_record.survey_code,
-    )
-    return _build_survey_envelope(
-        survey=definition_record,
         auth_user_uuid=auth_user_uuid,
-        survey_response_id=record.survey_response_id,
-        source=record.source,
-        profile_code=prediction.profile_code,
-        user_profile=user_profile,
-        raw_answers=record.raw_answers,
-        updated_at=record.updated_at.isoformat(),
-        prediction=prediction,
+        survey_result_id=result_record.id,
     )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="저장된 설문 결과가 없다.")
+    await session.commit()

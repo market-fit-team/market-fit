@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.two_tower.contracts import PredictResponse, StoredUserTowerProfile, UserProfilePayload
+from app.models.onboarding_category_tower.contracts import (
+    CategoryRecommendation,
+    CategoryUserProfilePayload,
+)
+from app.two_tower.contracts import (
+    AreaUserProfilePayload,
+    PredictResponse,
+)
 
 
 class SurveyOption(BaseModel):
@@ -38,26 +46,57 @@ class SurveyDefinitionResponse(SurveyDefinitionSummary):
 
 
 class SurveyPreviewRequest(BaseModel):
-    top_k: int = Field(default=5, ge=1, le=10, description="반환할 추천 개수")
-    preferred_category_code: str = Field(default="CS100001", description="설문 바깥에서 따로 고른 선호 업종 코드")
     profile_name: str = Field(default="설문 결과 프로필", description="프론트에 표시할 프로필 이름")
     answers: dict[str, Any] = Field(description="문항 id 기준 응답 JSON")
 
 
+class SaveSurveyProfileRequest(BaseModel):
+    result_code: str = Field(description="기본 성향 또는 저장 목록에 연결할 결과 코드")
+
+
 class SaveSurveyResultRequest(BaseModel):
-    profile_code: str = Field(description="미리보기 응답에서 받은 base36 공유 코드")
-    top_k: int = Field(default=5, ge=1, le=10, description="반환할 추천 개수")
-    profile_name: str | None = Field(default=None, description="저장 시 덮어쓸 프로필 이름")
-    survey_response_id: int | None = Field(
-        default=None,
-        description="같은 미리보기 응답을 그대로 저장할 때 넘기는 설문 응답 ID",
-    )
+    result_code: str = Field(description="저장할 결과 코드")
+    saved_label: str | None = Field(default=None, description="사용자 지정 저장 이름")
 
 
-class SurveyResultEnvelope(BaseModel):
+class SavedSurveyResultSummary(BaseModel):
+    result_code: str
+    profile_name: str
+    share_path: str
+    share_url: str
+    saved_source: str
+    saved_label: str | None
+    result_created_at: datetime
+    saved_at: datetime
+
+
+class SavedSurveyResultListResponse(BaseModel):
+    default_result_code: str | None
+    results: list[SavedSurveyResultSummary]
+
+
+class SurveyProfileStatusResponse(BaseModel):
+    has_default_profile: bool
+    default_result_code: str | None
+
+
+class SurveyResultResponse(BaseModel):
     survey: SurveyDefinitionSummary
-    survey_response_id: int | None
-    profile: StoredUserTowerProfile
+    result_code: str
+    profile_name: str
+    share_path: str
+    share_url: str
+    area_user_profile: AreaUserProfilePayload
+    category_user_profile: CategoryUserProfilePayload
+    category_recommendations: list[CategoryRecommendation]
+    created_at: datetime
+
+
+class SurveyAreaRecommendationResponse(BaseModel):
+    result_code: str
+    selected_category_code: str
+    share_path: str
+    share_url: str
     prediction: PredictResponse
 
 
@@ -79,7 +118,8 @@ class SurveyAnswerValidationRequest(BaseModel):
         return self
 
 
-class SurveyScoredProfile(BaseModel):
+class SurveyScoredProfiles(BaseModel):
     survey_code: str
-    user_profile: UserProfilePayload
     answers: dict[str, Any]
+    area_user_profile: AreaUserProfilePayload
+    category_user_profile: CategoryUserProfilePayload

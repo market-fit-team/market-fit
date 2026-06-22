@@ -26,22 +26,14 @@ openapi_tags = [
     },
     {
         "name": "survey",
-        "description": "설문 정의 조회, 설문 기반 미리보기, JWT 저장 경로",
+        "description": "설문 정의 조회, 결과 생성, 결과 조회, 사용자 저장 경로",
     },
 ]
-
-if settings.expose_legacy_two_tower_routes or settings.expose_internal_model_admin_routes:
-    openapi_tags.append(
-        {
-            "name": "two-tower",
-            "description": "내부 예제/검증에서만 쓰는 레거시 투타워 경로",
-        }
-    )
 
 app = FastAPI(
     title=settings.service_name,
     version=settings.service_version,
-    description="사용자 온보딩 과정에서 투타워 추천 결과를 제공하는 서비스.",
+    description="사용자 설문으로 성향 결과, 업종 추천, 업종별 상권 추천을 제공하는 서비스.",
     lifespan=lifespan,
     openapi_tags=openapi_tags,
 )

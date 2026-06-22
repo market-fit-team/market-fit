@@ -2,52 +2,31 @@ from __future__ import annotations
 
 import unittest
 
-from app.two_tower.codecs import decode_profile_code, decode_profile_code_details, encode_profile_code
+from app.two_tower.codecs import (
+    InvalidResultCodeError,
+    build_share_path,
+    generate_result_code,
+    normalize_result_code,
+)
 
 
-class ProfileCodeTestCase(unittest.TestCase):
-    def test_profile_code_roundtrip_preserves_survey_category_and_scores(self) -> None:
-        """공유 코드는 설문 코드, 업종, 9개 점수를 손실 없이 왕복 복원해야 한다."""
+class ResultCodeTestCase(unittest.TestCase):
+    def test_generate_result_code_builds_normalized_public_code(self) -> None:
+        """공개 결과 코드는 소문자 base36 형식으로 정규화돼야 한다."""
 
-        payload = {
-            "user_id": "roundtrip-user",
-            "profile_name": "라운드트립",
-            "preferred_category_code": "CS100005",
-            "budget_level": 0.23,
-            "stability_level": 0.91,
-            "subway_dependency_level": 0.02,
-            "weekend_preference_level": 0.48,
-            "evening_preference_level": 0.27,
-            "resident_focus_level": 0.88,
-            "worker_focus_level": 0.1,
-            "rent_sensitivity_level": 0.95,
-            "competition_tolerance_level": 0.05,
-        }
+        result_code = generate_result_code()
+        normalized = normalize_result_code(result_code)
 
-        profile_code = encode_profile_code(payload, survey_code="A")
-        decoded = decode_profile_code(profile_code)
-        decoded_details = decode_profile_code_details(profile_code)
+        self.assertEqual(result_code, normalized)
+        self.assertTrue(result_code.startswith("r"))
+        self.assertEqual(len(result_code), 16)
+        self.assertEqual(build_share_path(result_code), f"/onboarding/result/{result_code}")
 
-        self.assertEqual(len(profile_code), 16)
-        self.assertEqual(decoded_details.survey_code, "A")
-        self.assertEqual(decoded["preferred_category_code"], payload["preferred_category_code"])
-        self.assertAlmostEqual(decoded["budget_level"], payload["budget_level"])
-        self.assertAlmostEqual(decoded["competition_tolerance_level"], payload["competition_tolerance_level"])
+    def test_invalid_result_code_raises_error(self) -> None:
+        """지원하지 않는 형식의 결과 코드는 예외로 거절해야 한다."""
 
-    def test_legacy_profile_code_still_decodes(self) -> None:
-        """기존 1~5 기반 공유 코드도 새 0~1 스키마로 복원할 수 있어야 한다."""
-
-        decoded = decode_profile_code("r131A1N0K")
-
-        self.assertEqual(decoded["preferred_category_code"], "CS100005")
-        self.assertAlmostEqual(decoded["budget_level"], 0.25)
-        self.assertAlmostEqual(decoded["stability_level"], 1.0)
-
-    def test_invalid_profile_code_raises_error(self) -> None:
-        """잘못된 공유 코드는 예외로 거절해야 한다."""
-
-        with self.assertRaises(ValueError):
-            decode_profile_code("invalid")
+        with self.assertRaises(InvalidResultCodeError):
+            normalize_result_code("invalid")
 
 
 if __name__ == "__main__":
