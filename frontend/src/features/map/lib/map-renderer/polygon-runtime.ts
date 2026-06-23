@@ -1,4 +1,4 @@
-import type { Map, MapLayerMouseEvent } from "maplibre-gl"
+import type { LngLatBoundsLike, Map, MapLayerMouseEvent } from "maplibre-gl"
 import {
   DONG_BASE_LAYER_ID,
   DONG_BOUNDARY_LAYER_ID,
@@ -64,6 +64,52 @@ const getEventDongCode = (event: MapLayerMouseEvent) => {
 export const getDongByCode = (code: DongCode | null) =>
   seoulDongGeoJson.features.find((dong) => dong.properties.code === code)
     ?.properties ?? null
+
+export const getDongBoundsByCodes = (
+  codes: DongCode[]
+): LngLatBoundsLike | null => {
+  const codeSet = new Set(codes)
+  const bounds = {
+    maxLat: Number.NEGATIVE_INFINITY,
+    maxLng: Number.NEGATIVE_INFINITY,
+    minLat: Number.POSITIVE_INFINITY,
+    minLng: Number.POSITIVE_INFINITY,
+  }
+
+  seoulDongGeoJson.features.forEach((feature) => {
+    if (!codeSet.has(feature.properties.code)) {
+      return
+    }
+
+    const coordinates =
+      feature.geometry.type === "Polygon"
+        ? feature.geometry.coordinates.flat(1)
+        : feature.geometry.type === "MultiPolygon"
+          ? feature.geometry.coordinates.flat(2)
+          : []
+
+    coordinates.forEach(([lng, lat]) => {
+      bounds.minLng = Math.min(bounds.minLng, lng)
+      bounds.minLat = Math.min(bounds.minLat, lat)
+      bounds.maxLng = Math.max(bounds.maxLng, lng)
+      bounds.maxLat = Math.max(bounds.maxLat, lat)
+    })
+  })
+
+  if (
+    !Number.isFinite(bounds.minLng) ||
+    !Number.isFinite(bounds.minLat) ||
+    !Number.isFinite(bounds.maxLng) ||
+    !Number.isFinite(bounds.maxLat)
+  ) {
+    return null
+  }
+
+  return [
+    [bounds.minLng, bounds.minLat],
+    [bounds.maxLng, bounds.maxLat],
+  ]
+}
 
 export const addDongPolygonLayers = (map: Map) => {
   if (map.getSource(DONG_SOURCE_ID)) {

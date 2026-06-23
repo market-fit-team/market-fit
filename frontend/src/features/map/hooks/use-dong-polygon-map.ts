@@ -6,11 +6,16 @@ import {
   minMapZoom,
   seoulViewportBounds,
 } from "@/features/map/lib/map-renderer/map-config"
-import { baseMapStyle } from "@/features/map/lib/map-renderer/map-style"
+import {
+  BASE_MAP_BACKGROUND_LAYER_ID,
+  BASE_MAP_RASTER_LAYER_ID,
+  baseMapStyle,
+} from "@/features/map/lib/map-renderer/map-style"
 import {
   type DongPolygonMapActions,
   addDongPolygonLayers,
   bindDongPolygonEvents,
+  getDongBoundsByCodes,
   getDongByCode,
   syncDongPolygonLayers,
 } from "@/features/map/lib/map-renderer/polygon-runtime"
@@ -19,15 +24,52 @@ import type { DongCode, MapFocusRequest } from "@/features/map/types/map"
 type UseDongPolygonMapInput = {
   containerRef: RefObject<HTMLDivElement | null>
   hoveredDongCode: DongCode | null
+  isDarkMode: boolean
   mapFocusRequest: MapFocusRequest | null
   recommendedDongCodes: DongCode[]
   selectedDongCode: DongCode | null
   viewportPadding: PaddingOptions
 } & DongPolygonMapActions
 
+const syncBaseMapTheme = (map: Map, isDarkMode: boolean) => {
+  if (map.getLayer(BASE_MAP_BACKGROUND_LAYER_ID)) {
+    map.setPaintProperty(
+      BASE_MAP_BACKGROUND_LAYER_ID,
+      "background-color",
+      isDarkMode ? "#020617" : "#f8fafc"
+    )
+  }
+
+  if (!map.getLayer(BASE_MAP_RASTER_LAYER_ID)) {
+    return
+  }
+
+  map.setPaintProperty(
+    BASE_MAP_RASTER_LAYER_ID,
+    "raster-brightness-min",
+    isDarkMode ? 0.05 : 0
+  )
+  map.setPaintProperty(
+    BASE_MAP_RASTER_LAYER_ID,
+    "raster-brightness-max",
+    isDarkMode ? 0.38 : 1
+  )
+  map.setPaintProperty(
+    BASE_MAP_RASTER_LAYER_ID,
+    "raster-saturation",
+    isDarkMode ? -0.7 : 0
+  )
+  map.setPaintProperty(
+    BASE_MAP_RASTER_LAYER_ID,
+    "raster-contrast",
+    isDarkMode ? 0.2 : 0
+  )
+}
+
 export function useDongPolygonMap({
   containerRef,
   hoveredDongCode,
+  isDarkMode,
   mapFocusRequest,
   recommendedDongCodes,
   selectedDongCode,
@@ -40,6 +82,7 @@ export function useDongPolygonMap({
   const mapRef = useRef<Map | null>(null)
   const isMapLoadedRef = useRef(false)
   const pendingFocusRequestRef = useRef<MapFocusRequest | null>(null)
+  const fittedRecommendedKeyRef = useRef("")
   const onClearPolygonHover = useEffectEvent(() => {
     clearPolygonHover()
   })
@@ -58,6 +101,32 @@ export function useDongPolygonMap({
       map,
       recommendedDongCodes,
       selectedDongCode,
+    })
+  })
+  const syncCurrentBaseMapTheme = useEffectEvent((map: Map) => {
+    syncBaseMapTheme(map, isDarkMode)
+  })
+  const fitCurrentRecommendedBounds = useEffectEvent((map: Map) => {
+    const recommendedKey = recommendedDongCodes.join(",")
+
+    if (
+      recommendedDongCodes.length === 0 ||
+      selectedDongCode !== null ||
+      fittedRecommendedKeyRef.current === recommendedKey
+    ) {
+      return
+    }
+
+    const bounds = getDongBoundsByCodes(recommendedDongCodes)
+
+    if (!bounds) {
+      return
+    }
+
+    fittedRecommendedKeyRef.current = recommendedKey
+    map.fitBounds(bounds, {
+      duration: 500,
+      padding: viewportPadding,
     })
   })
   const getCurrentViewportPadding = useEffectEvent(() => viewportPadding)
@@ -140,6 +209,7 @@ export function useDongPolygonMap({
         }
 
         isMapLoadedRef.current = true
+        syncCurrentBaseMapTheme(map)
         addDongPolygonLayers(map)
         bindDongPolygonEvents({
           clearPolygonHover: onClearPolygonHover,
@@ -149,6 +219,7 @@ export function useDongPolygonMap({
           selectDong: onSelectDong,
         })
         syncCurrentLayerState(map)
+        fitCurrentRecommendedBounds(map)
         if (pendingFocusRequestRef.current) {
           focusRequestedDong(pendingFocusRequestRef.current)
         }
@@ -170,6 +241,7 @@ export function useDongPolygonMap({
       mapRef.current = null
       isMapLoadedRef.current = false
       pendingFocusRequestRef.current = null
+      fittedRecommendedKeyRef.current = ""
     }
   }, [containerRef])
 
@@ -203,6 +275,26 @@ export function useDongPolygonMap({
       padding: viewportPadding,
     })
   }, [viewportPadding])
+
+  useEffect(() => {
+    const map = mapRef.current
+
+    if (!map || !isMapLoadedRef.current) {
+      return
+    }
+
+    syncBaseMapTheme(map, isDarkMode)
+  }, [isDarkMode])
+
+  useEffect(() => {
+    const map = mapRef.current
+
+    if (!map || !isMapLoadedRef.current) {
+      return
+    }
+
+    fitCurrentRecommendedBounds(map)
+  }, [recommendedDongCodes, selectedDongCode])
 
   useEffect(() => {
     if (mapFocusRequest) {
