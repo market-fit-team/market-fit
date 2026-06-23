@@ -5,7 +5,7 @@ import { DetailReport } from "@/features/map/components/detail/detail-report"
 // DetailReport 상단의 "지도 탐색으로" 버튼이 router.back()으로 모달을 닫는다.
 export default function InterceptedMapDetailPage() {
   return (
-    <div className="fixed inset-0 z-60 overflow-y-auto bg-background">
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-background">
       <DetailReport mode="modal" />
     </div>
   )

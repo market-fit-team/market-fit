@@ -38,6 +38,8 @@ export function useDongPolygonMap({
   selectDong,
 }: UseDongPolygonMapInput) {
   const mapRef = useRef<Map | null>(null)
+  const isMapLoadedRef = useRef(false)
+  const pendingFocusRequestRef = useRef<MapFocusRequest | null>(null)
   const onClearPolygonHover = useEffectEvent(() => {
     clearPolygonHover()
   })
@@ -61,12 +63,19 @@ export function useDongPolygonMap({
   const getCurrentViewportPadding = useEffectEvent(() => viewportPadding)
   const focusRequestedDong = useEffectEvent((focusRequest: MapFocusRequest) => {
     const map = mapRef.current
-    const focusedDong = getDongByCode(focusRequest.dongCode)
 
-    if (!map || !focusedDong) {
+    if (!map || !isMapLoadedRef.current) {
+      pendingFocusRequestRef.current = focusRequest
       return
     }
 
+    const focusedDong = getDongByCode(focusRequest.dongCode)
+
+    if (!focusedDong) {
+      return
+    }
+
+    pendingFocusRequestRef.current = null
     map.flyTo({
       center: [focusedDong.centerLng, focusedDong.centerLat],
       essential: true,
@@ -130,6 +139,7 @@ export function useDongPolygonMap({
           return
         }
 
+        isMapLoadedRef.current = true
         addDongPolygonLayers(map)
         bindDongPolygonEvents({
           clearPolygonHover: onClearPolygonHover,
@@ -139,6 +149,9 @@ export function useDongPolygonMap({
           selectDong: onSelectDong,
         })
         syncCurrentLayerState(map)
+        if (pendingFocusRequestRef.current) {
+          focusRequestedDong(pendingFocusRequestRef.current)
+        }
         map.resize()
       })
     }
@@ -155,6 +168,8 @@ export function useDongPolygonMap({
       }
       mapRef.current?.remove()
       mapRef.current = null
+      isMapLoadedRef.current = false
+      pendingFocusRequestRef.current = null
     }
   }, [containerRef])
 
