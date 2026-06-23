@@ -23,6 +23,8 @@ from app.surveys.contracts import (
     SurveyAreaRecommendationResponse,
     SurveyDefinitionResponse,
     SurveyPreviewRequest,
+    SurveyProfileUpdatePreviewResponse,
+    SurveyProfileUpdateRequest,
     SurveyProfileStatusResponse,
     SurveyResultResponse,
 )
@@ -35,6 +37,8 @@ from app.surveys.service import (
     get_survey_result_by_code,
     list_saved_survey_results,
     preview_survey_result,
+    preview_survey_profile_update,
+    commit_survey_profile_update,
     save_survey_result_for_user,
     set_default_survey_result_for_user,
 )
@@ -186,6 +190,44 @@ async def get_my_survey_profile(
     return await get_default_survey_result(
         session=session,
         auth_user_uuid=auth_user.auth_user_uuid,
+    )
+
+
+@router.post(
+    "/surveys/me/profile/preview-update",
+    response_model=SurveyProfileUpdatePreviewResponse,
+    tags=["survey"],
+    summary="채팅 기반 성향 변경안 계산",
+    description="기존 결과의 유저타워 축을 패치하고 저장하지 않은 추천 변경안을 반환한다.",
+)
+async def preview_my_survey_profile_update(
+    request: SurveyProfileUpdateRequest,
+    auth_user: AuthUserContext = Depends(get_current_auth_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> SurveyProfileUpdatePreviewResponse:
+    return await preview_survey_profile_update(
+        session=session,
+        auth_user_uuid=auth_user.auth_user_uuid,
+        request=request,
+    )
+
+
+@router.post(
+    "/surveys/me/profile/commit-update",
+    response_model=SurveyResultResponse,
+    tags=["survey"],
+    summary="채팅 기반 성향 변경 확정",
+    description="검증한 유저타워 축 패치로 새 결과를 만들고 기본 성향 프로필을 교체한다.",
+)
+async def commit_my_survey_profile_update(
+    request: SurveyProfileUpdateRequest,
+    auth_user: AuthUserContext = Depends(get_current_auth_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> SurveyResultResponse:
+    return await commit_survey_profile_update(
+        session=session,
+        auth_user_uuid=auth_user.auth_user_uuid,
+        request=request,
     )
 
 

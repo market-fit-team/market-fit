@@ -1,4 +1,9 @@
-import { type ReactNode, useCallback, useMemo, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useState,
+} from "react"
 import { useStream } from "@langchain/react"
 import { authClient } from "@/features/auth/lib/auth-client"
 import { AUTHENTIK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
@@ -27,6 +32,10 @@ type LangGraphChatStreamProviderProps = {
   models: LangGraphChatStreamContextValue["models"]
   modelSelection: LangGraphChatStreamContextValue["modelSelection"]
   toolPolicy: LangGraphChatStreamContextValue["toolPolicy"]
+  workspaceThread?: {
+    appThreadId: string
+    langgraphThreadId: string
+  } | null
 }
 
 type AccessTokenResult = {
@@ -63,8 +72,12 @@ export function LangGraphChatStreamProvider({
   models,
   modelSelection,
   toolPolicy,
+  workspaceThread,
 }: LangGraphChatStreamProviderProps) {
-  const [threadId, setThreadId] = useState<string | null>(null)
+  const [threadId, setThreadId] = useState<string | null>(
+    workspaceThread?.langgraphThreadId ?? null
+  )
+  const activeThreadId = workspaceThread?.langgraphThreadId ?? threadId
 
   const apiUrl = useMemo(() => {
     const AGENT_PUBLIC_PATH = "/api/agent"
@@ -97,8 +110,8 @@ export function LangGraphChatStreamProvider({
     messagesKey: "messages",
     optimistic: true,
     transport: "sse",
-    threadId,
-    onThreadId: setThreadId,
+    threadId: activeThreadId,
+    onThreadId: workspaceThread ? undefined : setThreadId,
   })
 
   const localNotice = stream.error
@@ -121,7 +134,8 @@ export function LangGraphChatStreamProvider({
 
       const context = buildSubmitContext(
         options.modelSelection,
-        options.toolPolicy
+        options.toolPolicy,
+        workspaceThread?.appThreadId
       )
       const input = buildSubmitInput(trimmed)
 
@@ -137,7 +151,7 @@ export function LangGraphChatStreamProvider({
         multitaskStrategy: "reject",
       })
     },
-    [modelSelection, stream, toolPolicy]
+    [modelSelection, stream, toolPolicy, workspaceThread?.appThreadId]
   )
 
   const resume = useCallback(
@@ -148,7 +162,11 @@ export function LangGraphChatStreamProvider({
         return
       }
 
-      const context = buildSubmitContext(modelSelection, toolPolicy)
+      const context = buildSubmitContext(
+        modelSelection,
+        toolPolicy,
+        workspaceThread?.appThreadId
+      )
 
       await stream.respond(
         {
@@ -166,7 +184,7 @@ export function LangGraphChatStreamProvider({
         }
       )
     },
-    [modelSelection, stream, toolPolicy]
+    [modelSelection, stream, toolPolicy, workspaceThread?.appThreadId]
   )
 
   const resetChat = useCallback(async () => {
@@ -183,7 +201,7 @@ export function LangGraphChatStreamProvider({
       models,
       modelSelection,
       toolPolicy,
-      threadId: stream.threadId ?? threadId,
+      threadId: stream.threadId ?? activeThreadId,
       messages: stream.messages,
       toolCalls: stream.toolCalls,
       hitlInterrupts: stream.interrupts,
@@ -200,7 +218,7 @@ export function LangGraphChatStreamProvider({
     modelSelection,
     toolPolicy,
     stream.threadId,
-    threadId,
+    activeThreadId,
     stream.messages,
     stream.toolCalls,
     stream.interrupts,

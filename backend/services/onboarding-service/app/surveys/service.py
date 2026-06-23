@@ -36,6 +36,8 @@ from app.surveys.contracts import (
     SurveyDefinitionSummary,
     SurveyPreviewRequest,
     SurveyProfileStatusResponse,
+    SurveyProfileUpdatePreviewResponse,
+    SurveyProfileUpdateRequest,
     SurveyResultResponse,
     SurveyScoredProfiles,
 )
@@ -53,7 +55,7 @@ from app.two_tower.codecs import (
     generate_result_code,
     normalize_result_code,
 )
-from app.two_tower.contracts import AreaUserProfilePayload, PredictResponse, UserProfilePayload
+from app.two_tower.contracts import AreaUserProfilePayload
 from app.two_tower.service import build_share_url, resolve_area_prediction
 
 PRIMARY_EFFECT_WEIGHT = 1.0
@@ -495,6 +497,141 @@ async def get_survey_result_by_code(
     definition_record = await definition_repository.get_by_id(session, result_record.survey_definition_id)
     if definition_record is None:
         raise HTTPException(status_code=404, detail="설문 정의를 찾지 못했다.")
+    return _build_result_response(survey=definition_record, record=result_record)
+
+
+async def _build_profile_update_preview(
+    session: AsyncSession,
+    request: SurveyProfileUpdateRequest,
+) -> tuple[Any, Any, SurveyProfileUpdatePreviewResponse, dict[str, Any]]:
+    result_record = await _resolve_result_record_by_code(session, request.base_result_code)
+    definition_record = await definition_repository.get_by_id(
+        session, result_record.survey_definition_id
+    )
+    if definition_record is None:
+        raise HTTPException(status_code=404, detail="설문 정의를 찾지 못했다.")
+
+    area_payload = dict(result_record.area_user_profile_json)
+    category_payload = dict(result_record.category_user_profile_json)
+    allowed_fields = set(AREA_USER_NUMERIC_FIELDS) | set(CATEGORY_USER_NUMERIC_FIELDS)
+    unknown_fields = sorted(set(request.patch) - allowed_fields)
+    if unknown_fields:
+        raise HTTPException(
+            status_code=422,
+            detail=f"지원하지 않는 성향 축이 있다: {', '.join(unknown_fields)}",
+        )
+
+    diff: dict[str, dict[str, float]] = {}
+    for field_name, raw_value in request.patch.items():
+        value = round(float(raw_value), 2)
+        previous_values: list[float] = []
+        if field_name in AREA_USER_NUMERIC_FIELDS:
+            previous_values.append(float(area_payload[field_name]))
+            area_payload[field_name] = value
+        if field_name in CATEGORY_USER_NUMERIC_FIELDS:
+            previous_values.append(float(category_payload[field_name]))
+            category_payload[field_name] = value
+        previous = previous_values[0]
+        if previous != value:
+            diff[field_name] = {"before": previous, "after": value}
+
+    if any(field_name in request.patch for field_name in AGE_FIELD_NAMES):
+        category_payload = _normalize_age_distribution(category_payload)
+
+    profile_name = request.profile_name or f"{result_record.profile_name} 업데이트"
+    area_payload["profile_name"] = profile_name
+    category_payload["profile_name"] = profile_name
+    area_profile = AreaUserProfilePayload.model_validate(area_payload)
+    category_profile = CategoryUserProfilePayload.model_validate(category_payload)
+
+    category_prediction_payload = await run_in_threadpool(
+        category_predict_payload,
+        user_profile=category_profile.model_dump(),
+        top_k=DEFAULT_CATEGORY_TOP_K,
+    )
+    recommendations = [
+        CategoryRecommendation.model_validate(row)
+        for row in category_prediction_payload["recommendations"]
+    ]
+    preview = SurveyProfileUpdatePreviewResponse(
+        base_result_code=result_record.result_code,
+        profile_name=profile_name,
+        area_user_profile=area_profile,
+        category_user_profile=category_profile,
+        category_recommendations=recommendations,
+        diff=diff,
+        evidence=request.evidence,
+    )
+    return result_record, definition_record, preview, category_prediction_payload
+
+
+async def preview_survey_profile_update(
+    session: AsyncSession,
+    *,
+    auth_user_uuid: str,
+    request: SurveyProfileUpdateRequest,
+) -> SurveyProfileUpdatePreviewResponse:
+    del auth_user_uuid
+    _, _, preview, _ = await _build_profile_update_preview(session, request)
+    return preview
+
+
+async def commit_survey_profile_update(
+    session: AsyncSession,
+    *,
+    auth_user_uuid: str,
+    request: SurveyProfileUpdateRequest,
+) -> SurveyResultResponse:
+    base_record, definition_record, preview, category_prediction_payload = (
+        await _build_profile_update_preview(session, request)
+    )
+    definition = _build_definition_response(definition_record)
+    area_profile_key = _build_area_profile_key(
+        survey_code=definition.survey_code,
+        scoring_version=definition.scoring_version,
+        area_user_profile=preview.area_user_profile,
+    )
+    category_profile_key = _build_category_profile_key(
+        survey_code=definition.survey_code,
+        scoring_version=definition.scoring_version,
+        category_user_profile=preview.category_user_profile,
+    )
+
+    result_code: str | None = None
+    for _ in range(10):
+        candidate = generate_result_code()
+        if await result_repository.get_by_result_code(session, candidate) is None:
+            result_code = candidate
+            break
+    if result_code is None:
+        raise HTTPException(status_code=500, detail="결과 코드를 생성하지 못했다.")
+
+    result_record = await result_repository.create(
+        session=session,
+        result_code=result_code,
+        survey_definition_id=definition.id,
+        source="agent_update",
+        profile_name=preview.profile_name,
+        answers_json=dict(base_record.answers_json),
+        answers_hash=base_record.answers_hash,
+        area_user_profile_json=preview.area_user_profile.model_dump(),
+        category_user_profile_json=preview.category_user_profile.model_dump(),
+        area_profile_key=area_profile_key,
+        category_profile_key=category_profile_key,
+        category_recommendations_json=category_prediction_payload,
+    )
+    await default_profile_repository.upsert(
+        session=session,
+        auth_user_uuid=auth_user_uuid,
+        survey_result_id=result_record.id,
+    )
+    await saved_result_repository.upsert(
+        session=session,
+        auth_user_uuid=auth_user_uuid,
+        survey_result_id=result_record.id,
+        saved_source="agent_update",
+    )
+    await session.commit()
     return _build_result_response(survey=definition_record, record=result_record)
 
 

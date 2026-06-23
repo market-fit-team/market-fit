@@ -23,6 +23,9 @@ class ChatRuntimeContext(TypedDict):
     reasoning_effort: NotRequired[ReasoningEffort]
     allowed_tools: NotRequired[list[str]]
     interrupt_on: NotRequired[InterruptOnConfig]
+    auth_user_uuid: NotRequired[str]
+    access_token: NotRequired[str]
+    app_thread_id: NotRequired[str]
 
 
 class ResolvedChatRuntimeContext(TypedDict):

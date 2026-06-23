@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     health_show_timestamp: bool = True
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@postgres:5432/agent"
+    database_echo: bool = False
+    auto_create_schema: bool = True
+    agent_server_internal_url: str = "http://127.0.0.1:2024"
+    onboarding_service_url: str = "http://onboarding-service:8000"
+    service_request_timeout_seconds: float = 10.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

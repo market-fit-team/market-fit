@@ -1,4 +1,3 @@
-from collections.abc import Mapping
 from typing import Any
 
 from langchain_core.messages import AIMessage, ToolMessage

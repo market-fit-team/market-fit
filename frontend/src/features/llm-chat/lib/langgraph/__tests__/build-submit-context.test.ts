@@ -25,6 +25,19 @@ describe("buildSubmitContext", () => {
       },
     })
   })
+
+  it("워크스페이스 스레드 ID가 있으면 도구 실행 컨텍스트에 포함한다", () => {
+    const context = buildSubmitContext(
+      {
+        model: "gpt-5-mini",
+        reasoningEffort: "medium",
+      },
+      createToolPolicyState(),
+      "app-thread-1"
+    )
+
+    expect(context.app_thread_id).toBe("app-thread-1")
+  })
 })
 
 describe("buildSubmitInput", () => {

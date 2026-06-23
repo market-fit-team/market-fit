@@ -281,6 +281,21 @@ services:
       timeout: 3s
       retries: 20
 
+  agent-db:
+    image: postgres:17-alpine
+    container_name: agent-db
+    environment:
+      POSTGRES_DB: agent
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: agent
+    volumes:
+      - agent_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent -d agent"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   redis:
     image: redis:latest
     container_name: community-redis
@@ -340,6 +355,10 @@ services:
       - JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
       - JWT_AUDIENCE=pickle-web
       - JWT_ALGORITHM=RS256
+      - DATABASE_URL=postgresql+asyncpg://agent:agent@agent-db:5432/agent
+      - AUTO_CREATE_SCHEMA=true
+      - AGENT_SERVER_INTERNAL_URL=http://127.0.0.1:2024
+      - ONBOARDING_SERVICE_URL=http://onboarding-service:8000
     expose:
       - "2024"
     labels:
@@ -355,7 +374,12 @@ services:
       - app.api.openapiPath=/openapi.json
       - app.api.schemasType=typescript
     depends_on:
-      - authentik-server
+      authentik-server:
+        condition: service_started
+      agent-db:
+        condition: service_healthy
+      onboarding-service:
+        condition: service_started
 
   community-service:
     build: ./backend/services/community-service
@@ -427,5 +451,6 @@ volumes:
   community_postgres_data:
   onboarding_postgres_data:
   backend_postgres_data:
+  agent_postgres_data:
   redis_data:
   minio_data:

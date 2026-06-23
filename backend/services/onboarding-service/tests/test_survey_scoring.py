@@ -2,12 +2,33 @@ from __future__ import annotations
 
 import unittest
 
-from app.surveys.contracts import SurveyDefinitionResponse, SurveyPreviewRequest
+from pydantic import ValidationError
+
+from app.surveys.contracts import (
+    SurveyDefinitionResponse,
+    SurveyPreviewRequest,
+    SurveyProfileUpdateRequest,
+)
 from app.surveys.definitions import active_survey_definition
 from app.surveys.service import _score_definition
 
 
 class SurveyScoringTestCase(unittest.TestCase):
+    def test_profile_update_patch_accepts_only_zero_to_one_values(self) -> None:
+        """채팅 기반 성향 패치는 유저타워 점수 범위를 벗어날 수 없다."""
+
+        request = SurveyProfileUpdateRequest(
+            base_result_code="r0a1b2c3d4e5f6g",
+            patch={"budget_level": 0.72},
+        )
+        self.assertEqual(request.patch["budget_level"], 0.72)
+
+        with self.assertRaises(ValidationError):
+            SurveyProfileUpdateRequest(
+                base_result_code="r0a1b2c3d4e5f6g",
+                patch={"budget_level": 1.2},
+            )
+
     def test_preview_scoring_builds_area_and_category_profiles(self) -> None:
         """설문 점수 계산은 상권용 9축과 업종용 17축을 함께 만들어야 한다."""
 

@@ -169,7 +169,18 @@ async def get_current_user(authorization: str | None) -> dict[str, Any]:
     # https://docs.langchain.com/langsmith/auth
     return {
         "identity": subject,
+        "is_authenticated": True,
+        "access_token": token,
         "email": payload.get("email"),
         "name": payload.get("name"),
         "claims": payload,
     }
+
+
+@auth.on
+async def owner_only(ctx: Auth.types.AuthContext, value: dict[str, Any]) -> dict[str, str]:
+    """Agent Server의 모든 영속 리소스를 인증 사용자 소유로 잠급니다."""
+
+    metadata = value.setdefault("metadata", {})
+    metadata["owner"] = ctx.user.identity
+    return {"owner": ctx.user.identity}

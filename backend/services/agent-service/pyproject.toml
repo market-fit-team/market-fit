@@ -18,6 +18,8 @@ dependencies = [
     "pyjwt[crypto]>=2.10.1",
     "python-dotenv>=1.0.1",
     "pyyaml",
+    "sqlalchemy[asyncio]>=2.0.41",
+    "asyncpg>=0.30.0",
 ]
 
 [build-system]
@@ -34,6 +36,7 @@ dev = [
     "pytest-asyncio",
     "pytest-cov",
     "ruff>=0.8.0",
+    "aiosqlite>=0.21.0",
 ]
 
 [tool.pytest.ini_options]

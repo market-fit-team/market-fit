@@ -100,6 +100,39 @@ class SurveyAreaRecommendationResponse(BaseModel):
     prediction: PredictResponse
 
 
+class ProfileUpdateEvidence(BaseModel):
+    message_id: str = Field(min_length=1, max_length=128)
+    quote: str = Field(min_length=1, max_length=1000)
+
+
+class SurveyProfileUpdateRequest(BaseModel):
+    base_result_code: str = Field(min_length=1, max_length=64)
+    patch: dict[str, float] = Field(min_length=1)
+    evidence: list[ProfileUpdateEvidence] = Field(default_factory=list, max_length=20)
+    profile_name: str | None = Field(default=None, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_patch_values(self) -> "SurveyProfileUpdateRequest":
+        invalid = [
+            field_name
+            for field_name, value in self.patch.items()
+            if not field_name or not 0 <= float(value) <= 1
+        ]
+        if invalid:
+            raise ValueError("성향 패치 값은 이름이 있는 0~1 숫자여야 한다.")
+        return self
+
+
+class SurveyProfileUpdatePreviewResponse(BaseModel):
+    base_result_code: str
+    profile_name: str
+    area_user_profile: AreaUserProfilePayload
+    category_user_profile: CategoryUserProfilePayload
+    category_recommendations: list[CategoryRecommendation]
+    diff: dict[str, dict[str, float]]
+    evidence: list[ProfileUpdateEvidence]
+
+
 class SurveyAnswerValidationRequest(BaseModel):
     question: SurveyQuestion
     answer: Any
