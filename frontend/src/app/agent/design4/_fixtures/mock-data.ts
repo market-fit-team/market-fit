@@ -27,14 +27,122 @@ export interface PermissionGate {
   status: "pending" | "approved" | "denied"
 }
 
-/** 인라인 코드 아티팩트 (메시지 내 코드블록) */
-export interface InlineArtifact {
+/** 아티팩트 차트 데이터 */
+export type ArtifactChartDatum = Record<string, string | number>
+
+/** 아티팩트 차트 시리즈 */
+export interface ArtifactChartSeries {
+  key: string
+  label: string
+  color?: string
+}
+
+/** 아티팩트 차트 블록 */
+export interface ArtifactChartBlock {
+  kind: "chart"
+  title: string
+  description?: string
+  chartType: "area" | "bar" | "radar" | "pie"
+  data: ArtifactChartDatum[]
+  xKey?: string
+  nameKey?: string
+  valueKey?: string
+  series: ArtifactChartSeries[]
+}
+
+/** 아티팩트 지표 블록 */
+export interface ArtifactMetricBlock {
+  kind: "metric_grid"
+  items: {
+    label: string
+    value: string
+    description?: string
+    tone?: "default" | "positive" | "warning"
+  }[]
+}
+
+/** 아티팩트 마크다운 블록 */
+export interface ArtifactMarkdownBlock {
+  kind: "markdown"
+  content: string
+}
+
+/** 아티팩트 콜아웃 블록 */
+export interface ArtifactCalloutBlock {
+  kind: "callout"
+  tone: "info" | "success" | "warning"
+  title: string
+  content: string
+}
+
+/** AI 리포트용 블록 */
+export type ArtifactBlock =
+  | ArtifactMarkdownBlock
+  | ArtifactMetricBlock
+  | ArtifactChartBlock
+  | ArtifactCalloutBlock
+
+interface BaseArtifact {
   id: string
   title: string
-  language: string
-  code: string
   version: number
 }
+
+/** 코드 아티팩트 */
+export interface CodeArtifact extends BaseArtifact {
+  type: "code"
+  language?: string
+  code: string
+}
+
+/** 마크다운 아티팩트 */
+export interface MarkdownArtifact extends BaseArtifact {
+  type: "markdown"
+  code: string
+}
+
+/** AI 리포트 아티팩트 */
+export interface AiReportArtifact extends BaseArtifact {
+  type: "ai_report"
+  summary: string
+  blocks: ArtifactBlock[]
+}
+
+/** 성향 분석 아티팩트 */
+export interface PersonalityAnalysisArtifact extends BaseArtifact {
+  type: "personality_analysis"
+  summary: string
+  traits: {
+    name: string
+    score: number
+    description: string
+  }[]
+  blocks: ArtifactBlock[]
+}
+
+/** 인라인 아티팩트 (메시지 내 요약 카드와 우측 패널 상세 뷰에 함께 사용) */
+export type InlineArtifact =
+  | CodeArtifact
+  | MarkdownArtifact
+  | AiReportArtifact
+  | PersonalityAnalysisArtifact
+
+/** 웹 검색 결과 */
+export interface WebSearchResult {
+  id: string
+  title: string
+  url: string
+  snippet: string
+  source: string
+}
+
+/** 우측 패널 상태 타입 */
+export type RightPanelContent =
+  | { type: "document"; data: DocumentItem[] }
+  | { type: "artifact"; data: InlineArtifact }
+  | { type: "search_result"; data: WebSearchResult[] }
+  | { type: "thinking"; data: ThinkingStep[] }
+  | null
 
 /** 채팅 메시지 */
 export interface ChatMessage {
@@ -50,6 +158,8 @@ export interface ChatMessage {
   artifact?: InlineArtifact
   /** 메시지 전송 시 첨부된 문서 목록 */
   attachedDocs?: DocumentItem[]
+  /** 웹 검색 결과 */
+  searchResults?: WebSearchResult[]
 }
 
 /** 대화 스레드 */
@@ -241,6 +351,7 @@ export const initialMessages: Record<string, ChatMessage[]> = {
       artifact: {
         id: "art-1",
         title: "ModernDashboard.tsx",
+        type: "code",
         language: "tsx",
         version: 2,
         code: `"use client"
@@ -339,6 +450,103 @@ export function ModernDashboard({ customTitle }: DashboardProps) {
         { id: "ts-b3", label: "최적화 전략 수립", status: "done", durationMs: 250 },
       ],
     },
+    {
+      id: "m3-3",
+      role: "user",
+      content: "성수동 상권 최근 트렌드 검색해줘.",
+      timestamp: "어제 오후 3:10",
+    },
+    {
+      id: "m3-4",
+      role: "assistant",
+      content: "웹을 검색하여 성수동 상권의 최근 트렌드를 요약했습니다.\n\n- **팝업스토어 성지**: 브랜드 체험 공간이 밀집하며 주말 유동인구가 평일을 상회\n- **F&B 프리미엄화**: 객단가가 높은 베이커리/로스터리 카페 위주로 상권 재편 중\n\n자세한 검색 결과는 우측 패널에서 확인하세요.",
+      timestamp: "어제 오후 3:12",
+      thinkingSteps: [
+        { id: "ts-w1", label: "웹 검색: '성수동 상권 트렌드 2026'", status: "done", durationMs: 800 },
+        { id: "ts-w2", label: "결과 요약 및 필터링", status: "done", durationMs: 400 },
+      ],
+      searchResults: [
+        {
+          id: "sr-1",
+          title: "2026 성수동 상권 분석: 팝업과 F&B의 결합",
+          url: "https://example.com/trend/seongsu",
+          snippet: "올해 성수동 상권은 팝업 스토어의 고급화와 대형 리테일 매장의 입점 러시로 인해 권리금이 작년 대비 15% 이상 상승했습니다.",
+          source: "TrendInsight",
+        },
+        {
+          id: "sr-2",
+          title: "오피스 상권과 주말 상권의 공존, 성수역 변화",
+          url: "https://example.com/news/123",
+          snippet: "성수역 일대 지식산업센터 입주가 완료되면서 평일 직장인 수요와 주말 2030 수요가 완벽하게 결합된 하이브리드 상권으로 거듭나고 있습니다.",
+          source: "BizNews",
+        },
+      ],
+      artifact: {
+        id: "art-2",
+        title: "성수동 상권 AI 리포트",
+        type: "ai_report",
+        version: 1,
+        summary:
+          "팝업 체험형 리테일과 프리미엄 F&B가 동시에 성장하는 고밀도 상권입니다.",
+        blocks: [
+          {
+            kind: "markdown",
+            content: `## 핵심 해석
+성수동은 최근 3년간 브랜드 실험 공간과 목적형 방문 수요가 함께 증가한 지역입니다.
+
+- **주요 소비층**: 20대 후반 ~ 30대 여성
+- **상권 밀집도 점수**: 92점
+- **추천 업종**: 체험형 쇼룸, 시그니처 베이커리, 로스터리 카페`,
+          },
+          {
+            kind: "metric_grid",
+            items: [
+              {
+                label: "상권 밀집도",
+                value: "92점",
+                description: "동일 반경 내 경쟁/유입 지표 합산",
+                tone: "positive",
+              },
+              {
+                label: "주요 소비층",
+                value: "65%",
+                description: "20대 후반 ~ 30대 여성 비중",
+              },
+              {
+                label: "임대료 추세",
+                value: "+15%",
+                description: "전년 동기 대비 추정 상승률",
+                tone: "warning",
+              },
+            ],
+          },
+          {
+            kind: "chart",
+            title: "성수동 주요 지표 변화",
+            description: "팝업 방문량과 F&B 객단가가 함께 상승하고 있습니다.",
+            chartType: "area",
+            xKey: "quarter",
+            series: [
+              { key: "popup", label: "팝업 방문량", color: "var(--chart-2)" },
+              { key: "fnb", label: "F&B 객단가", color: "var(--chart-4)" },
+            ],
+            data: [
+              { quarter: "2025 2Q", popup: 46, fnb: 42 },
+              { quarter: "2025 3Q", popup: 54, fnb: 47 },
+              { quarter: "2025 4Q", popup: 68, fnb: 55 },
+              { quarter: "2026 1Q", popup: 81, fnb: 63 },
+            ],
+          },
+          {
+            kind: "callout",
+            tone: "warning",
+            title: "주의 포인트",
+            content:
+              "소규모 개인 창업보다는 자본력을 갖춘 브랜드의 안테나샵 또는 예약 기반 F&B에 더 적합합니다.",
+          },
+        ],
+      }
+    },
   ],
   "thread-4": [
     {
@@ -356,6 +564,81 @@ export function ModernDashboard({ customTitle }: DashboardProps) {
         { id: "ts-c1", label: "기존 색상 토큰 추출", status: "done", durationMs: 200 },
         { id: "ts-c2", label: "OKLCH 변환 및 대비비 검증", status: "done", durationMs: 350 },
       ],
+      artifact: {
+        id: "art-3",
+        title: "디자인 협업 성향 분석",
+        type: "personality_analysis",
+        version: 1,
+        summary:
+          "빠른 시각 검증과 구조화된 의사결정을 선호하는 제품형 디자이너 성향이 강합니다.",
+        traits: [
+          {
+            name: "실험성",
+            score: 88,
+            description: "새 UI 패턴을 빠르게 시도하고 화면에서 판단합니다.",
+          },
+          {
+            name: "구조화",
+            score: 76,
+            description: "컴포넌트와 데이터 모델을 분리해 오래 가는 형태를 선호합니다.",
+          },
+          {
+            name: "속도",
+            score: 92,
+            description: "완성도 높은 초안을 먼저 만들고 반복 개선하는 쪽에 강합니다.",
+          },
+          {
+            name: "검증",
+            score: 69,
+            description: "타입과 실제 화면 확인을 통해 리스크를 줄입니다.",
+          },
+          {
+            name: "표현력",
+            score: 84,
+            description: "단순 텍스트보다 차트와 패널형 표현을 선호합니다.",
+          },
+        ],
+        blocks: [
+          {
+            kind: "markdown",
+            content: `## 분석 요약
+대화 흐름상 사용자는 단순 답변보다 **상황에 따라 바뀌는 작업 패널**을 기대합니다. 문서는 마크다운으로 읽히되, 핵심 판단 지점은 차트와 지표로 분리되는 구조가 잘 맞습니다.`,
+          },
+          {
+            kind: "chart",
+            title: "협업 성향 레이더",
+            description: "점수가 높을수록 해당 성향이 강합니다.",
+            chartType: "radar",
+            xKey: "name",
+            series: [
+              { key: "score", label: "점수", color: "var(--chart-2)" },
+            ],
+            data: [
+              { name: "실험성", score: 88 },
+              { name: "구조화", score: 76 },
+              { name: "속도", score: 92 },
+              { name: "검증", score: 69 },
+              { name: "표현력", score: 84 },
+            ],
+          },
+          {
+            kind: "metric_grid",
+            items: [
+              {
+                label: "추천 UI",
+                value: "Artifact Panel",
+                description: "문서, 차트, 액션을 같은 패널에서 전환",
+                tone: "positive",
+              },
+              {
+                label: "본문 렌더러",
+                value: "react-markdown",
+                description: "마크다운은 안전한 텍스트 블록으로 제한",
+              },
+            ],
+          },
+        ],
+      },
     },
   ],
 }

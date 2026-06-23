@@ -5,12 +5,15 @@
 import * as React from "react"
 import {
   ArrowUp,
+  BarChart3,
+  Brain,
   Check,
   ChevronDown,
   ChevronRight,
   Code,
   Copy,
   FileCode2,
+  FileText,
   Layout,
   Maximize,
   Minimize,
@@ -26,7 +29,6 @@ import {
   X,
   Zap,
 } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import {
@@ -49,6 +51,8 @@ import type {
   MessageFile,
   PermissionGate,
   ThinkingStep,
+  RightPanelContent,
+  WebSearchResult,
 } from "../_fixtures/mock-data"
 import { promptSuggestions } from "../_fixtures/mock-data"
 
@@ -71,9 +75,7 @@ interface ChatViewProps {
   attachedDocs: DocumentItem[]
   /** 문서 패널이 열려있는지 */
   isDocPanelOpen: boolean
-  isSidebarOpen: boolean
   isExpanded: boolean
-  onToggleSidebar: () => void
   onToggleExpand: () => void
   onSendMessage: (content: string, file?: MessageFile) => void
   onToggleFeedback: (messageId: string, type: "like" | "dislike") => void
@@ -84,6 +86,8 @@ interface ChatViewProps {
   onDropDoc: (doc: DocumentItem) => void
   /** 문서 패널 토글 */
   onToggleDocPanel: () => void
+  /** 우측 패널에 컨텐츠 열기 */
+  onOpenInPanel: (content: RightPanelContent) => void
 }
 
 /** 메인 채팅 대화 뷰 */
@@ -93,9 +97,7 @@ export function ChatView({
   activeThreadTitle,
   attachedDocs,
   isDocPanelOpen,
-  isSidebarOpen,
   isExpanded,
-  onToggleSidebar,
   onToggleExpand,
   onSendMessage,
   onToggleFeedback,
@@ -103,6 +105,7 @@ export function ChatView({
   onDetachDoc,
   onDropDoc,
   onToggleDocPanel,
+  onOpenInPanel,
 }: ChatViewProps) {
   const [input, setInput] = React.useState("")
   const [isDragOver, setIsDragOver] = React.useState(false)
@@ -256,8 +259,11 @@ export function ChatView({
       </header>
 
       {/* ── 메시지 영역 ── */}
-      <ScrollArea ref={scrollRef} className="min-h-0 flex-1">
-        <div className="mx-auto max-w-2xl px-6 py-6">
+      <ScrollArea
+        ref={scrollRef}
+        className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:!block [&_[data-slot=scroll-area-viewport]>div]:!min-w-0 [&_[data-slot=scroll-area-viewport]>div]:!w-full"
+      >
+        <div className="mx-auto min-w-0 max-w-2xl px-4 py-6 sm:px-6">
           {isWelcomeScreen ? (
             <WelcomeScreen
               onSelectSuggestion={(text) => {
@@ -273,6 +279,7 @@ export function ChatView({
                   message={msg}
                   onToggleFeedback={onToggleFeedback}
                   onPermissionAction={onPermissionAction}
+                  onOpenInPanel={onOpenInPanel}
                 />
               ))}
               {isTyping && <TypingIndicator />}
@@ -435,33 +442,29 @@ interface MessageBubbleProps {
   message: ChatMessage
   onToggleFeedback: (messageId: string, type: "like" | "dislike") => void
   onPermissionAction: (gateId: string, action: "approve" | "deny") => void
+  onOpenInPanel: (content: RightPanelContent) => void
 }
 
 function MessageBubble({
   message,
   onToggleFeedback,
   onPermissionAction,
+  onOpenInPanel,
 }: MessageBubbleProps) {
   const isUser = message.role === "user"
 
   return (
     <div
-      className={cn("flex gap-3", isUser ? "flex-row-reverse" : "flex-row")}
+      className={cn(
+        "flex min-w-0",
+        isUser ? "justify-end" : "justify-start"
+      )}
       id={`message-${message.id}`}
     >
-      {!isUser && (
-        <Avatar size="sm" className="mt-0.5 shrink-0">
-          <AvatarFallback className="bg-foreground/[0.06] text-xs font-semibold text-foreground">
-            AI
-          </AvatarFallback>
-        </Avatar>
-      )}
-
       <div
         className={cn(
-          "max-w-[85%] min-w-0",
-          isUser ? "items-end" : "items-start",
-          "flex flex-col gap-1.5"
+          "flex min-w-0 flex-col gap-1.5",
+          isUser ? "w-fit max-w-[85%] items-end" : "w-full max-w-full items-start",
         )}
       >
         {/* 첨부된 문서 표시 */}
@@ -480,12 +483,16 @@ function MessageBubble({
         )}
 
         {message.thinkingSteps && message.thinkingSteps.length > 0 && (
-          <ThinkingStepsBlock steps={message.thinkingSteps} />
+          <ThinkingStepsBlock steps={message.thinkingSteps} onOpen={() => onOpenInPanel({ type: "thinking", data: message.thinkingSteps! })} />
+        )}
+
+        {message.searchResults && message.searchResults.length > 0 && (
+          <SearchResultsBlock results={message.searchResults} onOpen={() => onOpenInPanel({ type: "search_result", data: message.searchResults! })} />
         )}
 
         <div
           className={cn(
-            "rounded-xl px-3.5 py-2.5 text-sm leading-[1.7]",
+            "max-w-full break-words rounded-xl px-3.5 py-2.5 text-sm leading-[1.7]",
             isUser
               ? "rounded-tr-sm bg-foreground text-background"
               : "rounded-tl-sm bg-muted/30 text-foreground"
@@ -494,7 +501,7 @@ function MessageBubble({
           <MessageContent content={message.content} />
         </div>
 
-        {message.artifact && <ArtifactBlock artifact={message.artifact} />}
+        {message.artifact && <ArtifactBlock artifact={message.artifact} onOpen={() => onOpenInPanel({ type: "artifact", data: message.artifact! })} />}
         {message.permissionGate && (
           <PermissionGateBlock
             gate={message.permissionGate}
@@ -579,15 +586,19 @@ function MessageBubble({
 
 // ─── Thinking Steps ───────────────────────────────────────
 
-function ThinkingStepsBlock({ steps }: { steps: ThinkingStep[] }) {
+function ThinkingStepsBlock({ steps, onOpen }: { steps: ThinkingStep[], onOpen: () => void }) {
   const [isOpen, setIsOpen] = React.useState(false)
   const totalMs = steps.reduce((acc, s) => acc + (s.durationMs || 0), 0)
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="flex max-w-full flex-wrap items-center gap-1"
+    >
       <CollapsibleTrigger asChild>
         <button
-          className="group flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground transition-colors select-none hover:text-foreground"
+          className="group flex max-w-full cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground transition-colors select-none hover:text-foreground"
           id="thinking-steps-toggle"
         >
           <span className="flex size-4 items-center justify-center rounded-full bg-foreground/[0.04]">
@@ -597,17 +608,25 @@ function ThinkingStepsBlock({ steps }: { steps: ThinkingStep[] }) {
               <ChevronRight className="size-2.5" />
             )}
           </span>
-          <span>{steps.length}단계 사고 과정</span>
-          <span className="text-[10px] text-muted-foreground">
+          <span className="min-w-0 truncate">{steps.length}단계 사고 과정</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">
             {(totalMs / 1000).toFixed(1)}s
           </span>
         </button>
       </CollapsibleTrigger>
+      
+      <button 
+        onClick={onOpen}
+        className="flex cursor-pointer items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+        title="패널에서 자세히 보기"
+      >
+        <Maximize className="size-3" />
+      </button>
 
-      <CollapsibleContent>
-        <div className="ml-2 space-y-0 border-l border-border/20 py-1 pl-4">
+      <CollapsibleContent className="w-full min-w-0">
+        <div className="ml-2 min-w-0 space-y-0 border-l border-border/20 py-1 pl-4">
           {steps.map((step) => (
-            <div key={step.id} className="flex items-center gap-2 py-1 text-xs">
+            <div key={step.id} className="flex min-w-0 items-center gap-2 py-1 text-xs">
               <span
                 className={cn(
                   "flex size-3.5 shrink-0 items-center justify-center rounded-full",
@@ -630,14 +649,14 @@ function ThinkingStepsBlock({ steps }: { steps: ThinkingStep[] }) {
               </span>
               <span
                 className={cn(
-                  "text-muted-foreground",
+                  "min-w-0 break-words text-muted-foreground",
                   step.status === "done" && "text-foreground"
                 )}
               >
                 {step.label}
               </span>
               {step.durationMs && (
-                <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
                   {step.durationMs}ms
                 </span>
               )}
@@ -666,10 +685,10 @@ function PermissionGateBlock({
 
   return (
     <div
-      className="w-full space-y-3 rounded-xl border border-border/30 bg-background p-4"
+      className="w-full min-w-0 space-y-3 rounded-xl border border-border/30 bg-background p-3 sm:p-4"
       id={`permission-gate-${gate.id}`}
     >
-      <div className="flex items-start gap-2">
+      <div className="flex min-w-0 items-start gap-2">
         <span
           className={cn(
             "flex size-7 shrink-0 items-center justify-center rounded-lg",
@@ -678,31 +697,31 @@ function PermissionGateBlock({
         >
           <ShieldAlert className="size-3.5" />
         </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="min-w-0 break-words text-sm font-medium text-foreground">
               {gate.action}
             </span>
             <Badge
               variant={gate.risk === "high" ? "destructive" : "outline"}
-              className="h-4 px-1.5 py-0 text-[10px] uppercase"
+              className="h-4 shrink-0 px-1.5 py-0 text-[10px] uppercase"
             >
               {gate.risk} risk
             </Badge>
           </div>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-1 break-words text-xs leading-relaxed text-muted-foreground">
             {gate.description}
           </p>
         </div>
       </div>
 
       {gate.status === "pending" ? (
-        <div className="flex items-center gap-2 pt-1">
+        <div className="grid min-w-0 grid-cols-1 gap-2 pt-1 min-[360px]:grid-cols-2">
           <Button
             size="sm"
             variant="outline"
             onClick={() => onAction(gate.id, "approve")}
-            className="flex-1 cursor-pointer gap-1 text-xs"
+            className="min-w-0 cursor-pointer gap-1 text-xs"
             id={`gate-approve-${gate.id}`}
           >
             <Check className="size-3" /> 승인
@@ -711,7 +730,7 @@ function PermissionGateBlock({
             size="sm"
             variant="ghost"
             onClick={() => onAction(gate.id, "deny")}
-            className="flex-1 cursor-pointer gap-1 text-xs text-muted-foreground"
+            className="min-w-0 cursor-pointer gap-1 text-xs text-muted-foreground"
             id={`gate-deny-${gate.id}`}
           >
             <X className="size-3" /> 거부
@@ -738,53 +757,123 @@ function PermissionGateBlock({
 
 // ─── Inline Artifact ──────────────────────────────────────
 
-function ArtifactBlock({ artifact }: { artifact: InlineArtifact }) {
+function ArtifactBlock({ artifact, onOpen }: { artifact: InlineArtifact, onOpen: () => void }) {
   const [copied, setCopied] = React.useState(false)
+  const previewText = getArtifactPreviewText(artifact)
+  const copyText = getArtifactCopyText(artifact)
 
   const handleCopy = () => {
-    void navigator.clipboard.writeText(artifact.code)
+    void navigator.clipboard.writeText(copyText)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-border/25 bg-background">
-      <div className="flex items-center justify-between border-b border-border/15 bg-muted/15 px-3 py-1.5">
-        <div className="flex items-center gap-2">
-          <Code className="size-3 text-muted-foreground" />
-          <span className="text-xs font-medium text-foreground">
+    <div className="w-full min-w-0 overflow-hidden rounded-xl border border-border/25 bg-background">
+      <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border/15 bg-muted/15 px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <ArtifactIcon type={artifact.type} />
+          <span className="min-w-0 truncate text-xs font-medium text-foreground">
             {artifact.title}
           </span>
-          <Badge variant="outline" className="h-4 px-1.5 py-0 text-[10px]">
+          <Badge variant="outline" className="h-4 shrink-0 px-1.5 py-0 text-[10px]">
             v{artifact.version}
           </Badge>
         </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={handleCopy}
-                className="cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-                id={`artifact-copy-${artifact.id}`}
-              >
-                {copied ? (
-                  <Check className="size-3 text-emerald-500" />
-                ) : (
-                  <Copy className="size-3" />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>{copied ? "복사됨" : "코드 복사"}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex shrink-0 items-center gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={onOpen}
+                  className="cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Maximize className="size-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>패널에서 열기</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleCopy}
+                  className="cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+                  id={`artifact-copy-${artifact.id}`}
+                >
+                  {copied ? (
+                    <Check className="size-3 text-emerald-500" />
+                  ) : (
+                    <Copy className="size-3" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>{copied ? "복사됨" : "코드 복사"}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
-      <ScrollArea className="max-h-64">
-        <pre className="p-3 font-mono text-xs leading-relaxed text-foreground">
-          <code>{artifact.code}</code>
-        </pre>
+      <ScrollArea className="max-h-64 [&_[data-slot=scroll-area-viewport]>div]:!block [&_[data-slot=scroll-area-viewport]>div]:!min-w-0 [&_[data-slot=scroll-area-viewport]>div]:!w-full">
+        {artifact.type === "code" ? (
+          <pre className="max-w-full overflow-x-auto p-3 font-mono text-xs leading-relaxed text-foreground">
+            <code>{artifact.code}</code>
+          </pre>
+        ) : (
+          <div className="space-y-2 p-3">
+            <p className="break-words text-xs leading-relaxed text-muted-foreground">
+              {previewText}
+            </p>
+            <div className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted/40 px-2 py-1 text-[10px] font-medium text-muted-foreground">
+              <PanelRight className="size-2.5" />
+              <span className="min-w-0 truncate">우측 패널에서 상세 보기</span>
+            </div>
+          </div>
+        )}
       </ScrollArea>
     </div>
   )
+}
+
+function ArtifactIcon({ type }: { type: InlineArtifact["type"] }) {
+  if (type === "code") return <Code className="size-3 text-muted-foreground" />
+  if (type === "markdown") {
+    return <FileText className="size-3 text-muted-foreground" />
+  }
+  if (type === "personality_analysis") {
+    return <Brain className="size-3 text-muted-foreground" />
+  }
+  return <BarChart3 className="size-3 text-muted-foreground" />
+}
+
+const getArtifactPreviewText = (artifact: InlineArtifact) => {
+  if (artifact.type === "code" || artifact.type === "markdown") {
+    return artifact.code.slice(0, 180)
+  }
+
+  return artifact.summary
+}
+
+const getArtifactCopyText = (artifact: InlineArtifact) => {
+  if (artifact.type === "code" || artifact.type === "markdown") {
+    return artifact.code
+  }
+
+  return [
+    `# ${artifact.title}`,
+    artifact.summary,
+    ...artifact.blocks.map((block) => {
+      if (block.kind === "markdown") return block.content
+      if (block.kind === "callout") return `## ${block.title}\n${block.content}`
+      if (block.kind === "metric_grid") {
+        return block.items
+          .map((item) => `- ${item.label}: ${item.value}`)
+          .join("\n")
+      }
+      return `## ${block.title}\n${block.description ?? ""}`.trim()
+    }),
+  ].join("\n\n")
 }
 
 // ─── 메시지 내용 파서 ─────────────────────────────────────
@@ -800,6 +889,59 @@ function MessageContent({ content }: { content: string }) {
         </React.Fragment>
       ))}
     </>
+  )
+}
+
+// ─── Web Search Results ───────────────────────────────────
+
+function SearchResultsBlock({ results, onOpen }: { results: WebSearchResult[], onOpen: () => void }) {
+  if (results.length === 0) return null;
+  const firstResult = results[0];
+
+  return (
+    <div className="w-full overflow-hidden rounded-xl border border-border/30 bg-background/50 flex flex-col">
+      <div className="flex items-center justify-between border-b border-border/15 bg-muted/10 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <GlobeIcon className="size-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium text-foreground">
+            {results.length}개의 출처 검색 완료
+          </span>
+        </div>
+        <button
+          onClick={onOpen}
+          className="flex items-center gap-1 text-[10px] font-medium text-primary hover:underline cursor-pointer"
+        >
+          패널에서 열기 <ChevronRight className="size-3" />
+        </button>
+      </div>
+      <div className="px-3 py-2.5">
+        <h4 className="text-sm font-semibold text-foreground mb-1 truncate">{firstResult.title}</h4>
+        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+          {firstResult.snippet}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function GlobeIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
   )
 }
 
@@ -832,12 +974,7 @@ const parseBoldText = (text: string): React.ReactNode[] => {
 
 function TypingIndicator() {
   return (
-    <div className="flex gap-3" id="typing-indicator">
-      <Avatar size="sm" className="mt-0.5 shrink-0">
-        <AvatarFallback className="bg-foreground/[0.06] text-xs font-semibold text-foreground">
-          AI
-        </AvatarFallback>
-      </Avatar>
+    <div className="flex min-w-0" id="typing-indicator">
       <div className="flex items-center gap-1.5 rounded-xl rounded-tl-sm bg-muted/30 px-4 py-3">
         <span className="size-1.5 animate-[pulse_1.4s_ease-in-out_infinite] rounded-full bg-foreground/20" />
         <span className="size-1.5 animate-[pulse_1.4s_ease-in-out_0.2s_infinite] rounded-full bg-foreground/20" />

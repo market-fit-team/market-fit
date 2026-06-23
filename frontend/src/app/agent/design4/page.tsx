@@ -20,6 +20,7 @@ import {
 import { cn } from "@/shared/lib/utils"
 import { ChatView } from "./_components/chat-view"
 import { DocumentPanel } from "./_components/document-panel"
+import { DynamicPanel } from "./_components/dynamic-panel"
 import { ThreadList } from "./_components/thread-list"
 import { MemoryPanel } from "./_components/memory-panel"
 import {
@@ -28,6 +29,7 @@ import {
   type MessageFile,
   type Thread,
   type AiMemory,
+  type RightPanelContent,
   generateBotResponse,
   initialDocuments,
   initialMessages,
@@ -46,9 +48,10 @@ export default function Page() {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true)
 
   // ── 신규 상태 (design4 추가) ─────────────────────────────
-  const [isDocPanelOpen, setIsDocPanelOpen] = React.useState(true)
-  const [attachedDocs, setAttachedDocs] = React.useState<DocumentItem[]>([])
   const [documents] = React.useState<DocumentItem[]>(initialDocuments)
+  const [rightPanelContent, setRightPanelContent] = React.useState<RightPanelContent>({ type: "document", data: documents })
+  const isDocPanelOpen = rightPanelContent !== null
+  const [attachedDocs, setAttachedDocs] = React.useState<DocumentItem[]>([])
 
   // ── 탭 상태 ──────────────────────────────────────────────
   const [activeTab, setActiveTab] =
@@ -72,6 +75,10 @@ export default function Page() {
   const activeThread = threads.find((t) => t.id === activeThreadId)
   const activeTitle = activeThread?.title ?? "새 대화"
   const currentMessages = activeThreadId ? (messages[activeThreadId] ?? []) : []
+  const activityButtonClassName =
+    "size-8 cursor-pointer rounded-md text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
+  const activeActivityButtonClassName =
+    "bg-muted text-foreground ring-1 ring-border/40 hover:bg-muted"
 
   // ── 스레드 선택 ──────────────────────────────────────────
   const handleSelectThread = (id: string) => {
@@ -256,17 +263,17 @@ export default function Page() {
 
   /** 문서 패널 접기/펴기 토글 */
   const handleToggleDocPanel = () => {
-    setIsDocPanelOpen((prev) => !prev)
+    setRightPanelContent((prev) => prev ? null : { type: "document", data: documents })
   }
 
   /** 전체 화면 확장 토글 */
   const handleToggleExpand = () => {
     if (isExpanded) {
       setIsSidebarOpen(true)
-      setIsDocPanelOpen(true)
+      setRightPanelContent({ type: "document", data: documents })
     } else {
       setIsSidebarOpen(false)
-      setIsDocPanelOpen(false)
+      setRightPanelContent(null)
     }
   }
 
@@ -296,8 +303,8 @@ export default function Page() {
   return (
     <div className="relative flex h-[calc(100dvh-4rem)] w-full overflow-hidden bg-background text-foreground">
       {/* ── 액티비티 바 (Far Left) ── */}
-      <div className="z-50 flex w-14 shrink-0 flex-col items-center justify-between border-r border-border/30 bg-muted/10 py-4">
-        <div className="flex flex-col gap-4">
+      <div className="relative z-0 flex w-10 shrink-0 flex-col items-center justify-between border-r border-border/30 bg-background/95 py-3">
+        <div className="flex flex-col gap-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -309,13 +316,13 @@ export default function Page() {
                     setIsSidebarOpen(true)
                   }}
                   className={cn(
-                    "cursor-pointer rounded-xl",
+                    activityButtonClassName,
                     activeTab === "chat" && isSidebarOpen
-                      ? "bg-muted text-foreground shadow-sm"
-                      : "text-muted-foreground"
+                      ? activeActivityButtonClassName
+                      : "hover:bg-muted/70"
                   )}
                 >
-                  <MessageSquare className="size-5" />
+                  <MessageSquare className="size-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">채팅 목록</TooltipContent>
@@ -333,13 +340,13 @@ export default function Page() {
                   setIsSidebarOpen(true)
                 }}
                 className={cn(
-                  "cursor-pointer rounded-xl",
+                  activityButtonClassName,
                   activeTab === "folder" && isSidebarOpen
-                    ? "bg-muted text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? activeActivityButtonClassName
+                    : "hover:bg-muted/70"
                 )}
               >
-                <Folder className="size-5" />
+                <Folder className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">프로젝트 파일</TooltipContent>
@@ -357,13 +364,13 @@ export default function Page() {
                   setIsSidebarOpen(true)
                 }}
                 className={cn(
-                  "cursor-pointer rounded-xl",
+                  activityButtonClassName,
                   activeTab === "memory" && isSidebarOpen
-                    ? "bg-muted text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? activeActivityButtonClassName
+                    : "hover:bg-muted/70"
                 )}
               >
-                <NotebookPen className="size-5" />
+                <NotebookPen className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">AI 메모리</TooltipContent>
@@ -449,9 +456,7 @@ export default function Page() {
               activeThreadTitle={activeTitle}
               attachedDocs={attachedDocs}
               isDocPanelOpen={isDocPanelOpen}
-              isSidebarOpen={isSidebarOpen}
               isExpanded={isExpanded}
-              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
               onToggleExpand={handleToggleExpand}
               onSendMessage={handleSendMessage}
               onToggleFeedback={handleToggleFeedback}
@@ -459,21 +464,25 @@ export default function Page() {
               onDetachDoc={handleDetachDoc}
               onDropDoc={handleAttachDoc}
               onToggleDocPanel={handleToggleDocPanel}
+              onOpenInPanel={(content) => {
+                setRightPanelContent(content)
+                if (window.innerWidth < 768) setIsSidebarOpen(false)
+              }}
             />
           </ResizablePanel>
 
           {/* 우측 패널: 문서 패널 (접기/펴기) */}
-          {isDocPanelOpen && (
+          {isDocPanelOpen && rightPanelContent && (
             <>
               <ResizableHandle
                 withHandle
                 className="!w-1.5 cursor-col-resize bg-border/40 transition-colors hover:bg-primary/40"
               />
               <ResizablePanel defaultSize={docPanelDefaultSize} minSize="20%" maxSize="50%">
-                <DocumentPanel
-                  documents={documents}
+                <DynamicPanel
+                  content={rightPanelContent}
+                  onClose={() => setRightPanelContent(null)}
                   onAttachToComposer={handleAttachDoc}
-                  onCollapsePanel={handleToggleDocPanel}
                 />
               </ResizablePanel>
             </>
