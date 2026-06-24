@@ -103,31 +103,29 @@ const artifactViewerRegistry = {
 
 ## native thread hydrate
 
-최신 대화 복원은 `threads/{langgraph_thread_id}/state`의 `values.messages`를 `BaseMessage[]`로 바꿔 `useStream.initialValues`에 넣는 방식이다.
+최신 대화와 HITL interrupt 복원은 `@langchain/react`의 `useStream({ threadId })`가 맡는다.
+workspace 화면은 `agent_threads.langgraph_thread_id`만 넘기고, 별도 `threads/{langgraph_thread_id}/state` 조회를 하지 않는다.
 
 ```text
 app thread id
 -> agent-threads list
 -> langgraph_thread_id resolve
--> threads/{langgraph_thread_id}/state
--> parseThreadStateMessages()
--> initialValues.messages
--> useStream
+-> useStream({ threadId: langgraph_thread_id })
+-> SDK hydrate
+-> messages / toolCalls / interrupts
 ```
 
 관련 경로:
 
-- `src/features/llm-chat/lib/workspace/parse-thread-state-messages.ts`
 - `src/features/llm-chat/components/workspace/chat-workspace-thread-view.tsx`
 - `src/features/llm-chat/hooks/langgraph-chat-stream-provider.tsx`
 
-`parseThreadStateMessages()`는 `human`, `ai`, `system`, `tool`만 우선 복원한다.  
-새 block shape가 들어오면 여기서 먼저 확장한다.
+`useStream`이 durable thread state를 읽고 `messages`, `toolCalls`, `interrupts` projection을 만든다.
+workspace에서 `initialValues`를 따로 넣으면 messages와 interrupts의 원천이 갈라진다.
 
 ## 참고 문서
 
 - `useStream`: `https://reference.langchain.com/javascript/langchain-react/use-stream`
-- `initialValues`: `https://reference.langchain.com/javascript/langchain-react/UseStreamOptions/initialValues`
 - Join & rejoin: `https://docs.langchain.com/oss/javascript/langchain/frontend/join-rejoin`
 - Threads: `https://docs.langchain.com/langsmith/use-threads`
 - Persistence: `https://docs.langchain.com/oss/python/langgraph/persistence`

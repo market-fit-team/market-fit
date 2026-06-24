@@ -1,8 +1,8 @@
 import {
   type ReactNode,
   useCallback,
-  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 import { useStream } from "@langchain/react"
@@ -19,7 +19,6 @@ import {
 import { buildSubmitContext } from "@/features/llm-chat/lib/langgraph/build-submit-config"
 import { buildSubmitInput } from "@/features/llm-chat/lib/langgraph/build-submit-input"
 import type {
-  HitlInterrupt,
   HitlRequest,
   HitlResume,
 } from "@/features/llm-chat/types/hitl-interrupt-payload"
@@ -56,20 +55,6 @@ const normalizeStreamErrorMessage = (error: unknown) => {
   return String(error)
 }
 
-const isAlreadyConsumedInterruptError = (message: string) => {
-  const normalized = message.toLowerCase()
-  return (
-    normalized.includes("already-consumed interrupt") ||
-    normalized.includes("already consumed interrupt")
-  )
-}
-
-const buildInterruptSignature = (interrupts: HitlInterrupt[]) => {
-  return interrupts
-    .map((interrupt, index) => `${index}:${JSON.stringify(interrupt)}`)
-    .join("|")
-}
-
 const langGraphFetch: typeof fetch = async (input, init) => {
   return fetchWithAuthResponse(input, {
     ...init,
@@ -85,9 +70,6 @@ const toLocalNotice = (error: unknown) => {
   }
   if (error instanceof HttpStatusError && error.status === 401) {
     return "오류: 로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 채팅을 이어가 주세요."
-  }
-  if (isAlreadyConsumedInterruptError(message)) {
-    return "오류: 이미 처리된 승인 요청입니다. 최신 대화 상태를 다시 불러온 뒤 이어가 주세요."
   }
   if (error instanceof HttpStatusError) {
     return `오류: 요청이 실패했습니다. (HTTP ${error.status})`
@@ -108,8 +90,8 @@ export function LangGraphChatStreamProvider({
   )
   const activeThreadId = workspaceThread?.langgraphThreadId ?? threadId
   const [localErrorNotice, setLocalErrorNotice] = useState<string | null>(null)
-  const [dismissedInterruptSignature, setDismissedInterruptSignature] =
-    useState<string | null>(null)
+  const [isResumePending, setIsResumePending] = useState(false)
+  const isResumePendingRef = useRef(false)
 
   const apiUrl = useMemo(() => {
     const AGENT_PUBLIC_PATH = "/api/agent"
@@ -147,28 +129,9 @@ export function LangGraphChatStreamProvider({
     onThreadId: workspaceThread ? undefined : setThreadId,
   })
 
-  const interruptSignature = useMemo(
-    () => buildInterruptSignature(stream.interrupts),
-    [stream.interrupts]
-  )
-  const hitlInterrupts = useMemo(() => {
-    return dismissedInterruptSignature &&
-      dismissedInterruptSignature === interruptSignature
-      ? []
-      : stream.interrupts
-  }, [dismissedInterruptSignature, interruptSignature, stream.interrupts])
+  const hitlInterrupts = stream.interrupts
   const streamErrorNotice = stream.error ? toLocalNotice(stream.error) : null
   const localNotice = localErrorNotice ?? streamErrorNotice
-
-  useEffect(() => {
-    if (
-      interruptSignature &&
-      dismissedInterruptSignature &&
-      dismissedInterruptSignature !== interruptSignature
-    ) {
-      setDismissedInterruptSignature(null)
-    }
-  }, [dismissedInterruptSignature, interruptSignature])
 
   const sendMessage = useCallback(
     async (content: string, options: ChatTurnOptions = {}) => {
@@ -211,7 +174,7 @@ export function LangGraphChatStreamProvider({
     async (
       decisions: Parameters<LangGraphChatStreamContextValue["resume"]>[0]
     ) => {
-      if (stream.isLoading) {
+      if (stream.isLoading || isResumePendingRef.current) {
         return
       }
 
@@ -222,6 +185,8 @@ export function LangGraphChatStreamProvider({
       )
 
       setLocalErrorNotice(null)
+      isResumePendingRef.current = true
+      setIsResumePending(true)
 
       try {
         await stream.respond(
@@ -240,20 +205,13 @@ export function LangGraphChatStreamProvider({
           }
         )
       } catch (error) {
-        const notice = toLocalNotice(error)
-        if (isAlreadyConsumedInterruptError(normalizeStreamErrorMessage(error))) {
-          setDismissedInterruptSignature(interruptSignature)
-        }
-        setLocalErrorNotice(notice)
+        setLocalErrorNotice(toLocalNotice(error))
+      } finally {
+        isResumePendingRef.current = false
+        setIsResumePending(false)
       }
     },
-    [
-      interruptSignature,
-      modelSelection,
-      stream,
-      toolPolicy,
-      workspaceThread?.appThreadId,
-    ]
+    [modelSelection, stream, toolPolicy, workspaceThread?.appThreadId]
   )
 
   const resetChat = useCallback(async () => {
@@ -275,10 +233,10 @@ export function LangGraphChatStreamProvider({
       toolCalls: stream.toolCalls,
       hitlInterrupts,
       localNotice,
-      isBusy: stream.isLoading,
+      isBusy: stream.isLoading || isResumePending,
       isHydrating: stream.isThreadLoading,
-      hasPendingInterrupt: stream.interrupts.length > 0,
-      streamStatus: stream.isLoading ? "streaming" : "idle",
+      hasPendingInterrupt: hitlInterrupts.length > 0,
+      streamStatus: stream.isLoading || isResumePending ? "streaming" : "idle",
       sendMessage,
       resume,
       resetChat,
@@ -295,6 +253,7 @@ export function LangGraphChatStreamProvider({
     hitlInterrupts,
     stream.isLoading,
     stream.isThreadLoading,
+    isResumePending,
     localNotice,
     sendMessage,
     resume,
