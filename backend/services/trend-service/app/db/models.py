@@ -37,6 +37,7 @@ class TrendScore(Base):
     __tablename__ = "trend_score"
 
     run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    theme: Mapped[str] = mapped_column(String(20), primary_key=True)  # all/male/female/youth/evening
     area_code: Mapped[str] = mapped_column(String(20), primary_key=True)
     area_name: Mapped[str] = mapped_column(String(100), nullable=False)
     as_of_date: Mapped[date] = mapped_column(Date, nullable=False)  # 예측 기준 최신 데이터 일자
