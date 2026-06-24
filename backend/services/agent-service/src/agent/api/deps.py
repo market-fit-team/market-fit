@@ -10,7 +10,7 @@ from jwt.exceptions import InvalidTokenError, PyJWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.db.session import get_db_session
-from agent.security.auth import JwtAuthError, _decode_token
+from agent.security.auth import JwtAuthError, _decode_token, _extract_auth_user_uuid
 
 bearer_auth = HTTPBearer(
     bearerFormat="JWT",
@@ -42,13 +42,14 @@ async def get_api_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="유효하지 않은 인증 정보입니다.",
         ) from exc
-    subject = payload.get("sub")
-    if not isinstance(subject, str) or not subject:
+    try:
+        auth_user_uuid = _extract_auth_user_uuid(payload)
+    except JwtAuthError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="유효하지 않은 인증 정보입니다.",
-        )
-    return ApiUser(identity=subject, access_token=credentials.credentials, claims=payload)
+        ) from exc
+    return ApiUser(identity=auth_user_uuid, access_token=credentials.credentials, claims=payload)
 
 
 CurrentApiUser = Annotated[ApiUser, Depends(get_api_user)]

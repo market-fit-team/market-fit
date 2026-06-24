@@ -25,6 +25,18 @@ class JwtAuthError(Exception):
     """JWT 인증 실패를 내부적으로 구분하기 위한 예외."""
 
 
+def _extract_auth_user_uuid(payload: dict[str, Any]) -> str:
+    user_profile = payload.get("user_profile")
+    if not isinstance(user_profile, dict):
+        raise JwtAuthError("JWT payload does not contain user_profile")
+
+    auth_user_uuid = user_profile.get("uuid")
+    if not isinstance(auth_user_uuid, str) or not auth_user_uuid:
+        raise JwtAuthError("JWT payload does not contain user_profile.uuid")
+
+    return auth_user_uuid
+
+
 def _extract_bearer_token(authorization: str | None) -> str:
     if not authorization:
         raise JwtAuthError("Missing Authorization header")
@@ -156,19 +168,21 @@ async def get_current_user(authorization: str | None) -> dict[str, Any]:
             detail="Invalid authentication credentials",
         ) from exc
 
-    subject = payload.get("sub")
-    if not isinstance(subject, str) or not subject:
+    try:
+        auth_user_uuid = _extract_auth_user_uuid(payload)
+    except JwtAuthError as exc:
         raise Auth.exceptions.HTTPException(
             status_code=401,
             detail="Invalid authentication credentials",
-        )
+        ) from exc
 
-    # LangGraph는 identity를 user context의 기준으로 사용한다.
-    # email/name/claims는 graph configurable 또는 audit/debug 용도로 활용 가능하다.
-    # LangGraph auth/user context 문서:
+    # LangGraph custom auth는 authenticate 반환값의 identity를 ctx.user.identity로 사용한다.
+    # 이 프로젝트의 서비스 간 사용자 FK 계약은 OIDC sub가 아니라 user_profile.uuid이므로,
+    # Agent Server 리소스 owner와 도구 owner도 모두 같은 uuid를 기준으로 맞춘다.
+    # LangGraph auth 문서:
     # https://docs.langchain.com/langsmith/auth
     return {
-        "identity": subject,
+        "identity": auth_user_uuid,
         "is_authenticated": True,
         "access_token": token,
         "email": payload.get("email"),

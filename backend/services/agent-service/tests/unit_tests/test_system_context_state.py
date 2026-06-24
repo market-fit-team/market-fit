@@ -33,6 +33,24 @@ class FakeOnboardingClient:
         return self.default_profile
 
 
+class FakeUser(dict):
+    @property
+    def identity(self) -> str:
+        return self["identity"]
+
+    @property
+    def is_authenticated(self) -> bool:
+        return True
+
+    @property
+    def display_name(self) -> str:
+        return self.get("display_name", self.identity)
+
+    @property
+    def permissions(self) -> list[str]:
+        return self.get("permissions", [])
+
+
 @pytest.fixture
 async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
@@ -118,19 +136,13 @@ async def test_prepare_system_context_state_lazy_initializes_and_overwrites_sele
     result = await prepare_system_context_state_update(
         None,
         None,
-        config={
-            "configurable": {
-                "langgraph_auth_user": {
-                    "identity": "user-a",
-                    "access_token": "token",
-                }
-            }
-        },
+        config={},
         context={
             "app_thread_id": thread_id,
             "selected_document_ids": [document_id],
             "selected_artifact_ids": [artifact_id],
         },
+        server_user=FakeUser(identity="user-a", access_token="token"),
     )
 
     system_context = result["system_context"]
@@ -188,15 +200,9 @@ async def test_prepare_system_context_state_refreshes_only_dirty_summary(
             "memory_summary_dirty": True,
             "onboarding_summary_dirty": False,
         },
-        config={
-            "configurable": {
-                "langgraph_auth_user": {
-                    "identity": "user-a",
-                    "access_token": "token",
-                }
-            }
-        },
+        config={},
         context={"app_thread_id": thread_id},
+        server_user=FakeUser(identity="user-a", access_token="token"),
     )
 
     assert result["system_context"]["memory_summary"] == {
@@ -226,6 +232,25 @@ async def test_prepare_system_context_state_keeps_chat_running_when_onboarding_i
     result = await prepare_system_context_state_update(
         None,
         None,
+        config={},
+        context={"app_thread_id": thread_id},
+        server_user=FakeUser(identity="user-a", access_token="token"),
+    )
+
+    assert result["system_context"]["memory_summary"] == {
+        "has_memories": True,
+        "memory_count": 1,
+    }
+    assert result["system_context"]["onboarding_summary"] is None
+
+
+@pytest.mark.asyncio
+async def test_prepare_system_context_state_ignores_configurable_auth_user() -> None:
+    """system_context 인증 사용자는 Runtime.server_info.user에서만 읽는다."""
+
+    result = await prepare_system_context_state_update(
+        None,
+        None,
         config={
             "configurable": {
                 "langgraph_auth_user": {
@@ -234,11 +259,13 @@ async def test_prepare_system_context_state_keeps_chat_running_when_onboarding_i
                 }
             }
         },
-        context={"app_thread_id": thread_id},
+        context={},
+        server_user=None,
     )
 
-    assert result["system_context"]["memory_summary"] == {
-        "has_memories": True,
-        "memory_count": 1,
+    assert result["system_context"] == {
+        "selected_documents": [],
+        "selected_artifacts": [],
+        "memory_summary": None,
+        "onboarding_summary": None,
     }
-    assert result["system_context"]["onboarding_summary"] is None

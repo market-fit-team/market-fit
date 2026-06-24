@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 from langchain_core.messages import AnyMessage, ToolMessage
@@ -6,6 +7,8 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.prebuilt import ToolNode
 from langgraph.runtime import get_runtime
 from langgraph.types import Command, interrupt
+from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 
 from agent.services.chat.approvals.messages import (
     decision_for_tool_call,
@@ -32,11 +35,42 @@ from agent.services.chat.system_context_state import clean_system_context_refres
 from agent.services.chat.tools import ChatToolError
 from agent.services.chat.toolkits.chat_toolkit import CHAT_TOOLS
 
+logger = logging.getLogger(__name__)
+
+
+def _log_tool_exception(message: str, error: Exception) -> None:
+    logger.error(message, exc_info=(type(error), error, error.__traceback__))
+
+
+def _safe_error_detail(error: Exception) -> str:
+    detail = str(error).strip()
+    if not detail:
+        return ""
+    return detail[:500]
+
 
 def _handle_chat_tool_error(error: Exception) -> str:
     if isinstance(error, ChatToolError):
-        return str(error)
-    raise error
+        return f"도구 실행 실패: {error}"
+
+    if error.__class__.__name__ == "ToolInvocationError" or isinstance(error, ValidationError):
+        return f"도구 입력 검증 실패: {error}"
+
+    if isinstance(error, SQLAlchemyError):
+        _log_tool_exception("Workspace tool database error", error)
+        return (
+            "도구 실행 실패: 워크스페이스 저장소 처리 중 오류가 발생했습니다. "
+            "입력을 확인하고 다시 시도해 주세요."
+        )
+
+    _log_tool_exception("Unexpected chat tool error", error)
+    detail = _safe_error_detail(error)
+    detail_suffix = f" 오류 메시지: {detail}" if detail else ""
+    return (
+        "도구 실행 실패: 예상하지 못한 오류가 발생했습니다. "
+        f"오류 유형은 {error.__class__.__name__}입니다.{detail_suffix} "
+        "입력을 점검하고 다시 시도해 주세요."
+    )
 
 
 _tool_node = ToolNode(CHAT_TOOLS, handle_tool_errors=_handle_chat_tool_error)
@@ -52,7 +86,9 @@ def _require_tool_call_id(tool_call: ToolCall) -> str:
     return tool_call_id
 
 
-def _system_context_refresh_update_for_tool_calls(state: ChatState, tool_calls: list[ToolCall]) -> dict[str, bool]:
+def _system_context_refresh_update_for_tool_calls(
+    state: ChatState, tool_calls: list[ToolCall]
+) -> dict[str, bool]:
     refresh_state = state.get("system_context_refresh", clean_system_context_refresh_state())
     tool_names = {tool_call["name"] for tool_call in tool_calls}
     return {
@@ -205,7 +241,9 @@ async def call_tools_with_approval(
     ordered_messages: list[AnyMessage] = []
     for tool_call in ai_message.tool_calls:
         tool_call_id = _require_tool_call_id(tool_call)
-        message = synthetic_messages_by_id.get(tool_call_id) or executed_messages_by_id.get(tool_call_id)
+        message = synthetic_messages_by_id.get(tool_call_id) or executed_messages_by_id.get(
+            tool_call_id
+        )
         if message is not None:
             ordered_messages.append(message)
 

@@ -28,6 +28,10 @@ async def prepare_system_context_state(
         state.get("system_context_refresh"),
         config=config,
         context=runtime.context,
+        # Runtime.server_info.user는 LangGraph Server가 인증 완료 후 주입하는 사용자다.
+        # 도구 실행 전 system_context도 도구와 같은 owner 기준을 써야 한다.
+        # https://docs.langchain.com/oss/python/langchain/tools#server-info
+        server_user=runtime.server_info.user if runtime.server_info is not None else None,
     )
 
 

@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import BaseUser
 
 from agent.clients.onboarding_service import onboarding_service_client
 from agent.db.session import get_session_factory
@@ -23,6 +24,9 @@ from agent.services.chat.state import (
     SelectedDocumentContextState,
     SystemContextRefreshState,
     SystemContextState,
+)
+from agent.services.chat.tools.runtime_user import (
+    extract_runtime_value,
 )
 
 
@@ -58,34 +62,55 @@ def parse_selected_ids(raw_ids: object) -> list[UUID]:
     return resolved_ids
 
 
-def extract_authenticated_user_identity(config: RunnableConfig) -> str | None:
-    """LangGraph custom auth가 주입한 사용자 식별자를 읽는다."""
+def _runtime_context_mapping(
+    context: ChatRuntimeContext | None,
+) -> Mapping[str, Any] | None:
+    return context if isinstance(context, Mapping) else None
 
-    configurable = config.get("configurable", {})
-    if not isinstance(configurable, Mapping):
+
+def _runtime_context_value(
+    config: RunnableConfig,
+    context: ChatRuntimeContext | None,
+    key: str,
+) -> Any:
+    return extract_runtime_value(config, _runtime_context_mapping(context), key)
+
+
+def extract_authenticated_user_identity(server_user: BaseUser | None) -> str | None:
+    """LangGraph Server가 Runtime.server_info.user에 주입한 사용자 식별자를 읽는다.
+
+    config.configurable.langgraph_auth_user는 서버 내부 worker 전달 구현 세부사항이므로
+    애플리케이션 노드에서는 Runtime.server_info.user만 인증 사용자 경로로 사용한다.
+    https://docs.langchain.com/oss/python/langchain/tools#server-info
+    """
+
+    if server_user is None:
         return None
-    raw_user = configurable.get("langgraph_auth_user")
-    if not isinstance(raw_user, Mapping):
-        return None
-    identity = raw_user.get("identity")
+    identity = server_user.identity
     return identity if isinstance(identity, str) and identity else None
 
 
-def extract_authenticated_user_access_token(config: RunnableConfig) -> str | None:
-    """LangGraph custom auth가 주입한 사용자 액세스 토큰을 읽는다."""
+def extract_authenticated_user_access_token(server_user: BaseUser | None) -> str | None:
+    """LangGraph Server 인증 사용자에 실어 보낸 액세스 토큰을 읽는다.
 
-    configurable = config.get("configurable", {})
-    if not isinstance(configurable, Mapping):
+    onboarding-service 같은 사용자 위임 호출은 authenticate 반환값에 포함된
+    access_token을 그대로 사용한다.
+    """
+
+    if server_user is None or "access_token" not in server_user:
         return None
-    raw_user = configurable.get("langgraph_auth_user")
-    if not isinstance(raw_user, Mapping):
-        return None
-    access_token = raw_user.get("access_token")
+    access_token = server_user["access_token"]
     return access_token if isinstance(access_token, str) and access_token else None
 
 
-def extract_app_thread_id(context: ChatRuntimeContext | None) -> UUID | None:
-    raw_thread_id = (context or {}).get("app_thread_id")
+def extract_app_thread_id(
+    context: ChatRuntimeContext | None, config: RunnableConfig | None = None
+) -> UUID | None:
+    raw_thread_id = (
+        _runtime_context_value(config, context, "app_thread_id")
+        if config is not None
+        else (context or {}).get("app_thread_id")
+    )
     if not isinstance(raw_thread_id, str):
         return None
     try:
@@ -98,10 +123,13 @@ async def _build_selected_document_states(
     owner: str | None,
     *,
     context: ChatRuntimeContext | None,
+    config: RunnableConfig,
 ) -> list[SelectedDocumentContextState]:
     if owner is None:
         return []
-    selected_document_ids = parse_selected_ids((context or {}).get("selected_document_ids"))
+    selected_document_ids = parse_selected_ids(
+        _runtime_context_value(config, context, "selected_document_ids")
+    )
     if not selected_document_ids:
         return []
 
@@ -132,10 +160,13 @@ async def _build_selected_artifact_states(
     owner: str | None,
     *,
     context: ChatRuntimeContext | None,
+    config: RunnableConfig,
 ) -> list[SelectedArtifactContextState]:
     if owner is None:
         return []
-    selected_artifact_ids = parse_selected_ids((context or {}).get("selected_artifact_ids"))
+    selected_artifact_ids = parse_selected_ids(
+        _runtime_context_value(config, context, "selected_artifact_ids")
+    )
     if not selected_artifact_ids:
         return []
 
@@ -207,10 +238,11 @@ async def prepare_system_context_state_update(
     *,
     config: RunnableConfig,
     context: ChatRuntimeContext | None,
+    server_user: BaseUser | None = None,
 ) -> dict[str, Any]:
-    owner = extract_authenticated_user_identity(config)
-    access_token = extract_authenticated_user_access_token(config)
-    app_thread_id = extract_app_thread_id(context)
+    owner = extract_authenticated_user_identity(server_user)
+    access_token = extract_authenticated_user_access_token(server_user)
+    app_thread_id = extract_app_thread_id(context, config)
 
     system_context = (
         {
@@ -232,10 +264,10 @@ async def prepare_system_context_state_update(
     )
 
     system_context["selected_documents"] = await _build_selected_document_states(
-        owner, context=context
+        owner, context=context, config=config
     )
     system_context["selected_artifacts"] = await _build_selected_artifact_states(
-        owner, context=context
+        owner, context=context, config=config
     )
 
     if current_system_context is None or refresh_state["memory_summary_dirty"]:

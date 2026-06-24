@@ -1,5 +1,9 @@
 from agent.services.chat.toolkits.chat_toolkit import CHAT_TOOL_SPECS_BY_NAME
-from agent.services.chat.approvals.nodes import _system_context_refresh_update_for_tool_calls
+from agent.services.chat.approvals.nodes import (
+    _handle_chat_tool_error,
+    _system_context_refresh_update_for_tool_calls,
+)
+from agent.services.chat.tools import ChatToolError
 
 
 def test_workspace_read_tools_are_allowed_by_default() -> None:
@@ -59,3 +63,12 @@ def test_system_context_refresh_flags_follow_memory_and_onboarding_mutations() -
         "memory_summary_dirty": True,
         "onboarding_summary_dirty": True,
     }
+
+
+def test_chat_tool_error_handler_returns_model_visible_message() -> None:
+    """도구가 예외를 내도 graph를 터뜨리지 않고 ToolMessage 본문으로 돌려준다."""
+
+    assert _handle_chat_tool_error(ChatToolError("본문은 비어 있을 수 없습니다.")) == (
+        "도구 실행 실패: 본문은 비어 있을 수 없습니다."
+    )
+    assert "RuntimeError" in _handle_chat_tool_error(RuntimeError("boom"))

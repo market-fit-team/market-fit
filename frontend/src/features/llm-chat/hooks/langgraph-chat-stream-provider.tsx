@@ -1,4 +1,11 @@
-import { type ReactNode, useCallback, useMemo, useRef, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useStream } from "@langchain/react"
 import { authClient } from "@/features/auth/lib/auth-client"
 import { AUTHENTIK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
@@ -10,6 +17,7 @@ import {
 import { buildSubmitContext } from "@/features/llm-chat/lib/langgraph/build-submit-config"
 import { buildSubmitInput } from "@/features/llm-chat/lib/langgraph/build-submit-input"
 import type {
+  HitlInterrupt,
   HitlRequest,
   HitlResume,
 } from "@/features/llm-chat/types/hitl-interrupt-payload"
@@ -41,6 +49,42 @@ const extractAccessToken = (result: AccessTokenResult | null | undefined) => {
   return result?.accessToken ?? result?.data?.accessToken
 }
 
+const normalizeStreamErrorMessage = (error: unknown) => {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return String(error)
+}
+
+const isAlreadyConsumedInterruptError = (message: string) => {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes("already-consumed interrupt") ||
+    normalized.includes("already consumed interrupt")
+  )
+}
+
+const toLocalNotice = (error: unknown) => {
+  const message = normalizeStreamErrorMessage(error)
+
+  if (message.includes("HTTP 401")) {
+    return "오류: 로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 채팅을 이어가 주세요."
+  }
+
+  if (isAlreadyConsumedInterruptError(message)) {
+    return "오류: 이미 처리된 승인 요청입니다. 최신 대화 상태를 다시 불러온 뒤 이어가 주세요."
+  }
+
+  return `오류: ${message}`
+}
+
+const buildInterruptSignature = (interrupts: HitlInterrupt[]) => {
+  return interrupts
+    .map((interrupt, index) => `${index}:${JSON.stringify(interrupt)}`)
+    .join("|")
+}
+
 const langGraphFetch: typeof fetch = async (input, init) => {
   const headers = new Headers(withCsrfHeaders(init?.headers))
   const result = (await authClient.getAccessToken({
@@ -48,9 +92,11 @@ const langGraphFetch: typeof fetch = async (input, init) => {
   })) as AccessTokenResult
   const accessToken = extractAccessToken(result)
 
-  if (accessToken) {
-    headers.set("authorization", `Bearer ${accessToken}`)
+  if (!accessToken) {
+    throw new Error("로그인 세션의 access token을 확인하지 못했습니다.")
   }
+
+  headers.set("authorization", `Bearer ${accessToken}`)
 
   return fetch(input, {
     ...init,
@@ -72,6 +118,9 @@ export function LangGraphChatStreamProvider({
   )
   const latestTurnOptionsRef = useRef<ChatTurnOptions>({})
   const activeThreadId = workspaceThread?.langgraphThreadId ?? threadId
+  const [localErrorNotice, setLocalErrorNotice] = useState<string | null>(null)
+  const [dismissedInterruptSignature, setDismissedInterruptSignature] =
+    useState<string | null>(null)
 
   const apiUrl = useMemo(() => {
     const AGENT_PUBLIC_PATH = "/api/agent"
@@ -109,13 +158,28 @@ export function LangGraphChatStreamProvider({
     onThreadId: workspaceThread ? undefined : setThreadId,
   })
 
-  const localNotice = stream.error
-    ? `오류: ${
-        stream.error instanceof Error
-          ? stream.error.message
-          : String(stream.error)
-      }`
-    : null
+  const interruptSignature = useMemo(
+    () => buildInterruptSignature(stream.interrupts),
+    [stream.interrupts]
+  )
+  const hitlInterrupts = useMemo(() => {
+    return dismissedInterruptSignature &&
+      dismissedInterruptSignature === interruptSignature
+      ? []
+      : stream.interrupts
+  }, [dismissedInterruptSignature, interruptSignature, stream.interrupts])
+  const streamErrorNotice = stream.error ? toLocalNotice(stream.error) : null
+  const localNotice = localErrorNotice ?? streamErrorNotice
+
+  useEffect(() => {
+    if (
+      interruptSignature &&
+      dismissedInterruptSignature &&
+      dismissedInterruptSignature !== interruptSignature
+    ) {
+      setDismissedInterruptSignature(null)
+    }
+  }, [dismissedInterruptSignature, interruptSignature])
 
   const sendMessage = useCallback(
     async (content: string, options: ChatTurnOptions = {}) => {
@@ -127,6 +191,7 @@ export function LangGraphChatStreamProvider({
         selectedDocumentIds: options.selectedDocumentIds,
         selectedArtifactIds: options.selectedArtifactIds,
       }
+      setLocalErrorNotice(null)
 
       const context = buildSubmitContext(
         modelSelection,
@@ -137,17 +202,22 @@ export function LangGraphChatStreamProvider({
       )
       const input = buildSubmitInput(trimmed)
 
-      await stream.submit(input, {
-        // Protocol V2 run.start command의 params.config로 전달됩니다.
-        // 서버 graph는 StateGraph context_schema + Runtime.context로 이 값을 읽습니다.
-        // 근거:
-        // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
-        // https://reference.langchain.com/python/langgraph/runtime/Runtime
-        config: {
-          configurable: context,
-        },
-        multitaskStrategy: "reject",
-      })
+      try {
+        await stream.submit(input, {
+          // Protocol V2 run.start command의 params.config로 전달됩니다.
+          // 서버 graph는 StateGraph context_schema + Runtime.context로 이 값을 읽습니다.
+          // 근거:
+          // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
+          // https://reference.langchain.com/python/langgraph/runtime/Runtime
+          config: {
+            configurable: context,
+          },
+          multitaskStrategy: "reject",
+        })
+      } catch (error) {
+        setLocalErrorNotice(toLocalNotice(error))
+        throw error
+      }
     },
     [modelSelection, stream, toolPolicy, workspaceThread?.appThreadId]
   )
@@ -168,23 +238,41 @@ export function LangGraphChatStreamProvider({
         latestTurnOptionsRef.current.selectedArtifactIds
       )
 
-      await stream.respond(
-        {
-          decisions,
-        } satisfies HitlResume,
-        {
-          // Protocol V2 input.respond command도 resumed run에서 chat_model로 이어질 수 있으므로
-          // 최초 submit과 동일한 full context를 config.configurable로 다시 보냅니다.
-          // 근거:
-          // https://reference.langchain.com/javascript/langchain-react/use-stream
-          // https://docs.langchain.com/oss/python/langgraph/interrupts#resuming-interrupts
-          config: {
-            configurable: context,
-          },
+      setLocalErrorNotice(null)
+
+      try {
+        await stream.respond(
+          {
+            decisions,
+          } satisfies HitlResume,
+          {
+            // Protocol V2 input.respond command도 resumed run에서 chat_model로 이어질 수 있으므로
+            // 최초 submit과 동일한 full context를 config.configurable로 다시 보냅니다.
+            // 근거:
+            // https://reference.langchain.com/javascript/langchain-react/use-stream
+            // https://docs.langchain.com/oss/python/langgraph/interrupts#resuming-interrupts
+            config: {
+              configurable: context,
+            },
+          }
+        )
+      } catch (error) {
+        const notice = toLocalNotice(error)
+        if (
+          isAlreadyConsumedInterruptError(normalizeStreamErrorMessage(error))
+        ) {
+          setDismissedInterruptSignature(interruptSignature)
         }
-      )
+        setLocalErrorNotice(notice)
+      }
     },
-    [modelSelection, stream, toolPolicy, workspaceThread?.appThreadId]
+    [
+      interruptSignature,
+      modelSelection,
+      stream,
+      toolPolicy,
+      workspaceThread?.appThreadId,
+    ]
   )
 
   const resetChat = useCallback(async () => {
@@ -205,7 +293,7 @@ export function LangGraphChatStreamProvider({
       threadId: stream.threadId ?? activeThreadId,
       messages: stream.messages,
       toolCalls: stream.toolCalls,
-      hitlInterrupts: stream.interrupts,
+      hitlInterrupts,
       localNotice,
       isBusy: stream.isLoading,
       streamStatus: stream.isLoading ? "streaming" : "idle",
@@ -222,7 +310,7 @@ export function LangGraphChatStreamProvider({
     activeThreadId,
     stream.messages,
     stream.toolCalls,
-    stream.interrupts,
+    hitlInterrupts,
     stream.isLoading,
     localNotice,
     sendMessage,
