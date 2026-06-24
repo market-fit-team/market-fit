@@ -11,7 +11,6 @@ from app.models.commercial_trend.features import (
     META_FILE,
     MODEL_FILE,
     THEME_CODES,
-    build_latest_features,
     latest_features_from_daily,
 )
 
@@ -81,7 +80,3 @@ def predict_trend_scores_for(
     """주어진 일별 시계열(주제/세그먼트)로 예측한다."""
     return predict_from_features(latest_features_from_daily(daily, names), theme)
 
-
-def predict_trend_scores(data_mode: str = "sample") -> list[dict[str, object]]:
-    """전체 생활인구 기준 예측(기존 호출부 호환)."""
-    return predict_from_features(build_latest_features(data_mode), "all")

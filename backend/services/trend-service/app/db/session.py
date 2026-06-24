@@ -27,12 +27,12 @@ def session_scope() -> Session:
 
 
 def prepare_database() -> None:
-    """테이블을 만들고, 비어 있으면 .raw 실데이터 CSV를 한 번 적재한다(부트스트랩)."""
+    """테이블을 만들고, 비어 있으면 .raw 행정동 이름 CSV를 한 번 적재한다(부트스트랩)."""
     from app.trend.ingest import ingest_bootstrap_into_db
-    from app.trend.repository import is_population_empty
+    from app.trend.repository import is_hdong_area_empty
 
     Base.metadata.create_all(get_engine())
-    if settings.auto_ingest_sample_on_empty and is_population_empty():
+    if settings.auto_ingest_sample_on_empty and is_hdong_area_empty():
         ingest_bootstrap_into_db()
 
 

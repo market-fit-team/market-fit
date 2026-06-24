@@ -12,7 +12,7 @@ from app.models.commercial_trend.runtime import ensure_model
 
 
 def _bootstrap() -> None:
-    # db 모드면 테이블 생성 + 샘플 부트스트랩 적재 후 학습한다.
+    # db 모드면 테이블 생성 + 행정동 이름 부트스트랩 후 학습한다.
     if settings.data_mode == "db":
         from app.db.session import prepare_database
 

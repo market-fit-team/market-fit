@@ -33,9 +33,10 @@ def refresh_theme_rankings(data_mode: str = "sample") -> dict[str, list[dict[str
     """주제별 예측을 다시 계산한다. db 모드면 trend_score에 저장한다(배치/최초 채움용)."""
     rankings = _compute_theme_rankings(data_mode)
     if data_mode == "db":
-        from app.trend.repository import latest_stat_date, save_theme_scores
+        from app.models.commercial_trend.features import latest_source_stat_date
+        from app.trend.repository import save_theme_scores
 
-        save_theme_scores(rankings, datetime.now(timezone.utc), latest_stat_date())
+        save_theme_scores(rankings, datetime.now(timezone.utc), latest_source_stat_date(data_mode))
     _theme_cache["rankings"] = rankings
     _theme_cache["at"] = time.time()
     return rankings

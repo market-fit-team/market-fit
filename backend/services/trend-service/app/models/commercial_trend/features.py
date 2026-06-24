@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import holidays
@@ -23,9 +24,6 @@ LIVING_GLOB = "LOCAL_PEOPLE_DONG_*.csv"
 # 구버전 단일 샘플 파일(폴백용)
 LIVING_FILE = "living_population_hdong_domestic.sample.csv"
 HDONG_NAME_FILE = "hdong_code_name.sample.csv"
-# 생활인구 원본 컬럼 위치(고정 스키마): 0=기준일ID, 2=행정동코드, 3=총생활인구수.
-# 헤더가 줄 끝 구분자 탓에 한 칸 밀릴 수 있어, 이름 대신 위치로 읽어 어긋남을 피한다.
-_LIVING_USECOLS = [0, 2, 3]
 
 # 피처 윈도우(최근 N일)와 예측 지평(향후 N일)
 WINDOW_DAYS = 28
@@ -82,37 +80,6 @@ def _living_files(data_dir: Path) -> list[Path]:
     return [legacy] if legacy.exists() else []
 
 
-def load_daily_population_csv(data_dir: Path) -> pd.DataFrame:
-    """data_dir의 월별 생활인구 CSV를 모두 읽어 (행정동, 일자) 일 단위 시계열로 합친다.
-
-    원본은 시간대별 24행이라 (행정동, 일자)로 합산하고, 여러 달치를 이어 붙여 연속
-    시계열을 만든다(학습 윈도우 확보). 컬럼은 위치 기준으로 읽어 헤더 밀림을 피한다.
-    반환: columns=[area_code, date, population], date 오름차순 정렬.
-    """
-    files = _living_files(data_dir)
-    if not files:
-        raise FileNotFoundError(f"생활인구 CSV가 없다: {data_dir}/{LIVING_GLOB}")
-
-    parts: list[pd.DataFrame] = []
-    for path in files:
-        raw = read_csv_auto(path, header=None, skiprows=1, usecols=_LIVING_USECOLS, dtype=str)
-        raw.columns = ["date", "area_code", "population"]
-        parts.append(raw)
-
-    merged = pd.concat(parts, ignore_index=True)
-    frame = pd.DataFrame(
-        {
-            "area_code": merged["area_code"].astype(str),
-            "date": pd.to_datetime(merged["date"].astype(str), format="%Y%m%d"),
-            "population": pd.to_numeric(merged["population"], errors="coerce").fillna(0.0),
-        }
-    )
-    daily = (
-        frame.groupby(["area_code", "date"], as_index=False)["population"].sum().sort_values(["area_code", "date"])
-    )
-    return daily
-
-
 def load_hdong_names(data_mode: str = "sample") -> dict[str, str]:
     """행정동 코드 -> 이름 매핑. data_mode에 따라 CSV 또는 DB에서 읽는다."""
     if data_mode == "db":
@@ -120,15 +87,6 @@ def load_hdong_names(data_mode: str = "sample") -> dict[str, str]:
 
         return load_hdong_names_db()
     return load_hdong_names_csv(_data_dir(data_mode) / HDONG_NAME_FILE)
-
-
-def load_daily_population(data_mode: str = "sample") -> pd.DataFrame:
-    """행정동별 일자별 총생활인구 시계열. data_mode에 따라 CSV 또는 DB에서 읽는다."""
-    if data_mode == "db":
-        from app.trend.repository import load_daily_population_db
-
-        return load_daily_population_db()
-    return load_daily_population_csv(_data_dir(data_mode))
 
 
 def _series_for_area(daily: pd.DataFrame, area_code: str) -> pd.Series:
@@ -260,11 +218,6 @@ def latest_features_from_daily(daily: pd.DataFrame, names: dict[str, str]) -> pd
     return pd.DataFrame(rows)
 
 
-def build_latest_features(data_mode: str = "sample") -> pd.DataFrame:
-    """행정동별 최신 시점 기준 피처(전체 생활인구). 추론 입력으로 쓴다."""
-    return latest_features_from_daily(load_daily_population(data_mode), load_hdong_names(data_mode))
-
-
 # ---- 주제(세그먼트)별 시계열 ----
 # 생활인구 원본 컬럼 위치로 정의(헤더 밀림 회피). 유동인구 등 다른 데이터는 섞지 않는다.
 SEGMENT_POSITIONS: dict[str, list[int]] = {
@@ -281,8 +234,25 @@ THEME_CODES: dict[str, int] = {"all": 0, "male": 1, "female": 2, "youth": 3, "ev
 
 
 def _segment_data_dir(data_mode: str) -> Path:
-    # 세그먼트 합산은 원본 CSV에서만 가능(DB엔 총합만 적재). db 모드면 실데이터 폴더(.raw)를 본다.
+    # 세그먼트 합산은 원본 CSV에서만 가능하다. db 모드도 실데이터 폴더(.raw)를 본다.
     return RAW_DIR if data_mode == "db" else _data_dir(data_mode)
+
+
+def latest_source_stat_date(data_mode: str = "sample") -> date | None:
+    """원천 생활인구 CSV의 최신 기준일. trend_score의 예측 기준일 메타로 저장한다."""
+    files = _living_files(_segment_data_dir(data_mode))
+    if not files:
+        return None
+
+    latest: pd.Timestamp | None = None
+    for path in files:
+        raw = read_csv_auto(path, header=None, skiprows=1, usecols=[0], dtype=str)
+        dates = pd.to_datetime(raw[0].astype(str), format="%Y%m%d", errors="coerce").dropna()
+        if dates.empty:
+            continue
+        current = dates.max()
+        latest = current if latest is None else max(latest, current)
+    return None if latest is None else latest.date()
 
 
 def load_segment_dailies(data_mode: str = "sample") -> dict[str, pd.DataFrame]:

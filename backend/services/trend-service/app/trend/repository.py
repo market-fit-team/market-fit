@@ -1,40 +1,21 @@
 from __future__ import annotations
 
-import pandas as pd
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from datetime import date, datetime
 
-from app.db.models import DailyLivingPopulation, HdongArea, TrendScore
+from app.db.models import HdongArea, TrendScore
 from app.db.session import session_scope
 
 # psycopg 파라미터 한도(65535) 회피용 upsert 청크 크기
 _UPSERT_CHUNK = 5000
 
 
-def is_population_empty() -> bool:
+def is_hdong_area_empty() -> bool:
     with session_scope() as session:
-        count = session.scalar(select(func.count()).select_from(DailyLivingPopulation))
+        count = session.scalar(select(func.count()).select_from(HdongArea))
         return (count or 0) == 0
-
-
-def load_daily_population_db() -> pd.DataFrame:
-    """DB에서 행정동별 일자별 시계열을 읽어 CSV 로더와 동일한 형태로 반환한다."""
-    with session_scope() as session:
-        rows = session.execute(
-            select(
-                DailyLivingPopulation.area_code,
-                DailyLivingPopulation.stat_date,
-                DailyLivingPopulation.population,
-            ).order_by(DailyLivingPopulation.area_code, DailyLivingPopulation.stat_date)
-        ).all()
-
-    frame = pd.DataFrame(rows, columns=["area_code", "date", "population"])
-    if not frame.empty:
-        frame["date"] = pd.to_datetime(frame["date"])
-        frame["population"] = pd.to_numeric(frame["population"], errors="coerce").fillna(0.0)
-    return frame
 
 
 def load_hdong_names_db() -> dict[str, str]:
@@ -55,39 +36,6 @@ def upsert_hdong_names(names: dict[str, str]) -> int:
         session.execute(statement)
         session.commit()
     return len(payload)
-
-
-def upsert_daily_population(frame: pd.DataFrame) -> int:
-    """(area_code, stat_date) 기준 upsert. 같은 날짜는 최신 값으로 덮는다."""
-    if frame.empty:
-        return 0
-    payload = [
-        {
-            "area_code": str(row["area_code"]),
-            "stat_date": pd.Timestamp(row["date"]).date(),
-            "population": float(row["population"]),
-        }
-        for _, row in frame.iterrows()
-    ]
-    # psycopg는 한 구문당 파라미터 65535개 한도가 있어(행×3컬럼), 청크로 나눠 upsert한다.
-    chunk_size = 5000
-    with session_scope() as session:
-        for start in range(0, len(payload), chunk_size):
-            chunk = payload[start : start + chunk_size]
-            statement = pg_insert(DailyLivingPopulation).values(chunk)
-            statement = statement.on_conflict_do_update(
-                index_elements=[DailyLivingPopulation.area_code, DailyLivingPopulation.stat_date],
-                set_={"population": statement.excluded.population},
-            )
-            session.execute(statement)
-        session.commit()
-    return len(payload)
-
-
-def latest_stat_date() -> date | None:
-    """적재된 생활인구의 최신 일자(예측 기준일 메타로 저장)."""
-    with session_scope() as session:
-        return session.scalar(select(func.max(DailyLivingPopulation.stat_date)))
 
 
 def save_theme_scores(

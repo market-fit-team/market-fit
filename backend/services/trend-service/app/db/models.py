@@ -18,16 +18,6 @@ class HdongArea(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
 
 
-class DailyLivingPopulation(Base):
-    """행정동별 일자별 총생활인구. 매일 한 행씩 쌓이는 시계열이다."""
-
-    __tablename__ = "daily_living_population"
-
-    area_code: Mapped[str] = mapped_column(String(20), primary_key=True)
-    stat_date: Mapped[date] = mapped_column(Date, primary_key=True)
-    population: Mapped[float] = mapped_column(Float, nullable=False)
-
-
 class TrendScore(Base):
     """배치가 계산한 행정동별 트렌드 예측 결과. run_at(배치 회차) 단위로 이력을 남긴다.
 
