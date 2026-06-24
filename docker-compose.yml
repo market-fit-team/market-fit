@@ -236,33 +236,6 @@ services:
       backend-db:
         condition: service_healthy
 
-  franchise-service:
-    build: ./backend/services/franchise-service
-    container_name: franchise-service
-    environment:
-      DB_HOST: backend-db
-      DB_PORT: "5432"
-      DB_NAME: franchise
-      DB_USERNAME: franchise
-      DB_PASSWORD: franchise
-    expose:
-      - "8080"
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.franchise.rule=PathPrefix(`/api/franchise`)
-      - traefik.http.routers.franchise.entrypoints=web
-      - traefik.http.routers.franchise.middlewares=franchise-strip,api-cors
-      - traefik.http.middlewares.franchise-strip.stripprefix.prefixes=/api/franchise
-      - traefik.http.services.franchise.loadbalancer.server.port=8080
-      - app.api.enabled=true
-      - app.api.name=franchise
-      - app.api.publicPath=/api/franchise
-      - app.api.openapiPath=/v3/api-docs
-      - app.api.schemasType=zod
-    depends_on:
-      backend-db:
-        condition: service_healthy
-
   redis:
     image: redis:latest
     container_name: community-redis
