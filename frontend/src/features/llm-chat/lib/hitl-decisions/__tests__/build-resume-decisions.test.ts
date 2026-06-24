@@ -6,13 +6,13 @@ import { createHitlInterrupts } from "@/features/llm-chat/testing/fixtures"
 describe("buildResumeDecisions", () => {
   const actionRequests = createHitlInterrupts()[0].value?.action_requests ?? []
 
-  it("defaults to approve when no draft is provided", () => {
+  it("초안이 제공되지 않으면 승인을 기본값으로 한다", () => {
     expect(buildResumeDecisions(actionRequests, {})).toEqual([
       { type: "approve" },
     ])
   })
 
-  it("builds an edit decision", () => {
+  it("편집(edit) 결정을 생성한다", () => {
     expect(
       buildResumeDecisions(actionRequests, {
         "0": {
@@ -32,7 +32,7 @@ describe("buildResumeDecisions", () => {
     ])
   })
 
-  it("trims reject messages and omits empty ones", () => {
+  it("거절 메시지의 공백을 제거하고 비어있는 경우 생략한다", () => {
     expect(
       buildResumeDecisions(actionRequests, {
         "0": {
@@ -52,7 +52,7 @@ describe("buildResumeDecisions", () => {
     ).toEqual([{ type: "reject" }])
   })
 
-  it("uses a default respond message when empty", () => {
+  it("비어있을 경우 기본 응답 메시지를 사용한다", () => {
     expect(
       buildResumeDecisions(actionRequests, {
         "0": {
@@ -70,7 +70,7 @@ describe("buildResumeDecisions", () => {
 })
 
 describe("buildResumeDecisionsFromForm", () => {
-  it("delegates to buildResumeDecisions using form values", () => {
+  it("폼 값을 사용하여 buildResumeDecisions에 위임한다", () => {
     const actionRequests =
       createHitlInterrupts()[0].value?.action_requests ?? []
 

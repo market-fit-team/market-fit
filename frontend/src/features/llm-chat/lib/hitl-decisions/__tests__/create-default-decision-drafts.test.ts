@@ -3,7 +3,7 @@ import { createDefaultDecisionDrafts } from "@/features/llm-chat/lib/hitl-decisi
 import { createHitlInterrupts } from "@/features/llm-chat/testing/fixtures"
 
 describe("createDefaultDecisionDrafts", () => {
-  it("builds approve drafts keyed by action index", () => {
+  it("액션 인덱스를 키로 갖는 승인 초안을 생성한다", () => {
     const [interrupt] = createHitlInterrupts()
     const actionRequests = interrupt.value?.action_requests ?? []
 

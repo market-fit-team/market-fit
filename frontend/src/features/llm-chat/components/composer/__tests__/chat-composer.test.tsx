@@ -8,7 +8,7 @@ import {
 } from "@/features/llm-chat/testing/fixtures"
 
 describe("ChatComposer", () => {
-  it("does not submit an empty message", async () => {
+  it("빈 메시지는 제출하지 않는다", async () => {
     const onSubmit = vi.fn()
 
     render(
@@ -27,7 +27,7 @@ describe("ChatComposer", () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it("submits trimmed text and clears the textarea", async () => {
+  it("공백이 제거된 텍스트를 제출하고 텍스트 영역을 지운다", async () => {
     const onSubmit = vi.fn()
 
     render(
@@ -52,7 +52,7 @@ describe("ChatComposer", () => {
     expect(textarea.value).toBe("")
   })
 
-  it("does not submit while disabled", async () => {
+  it("비활성화 상태일 때는 제출하지 않는다", async () => {
     const onSubmit = vi.fn()
 
     render(

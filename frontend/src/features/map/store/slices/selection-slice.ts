@@ -1,18 +1,14 @@
 import type { StateCreator } from "zustand"
-import type { MapTab, TradeAreaId } from "@/features/map/types/map"
-import { districtsData } from "@/features/startup/lib/data"
+import type { DongCode } from "@/features/map/types/map"
 
 export type SelectionSlice = {
-  activeResultTab: MapTab
-  selectedTradeAreaId: TradeAreaId | null
-  setActiveResultTab: (activeResultTab: MapTab) => void
-  setSelectedTradeAreaId: (selectedTradeAreaId: TradeAreaId | null) => void
+  selectedDongCode: DongCode | null
+  selectDong: (selectedDongCode: DongCode | null) => void
 }
 
-// 선택 상태는 지도 하이라이트와 결과 도크를 함께 구동한다.
+// selectedDongCode가 선택의 단일 원천
+// 지도 클릭·추천 목록·AI 채팅 모두 이 값을 갱신
 export const createSelectionSlice: StateCreator<SelectionSlice> = (set) => ({
-  activeResultTab: "traffic",
-  selectedTradeAreaId: districtsData[0]?.id ?? null,
-  setActiveResultTab: (activeResultTab) => set({ activeResultTab }),
-  setSelectedTradeAreaId: (selectedTradeAreaId) => set({ selectedTradeAreaId }),
+  selectedDongCode: null,
+  selectDong: (selectedDongCode) => set({ selectedDongCode }),
 })

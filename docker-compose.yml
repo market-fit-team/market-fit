@@ -1,24 +1,4 @@
 services:
-  frontend-db:
-    image: postgres:17-alpine
-    container_name: frontend-db
-    restart: unless-stopped
-    ports:
-      - "5662:5432"
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: frontend_db
-      TZ: Asia/Seoul
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d frontend_db"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
-
-
   authentik-db:
     image: postgres:17-alpine
     container_name: authentik-db
@@ -41,6 +21,8 @@ services:
     container_name: authentik-server
     restart: unless-stopped
     command: server
+    env_file:
+      - .env
     ports:
       - "${AUTHENTIK_HTTP_PORT:-9000}:9000"
     environment:
@@ -53,8 +35,24 @@ services:
       AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-admin@example.com}
       AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-authentik}
       AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN:-dev-authentik-bootstrap-token-change-me}
+      AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CLIENT_SECRET}
+      AUTHENTIK_SERVICE_ROLE_KEY: "${AUTHENTIK_SERVICE_ROLE_KEY:?AUTHENTIK_SERVICE_ROLE_KEY를 .env에 설정하세요}"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     volumes:
       - ./backend/authentik/blueprints/pickle-web.yaml:/blueprints/pickle-web.yaml:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.authentik.rule=PathPrefix(`/api/authentik`)
+      - traefik.http.routers.authentik.entrypoints=web
+      - traefik.http.routers.authentik.middlewares=authentik-strip,api-cors
+      - traefik.http.middlewares.authentik-strip.stripprefix.prefixes=/api/authentik
+      - traefik.http.services.authentik.loadbalancer.server.port=9000
+      - app.api.enabled=true
+      - app.api.name=authentik-users
+      - app.api.publicPath=/api/authentik/api/v3
+      - app.api.openapiPath=/schema/?format=json
+      - app.api.schemasType=typescript
     depends_on:
       authentik-db:
         condition: service_healthy
@@ -74,6 +72,7 @@ services:
       AUTHENTIK_POSTGRESQL__USER: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS:-authentik}
       AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CLIENT_SECRET}
+      AUTHENTIK_SERVICE_ROLE_KEY: "${AUTHENTIK_SERVICE_ROLE_KEY:?AUTHENTIK_SERVICE_ROLE_KEY를 .env에 설정하세요}"
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     user: root
@@ -125,14 +124,21 @@ services:
   profile-service:
     build: ./backend/services/profile-service
     container_name: profile-service
+    env_file:
+      - .env
     environment:
       PORT: "3001"
       JWKS_URL: "http://authentik-server:9000/application/o/pickle-web/jwks/"
       JWT_ISSUER: "http://localhost:9000/application/o/pickle-web/"
       JWT_AUDIENCE: "pickle-web"
       JWT_ALGS: "RS256"
+      AUTHENTIK_API_URL: "http://authentik-server:9000/api/v3"
+      AUTHENTIK_SERVICE_ROLE_KEY: "${AUTHENTIK_SERVICE_ROLE_KEY:?AUTHENTIK_SERVICE_ROLE_KEY를 .env에 설정하세요}"
     expose:
       - "3001"
+    depends_on:
+      authentik-server:
+        condition: service_started
     labels:
       - traefik.enable=true
       - traefik.http.routers.profile.rule=PathPrefix(`/api/profile`)
@@ -183,7 +189,7 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
-      
+
   backend-db:
     image: postgis/postgis:17-3.5-alpine
     container_name: backend-db
@@ -235,6 +241,21 @@ services:
     depends_on:
       backend-db:
         condition: service_healthy
+
+  onboarding-db:
+    image: postgres:17-alpine
+    container_name: onboarding-db
+    environment:
+      POSTGRES_DB: onboarding
+      POSTGRES_USER: onboarding
+      POSTGRES_PASSWORD: onboarding
+    volumes:
+      - onboarding_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onboarding -d onboarding"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:latest
@@ -349,10 +370,38 @@ services:
       - app.api.openapiPath=/v3/api-docs
       - app.api.schemasType=zod
 
+  onboarding-service:
+    build: ./backend/services/onboarding-service
+    container_name: onboarding-service
+    environment:
+      ONBOARDING_SERVICE_DATABASE_URL: "postgresql+psycopg://onboarding:onboarding@onboarding-db:5432/onboarding"
+      ONBOARDING_SERVICE_AUTO_CREATE_SCHEMA: "true"
+      ONBOARDING_SERVICE_FRONTEND_TWO_TOWER_BASE_URL: "http://localhost:3000/example/two-tower"
+      ONBOARDING_SERVICE_DEMO_AUTH_USER_UUID: "123e4567-e89b-12d3-a456-426614174000"
+    expose:
+      - "8000"
+    volumes:
+      - ./backend/services/onboarding-service/.artifacts:/app/.artifacts
+    depends_on:
+      onboarding-db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.onboarding.rule=PathPrefix(`/api/onboarding`)
+      - traefik.http.routers.onboarding.entrypoints=web
+      - traefik.http.routers.onboarding.middlewares=onboarding-strip,api-cors
+      - traefik.http.middlewares.onboarding-strip.stripprefix.prefixes=/api/onboarding
+      - traefik.http.services.onboarding.loadbalancer.server.port=8000
+      - app.api.enabled=true
+      - app.api.name=onboarding
+      - app.api.publicPath=/api/onboarding
+      - app.api.openapiPath=/openapi.json
+      - app.api.schemasType=zod
+
 volumes:
-  postgres_data:
   authentik_postgres_data:
   community_postgres_data:
+  onboarding_postgres_data:
   backend_postgres_data:
   redis_data:
   minio_data:

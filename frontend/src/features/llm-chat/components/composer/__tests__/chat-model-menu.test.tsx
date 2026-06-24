@@ -5,7 +5,7 @@ import { ChatModelMenu } from "@/features/llm-chat/components/composer/chat-mode
 import { llmChatModels } from "@/features/llm-chat/testing/fixtures"
 
 describe("ChatModelMenu", () => {
-  it("shows the current model and reasoning effort", () => {
+  it("현재 모델과 추론 단계를 보여준다", () => {
     render(
       <ChatModelMenu
         models={llmChatModels}
@@ -22,7 +22,7 @@ describe("ChatModelMenu", () => {
     expect(screen.getByText("medium")).toBeInTheDocument()
   })
 
-  it("calls onSelectModel when a model is chosen", async () => {
+  it("모델이 선택되었을 때 onSelectModel을 호출한다", async () => {
     const onSelectModel = vi.fn()
 
     render(
@@ -42,7 +42,7 @@ describe("ChatModelMenu", () => {
     expect(onSelectModel).toHaveBeenCalledWith("o4")
   })
 
-  it("only renders supported reasoning efforts for the selected model", async () => {
+  it("선택된 모델에 대해 지원되는 추론 단계만 렌더링한다", async () => {
     render(
       <ChatModelMenu
         models={llmChatModels}

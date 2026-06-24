@@ -5,7 +5,7 @@ import { HitlInterruptCard } from "@/features/llm-chat/components/hitl/hitl-inte
 import { createHitlInterrupts } from "@/features/llm-chat/testing/fixtures"
 
 describe("HitlInterruptCard", () => {
-  it("renders flattened action requests and allowed decisions", () => {
+  it("평탄화된 액션 요청과 허용된 결정을 렌더링한다", () => {
     render(
       <HitlInterruptCard
         interrupts={createHitlInterrupts()}
@@ -17,7 +17,7 @@ describe("HitlInterruptCard", () => {
     expect(screen.getByRole("button", { name: /respond/i })).toBeInTheDocument()
   })
 
-  it("shows the editor when the edit decision is selected", async () => {
+  it("편집 결정이 선택되었을 때 에디터를 보여준다", async () => {
     render(
       <HitlInterruptCard
         interrupts={createHitlInterrupts()}
@@ -30,7 +30,7 @@ describe("HitlInterruptCard", () => {
     expect(screen.getByDisplayValue("send_email")).toBeInTheDocument()
   })
 
-  it("submits respond decisions with the typed message", async () => {
+  it("입력된 메시지와 함께 응답(respond) 결정을 제출한다", async () => {
     const onDecide = vi.fn()
 
     render(

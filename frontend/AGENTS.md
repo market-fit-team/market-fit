@@ -6,6 +6,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 <!-- END:nextjs-agent-rules -->
 
+## 검증
+검증을 할 때에 `npm run build`는 명시적으로 요구할 때만 하고 `npm run typecheck` 또는 `npx tsc -b`를 사용하고, .next는 사용자가 localhost:3000 으로 dev 서버를 실행중일 수 있으므로 이쪽을 불필요하게 수정하거나 검증하지 않는다.
+
 ## 전역 타입 헬퍼
 
 `Page` `Layout` `RouteHandlers`는 전역 타입 핼퍼를 사용한다. (PageProps, LayoutProps, RouteContext)

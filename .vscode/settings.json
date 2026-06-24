@@ -1,0 +1,13 @@
+{
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  // eslint에서 권장하는 방식이 있으면 저장 시에 반영합니다.
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": ["typescript", "typescriptreact"]
+}

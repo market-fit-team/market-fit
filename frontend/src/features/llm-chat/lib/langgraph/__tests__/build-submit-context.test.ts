@@ -4,7 +4,7 @@ import { buildSubmitInput } from "@/features/llm-chat/lib/langgraph/build-submit
 import { createToolPolicyState } from "@/features/llm-chat/testing/fixtures"
 
 describe("buildSubmitContext", () => {
-  it("maps model selection and tool policy into runtime context", () => {
+  it("모델 선택과 도구 정책을 런타임 컨텍스트에 매핑한다", () => {
     expect(
       buildSubmitContext(
         {
@@ -28,7 +28,7 @@ describe("buildSubmitContext", () => {
 })
 
 describe("buildSubmitInput", () => {
-  it("wraps text in a single HumanMessage", () => {
+  it("단일 HumanMessage로 텍스트를 감싼다", () => {
     const result = buildSubmitInput("안녕하세요")
 
     expect(result.messages).toHaveLength(1)

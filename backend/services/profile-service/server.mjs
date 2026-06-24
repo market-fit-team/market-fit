@@ -1,38 +1,105 @@
-// backend/profile-service/server.mjs
-// JWT verify via JWKS (remote)
-// - authentik exposes an OIDC JWKS endpoint for access token verification
-//   https://docs.goauthentik.io/add-secure-apps/providers/oauth2/
-// - jose Remote JWK Set + jwtVerify:
-//   https://github.com/panva/jose
+import express from "express";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import { z } from "zod";
 
-import express from "express"
-import { createRemoteJWKSet, jwtVerify } from "jose"
+const app = express();
+app.use(express.json());
 
-const app = express()
-app.use(express.json())
-
-const PORT = process.env.PORT || 3001
-
-const JWKS_URL = process.env.JWKS_URL // e.g. http://authentik-server:9000/application/o/pickle-web/jwks/
-const JWT_ISSUER = process.env.JWT_ISSUER // must match token "iss"
-const JWT_AUDIENCE = process.env.JWT_AUDIENCE // must match token "aud"
-const JWT_ALGS = (process.env.JWT_ALGS ?? "RS256")
+const PORT = Number(process.env.PORT || 3001);
+const JWKS_URL = process.env.JWKS_URL;
+const JWT_ISSUER = process.env.JWT_ISSUER;
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE;
+const JWT_ALGS = (process.env.JWT_ALGS || process.env.JWT_ALGORITHM || "RS256")
   .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean)
+  .map((value) => value.trim())
+  .filter(Boolean);
+const AUTHENTIK_API_URL = (
+  process.env.AUTHENTIK_API_URL || "http://authentik-server:9000/api/v3"
+).replace(/\/+$/, "");
+const AUTHENTIK_SERVICE_ROLE_KEY = process.env.AUTHENTIK_SERVICE_ROLE_KEY;
 
-if (!JWKS_URL || !JWT_ISSUER || !JWT_AUDIENCE) {
-  console.error("[profile-service] Missing env: JWKS_URL / JWT_ISSUER / JWT_AUDIENCE")
-  process.exit(1)
+if (!JWKS_URL || !JWT_ISSUER || !JWT_AUDIENCE || !AUTHENTIK_SERVICE_ROLE_KEY) {
+  console.error(
+    "[profile-service] Missing env: JWKS_URL / JWT_ISSUER / JWT_AUDIENCE / AUTHENTIK_SERVICE_ROLE_KEY",
+  );
+  process.exit(1);
 }
 
-const JWKS = createRemoteJWKSet(new URL(JWKS_URL))
+const jwks = createRemoteJWKSet(new URL(JWKS_URL));
+const profileFieldKeys = ["display_name", "age", "job", "avatar_seed"];
 
-function getBearer(req) {
-  const h = req.headers.authorization || ""
-  const m = h.match(/^Bearer\s+(.+)$/i)
-  return m?.[1]
-}
+const profileUpdateSchema = z
+  .object({
+    display_name: z.string().min(1).max(100).nullable().optional(),
+    age: z.number().int().min(0).max(150).nullable().optional(),
+    job: z.string().min(1).max(100).nullable().optional(),
+    avatar_seed: z.string().min(1).max(100).nullable().optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one profile field is required",
+  });
+
+const jwtUserProfileSchema = z.object({
+  uuid: z.string().uuid(),
+  display_name: z.string().nullable().optional(),
+  age: z.number().int().nullable().optional(),
+  job: z.string().nullable().optional(),
+  avatar_seed: z.string().nullable().optional(),
+});
+
+const isRecord = (value) =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const toNullableString = (value) => {
+  return typeof value === "string" ? value : null;
+};
+
+const toNullableInteger = (value) => {
+  return Number.isInteger(value) ? value : null;
+};
+
+const extractJwtUserProfile = (payload) => {
+  if (!isRecord(payload)) {
+    throw createHttpError(
+      400,
+      "INVALID_USER_PROFILE_CLAIMS",
+      "JWT payload is not an object",
+    );
+  }
+
+  const parsedUserProfile = jwtUserProfileSchema.safeParse(
+    payload.user_profile,
+  );
+  if (!parsedUserProfile.success) {
+    throw createHttpError(
+      400,
+      "INVALID_USER_PROFILE_CLAIMS",
+      "JWT does not contain a valid user_profile claim",
+      {
+        issues: parsedUserProfile.error.issues.map((issue) => ({
+          code: issue.code,
+          message: issue.message,
+          path: issue.path,
+        })),
+      },
+    );
+  }
+
+  return parsedUserProfile.data;
+};
+
+const buildProfileResponseFromAuthentikUser = (user) => {
+  const attributes = isRecord(user?.attributes) ? user.attributes : {};
+
+  return {
+    uuid: toNullableString(user?.uuid),
+    display_name: toNullableString(attributes.display_name),
+    age: toNullableInteger(attributes.age),
+    job: toNullableString(attributes.job),
+    avatar_seed: toNullableString(attributes.avatar_seed),
+  };
+};
 
 const profileOpenApiDocument = {
   openapi: "3.0.3",
@@ -42,43 +109,23 @@ const profileOpenApiDocument = {
   },
   tags: [{ name: "profile" }],
   paths: {
-    "/me": {
+    "/user-profile": {
       get: {
-        operationId: "getMe",
+        operationId: "getMyProfile",
         tags: ["profile"],
-        summary: "Get current user profile",
+        summary: "Read current profile directly from Authentik",
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
-            description: "Current user profile",
+            description: "Current profile",
             content: {
               "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["email"],
-                  properties: {
-                    email: { type: "string" },
-                    sub: { type: "string", nullable: true },
-                    iss: { type: "string", nullable: true },
-                    aud: {
-                      oneOf: [
-                        { type: "string" },
-                        {
-                          type: "array",
-                          items: { type: "string" },
-                        },
-                      ],
-                      nullable: true,
-                    },
-                    alg: { type: "string", nullable: true },
-                    kid: { type: "string", nullable: true },
-                  },
-                },
+                schema: { $ref: "#/components/schemas/ProfileResponse" },
               },
             },
           },
           400: {
-            description: "Invalid token payload",
+            description: "Invalid JWT profile claims",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -87,6 +134,63 @@ const profileOpenApiDocument = {
           },
           401: {
             description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+      patch: {
+        operationId: "patchMyProfile",
+        tags: ["profile"],
+        summary:
+          "Update current profile in authentik with JWT and service role key",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/ProfileUpdateRequest" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Updated profile",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ProfileResponse" },
+              },
+            },
+          },
+          400: {
+            description: "Invalid request body or JWT profile claims",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          404: {
+            description: "Authentik user not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          502: {
+            description: "Authentik upstream error",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -106,62 +210,307 @@ const profileOpenApiDocument = {
       },
     },
     schemas: {
+      ProfileResponse: {
+        type: "object",
+        required: ["uuid", "display_name", "age", "job", "avatar_seed"],
+        properties: {
+          uuid: {
+            type: "string",
+            format: "uuid",
+            nullable: true,
+          },
+          display_name: {
+            type: "string",
+            nullable: true,
+          },
+          age: {
+            type: "integer",
+            nullable: true,
+          },
+          job: {
+            type: "string",
+            nullable: true,
+          },
+          avatar_seed: {
+            type: "string",
+            nullable: true,
+          },
+        },
+      },
+      ProfileUpdateRequest: {
+        type: "object",
+        properties: {
+          display_name: {
+            type: "string",
+            nullable: true,
+          },
+          age: {
+            type: "integer",
+            nullable: true,
+          },
+          job: {
+            type: "string",
+            nullable: true,
+          },
+          avatar_seed: {
+            type: "string",
+            nullable: true,
+          },
+        },
+        additionalProperties: false,
+      },
       ErrorResponse: {
         type: "object",
         required: ["error"],
         properties: {
           error: { type: "string" },
           detail: { type: "string" },
+          issues: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                code: { type: "string" },
+                message: { type: "string" },
+                path: {
+                  type: "array",
+                  items: {
+                    anyOf: [{ type: "string" }, { type: "integer" }],
+                  },
+                },
+              },
+            },
+          },
         },
         additionalProperties: true,
       },
     },
   },
-}
+};
 
-app.get("/v3/api-docs", (_req, res) => {
-  res.json(profileOpenApiDocument)
-})
+const readJsonResponse = async (response) => {
+  const text = await response.text();
 
-app.get("/health", (_req, res) => res.json({ ok: true }))
+  if (!text) {
+    return null;
+  }
 
-app.get("/me", async (req, res) => {
   try {
-    const token = getBearer(req)
-    if (!token) return res.status(401).json({ error: "NO_BEARER" })
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+};
 
-    const { payload, protectedHeader } = await jwtVerify(token, JWKS, {
+const createHttpError = (status, error, detail, extra = {}) => {
+  return { status, body: { error, detail, ...extra } };
+};
+
+const getBearerToken = (authorizationHeader) => {
+  if (!authorizationHeader) {
+    return null;
+  }
+
+  const [scheme, token] = authorizationHeader.split(" ");
+  if (scheme !== "Bearer" || !token) {
+    return null;
+  }
+
+  return token;
+};
+
+const requireCurrentUserUuid = (payload) => {
+  return extractJwtUserProfile(payload).uuid;
+};
+
+const verifyAccessToken = async (authorizationHeader) => {
+  const accessToken = getBearerToken(authorizationHeader);
+  if (!accessToken) {
+    throw createHttpError(
+      401,
+      "NO_AUTH_HEADER",
+      "Authorization Bearer token is required",
+    );
+  }
+
+  try {
+    const { payload } = await jwtVerify(accessToken, jwks, {
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
-      algorithms: JWT_ALGS, // ✅ allowlist (don’t trust alg from token blindly)
-    })
+      algorithms: JWT_ALGS,
+    });
 
-    // authentik scope/property mappings에서 email을 넣는다는 가정
-    const email = payload.email
-    if (!email) return res.status(400).json({ error: "NO_EMAIL_IN_TOKEN", header: protectedHeader })
-
-    return res.json({
-      email,
-      sub: payload.sub,
-      iss: payload.iss,
-      aud: payload.aud,
-      alg: protectedHeader.alg,
-      kid: protectedHeader.kid,
-    })
-  } catch (e) {
-    return res.status(401).json({ error: "INVALID_TOKEN", detail: String(e?.message ?? e) })
+    return payload;
+  } catch (error) {
+    throw createHttpError(401, "INVALID_JWT", error.message);
   }
-})
+};
+
+const findAuthentikUserByUuid = async (userUuid) => {
+  const url = new URL(`${AUTHENTIK_API_URL}/core/users/`);
+  url.searchParams.set("uuid", userUuid);
+  url.searchParams.set("page_size", "1");
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${AUTHENTIK_SERVICE_ROLE_KEY}`,
+    },
+  });
+
+  const body = await readJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(
+      502,
+      "AUTHENTIK_USER_LOOKUP_FAILED",
+      `authentik lookup failed with status ${response.status}`,
+      { upstream: body },
+    );
+  }
+
+  const user = Array.isArray(body?.results) ? body.results[0] : null;
+  if (!user) {
+    throw createHttpError(
+      404,
+      "AUTHENTIK_USER_NOT_FOUND",
+      "authentik user was not found",
+    );
+  }
+
+  return user;
+};
+
+const patchAuthentikUser = async (pk, patchPayload) => {
+  const response = await fetch(`${AUTHENTIK_API_URL}/core/users/${pk}/`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${AUTHENTIK_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(patchPayload),
+  });
+
+  const body = await readJsonResponse(response);
+  if (!response.ok) {
+    throw createHttpError(
+      502,
+      "AUTHENTIK_USER_UPDATE_FAILED",
+      `authentik update failed with status ${response.status}`,
+      { upstream: body },
+    );
+  }
+
+  return body;
+};
+
+const authenticateRequest = async (req, res, next) => {
+  try {
+    res.locals.jwtPayload = await verifyAccessToken(req.headers.authorization);
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+app.get("/v3/api-docs", (_req, res) => {
+  res.json(profileOpenApiDocument);
+});
+
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
+app.get("/user-profile", authenticateRequest, async (req, res, next) => {
+  try {
+    const authentikUserUuid = requireCurrentUserUuid(res.locals.jwtPayload);
+    const user = await findAuthentikUserByUuid(authentikUserUuid);
+    res.json(buildProfileResponseFromAuthentikUser(user));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/user-profile", authenticateRequest, async (req, res, next) => {
+  try {
+    const jwtPayload = res.locals.jwtPayload;
+    const authentikUserUuid = requireCurrentUserUuid(jwtPayload);
+    const updateBody = profileUpdateSchema.parse(req.body);
+    const user = await findAuthentikUserByUuid(authentikUserUuid);
+    const currentAttributes = isRecord(user.attributes) ? user.attributes : {};
+    const nextAttributes = { ...currentAttributes };
+
+    // null을 보내면 해당 프로필 키를 삭제하고, 값이 있으면 덮어쓴다.
+    for (const key of profileFieldKeys) {
+      if (!(key in updateBody)) {
+        continue;
+      }
+
+      if (updateBody[key] === null) {
+        delete nextAttributes[key];
+        continue;
+      }
+
+      nextAttributes[key] = updateBody[key];
+    }
+
+    const updatedUser = await patchAuthentikUser(user.pk, {
+      attributes: nextAttributes,
+    });
+
+    res.json(buildProfileResponseFromAuthentikUser(updatedUser));
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return next(
+        createHttpError(
+          400,
+          "INVALID_PROFILE_UPDATE_BODY",
+          "Profile update body is invalid",
+          {
+            issues: error.issues.map((issue) => ({
+              code: issue.code,
+              message: issue.message,
+              path: issue.path,
+            })),
+          },
+        ),
+      );
+    }
+
+    next(error);
+  }
+});
+
+app.use((_req, res) => {
+  res.status(404).json({
+    error: "NOT_FOUND",
+  });
+});
+
+app.use((error, _req, res, _next) => {
+  const status = Number.isInteger(error?.status) ? error.status : 500;
+  const body = isRecord(error?.body)
+    ? error.body
+    : {
+        error: "INTERNAL_SERVER_ERROR",
+        detail: error?.message || "Unexpected error",
+      };
+
+  if (status >= 500) {
+    console.error("[profile-service] request failed", error);
+  }
+
+  res.status(status).json(body);
+});
 
 const server = app.listen(PORT, () => {
-  console.log(`[profile-service] listening on :${PORT}`)
-})
+  console.log(`[profile-service] listening on :${PORT}`);
+});
 
-// Docker 환경에서 Node.js가 PID 1로 실행될 때 SIGTERM 시그널을 기본적으로 무시하여
-// 컨테이너 종료(Recreate 등) 시 10초 타임아웃 대기가 발생하는 것을 방지하기 위한 핸들러입니다.
+// Docker 환경에서 PID 1로 실행될 때 종료 지연을 막기 위한 SIGTERM 핸들러다.
 process.on("SIGTERM", () => {
-  console.log("[profile-service] SIGTERM received. Shutting down gracefully...");
+  console.log(
+    "[profile-service] SIGTERM received. Shutting down gracefully...",
+  );
   server.close(() => {
     process.exit(0);
   });
-})
+});

@@ -28,10 +28,7 @@ jobs:
     if: >-
       ${{
         github.event.issue.pull_request &&
-        (
-          github.event.comment.body == '/code-review' ||
-          startsWith(github.event.comment.body, '/code-review ')
-        ) &&
+        startsWith(github.event.comment.body, '/code-review') &&
         (
           github.event.comment.author_association == 'OWNER' ||
           github.event.comment.author_association == 'MEMBER' ||
@@ -44,7 +41,7 @@ jobs:
 
     env:
       CODEX_MODEL: gpt-5.4
-      CODEX_REASONING_EFFORT: xhigh
+      CODEX_REASONING_EFFORT: high
 
     steps:
       # PR 번호, base 브랜치, head SHA 정보를 가져옴
@@ -67,8 +64,20 @@ jobs:
             core.setOutput('title', pr.title || '');
 
             const command = String(context.payload.comment.body || '');
-            const reviewRequest = command.replace(/^\/code-review\b/, '').trim();
+            if (!/^\/code-review(?:\s|$)/.test(command)) {
+              core.setFailed('잘못된 /code-review 명령 형식입니다.');
+              return;
+            }
+
+            const rawRequest = command.replace(/^\/code-review\b/, '').trimStart();
+            const continueContext = /^-c(?:\s|$)/.test(rawRequest);
+            const reviewRequest = continueContext
+              ? rawRequest.replace(/^-c(?:\s|$)/, '').trim()
+              : rawRequest.trim();
+
+            core.setOutput('continue_context', continueContext ? 'true' : 'false');
             core.setOutput('review_request', reviewRequest);
+            core.setOutput('trigger_comment_id', String(context.payload.comment.id));
 
       # 리뷰 시작을 PR 일반 댓글로 알리고, 나중에 같은 댓글을 계속 수정하기 위해 댓글 ID 저장
       - name: 리뷰 시작 댓글 작성
@@ -105,16 +114,23 @@ jobs:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
           BASE_REF: ${{ steps.pr.outputs.base_ref }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          CONTINUE_CONTEXT: ${{ steps.pr.outputs.continue_context }}
           REVIEW_REQUEST: ${{ steps.pr.outputs.review_request }}
+          TRIGGER_COMMENT_ID: ${{ steps.pr.outputs.trigger_comment_id }}
+          START_COMMENT_ID: ${{ steps.start-comment.outputs.comment_id }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           set -euo pipefail
 
           REVIEW_FILE="$RUNNER_TEMP/codex-inline-review-${PR_NUMBER}.json"
           CONTAINER_REVIEW_FILE="/tmp/codex-inline-review-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          COMMENT_CONTEXT_FILE="/tmp/codex-review-comment-context-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.txt"
           WORKTREE="/tmp/codex-review-worktree-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           PROMPT_FILE="/tmp/codex-review-prompt-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.txt"
           SCHEMA_FILE="/tmp/codex-review-schema-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          BASE_REVIEW_REF="refs/remotes/origin/codex-base-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           PR_REF="refs/remotes/origin/codex-pr-${PR_NUMBER}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
           echo "REVIEW_FILE=$REVIEW_FILE" >> "$GITHUB_ENV"
@@ -130,15 +146,22 @@ jobs:
             -e PR_NUMBER="$PR_NUMBER" \
             -e BASE_REF="$BASE_REF" \
             -e HEAD_SHA="$HEAD_SHA" \
+            -e CONTINUE_CONTEXT="$CONTINUE_CONTEXT" \
             -e REVIEW_REQUEST="$REVIEW_REQUEST" \
+            -e TRIGGER_COMMENT_ID="$TRIGGER_COMMENT_ID" \
+            -e START_COMMENT_ID="$START_COMMENT_ID" \
+            -e REPO_OWNER="$REPO_OWNER" \
+            -e REPO_NAME="$REPO_NAME" \
             -e GITHUB_RUN_ID="$GITHUB_RUN_ID" \
             -e GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
             -e CODEX_MODEL="$CODEX_MODEL" \
             -e CODEX_REASONING_EFFORT="$CODEX_REASONING_EFFORT" \
             -e CONTAINER_REVIEW_FILE="$CONTAINER_REVIEW_FILE" \
+            -e COMMENT_CONTEXT_FILE="$COMMENT_CONTEXT_FILE" \
             -e WORKTREE="$WORKTREE" \
             -e PROMPT_FILE="$PROMPT_FILE" \
             -e SCHEMA_FILE="$SCHEMA_FILE" \
+            -e BASE_REVIEW_REF="$BASE_REVIEW_REF" \
             -e PR_REF="$PR_REF" \
             code-server sh -s <<'CONTAINER_SCRIPT'
           set -eu
@@ -147,8 +170,9 @@ jobs:
 
           cleanup() {
             git -C "$REPO_DIR" worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
+            git -C "$REPO_DIR" update-ref -d "$BASE_REVIEW_REF" >/dev/null 2>&1 || true
             git -C "$REPO_DIR" update-ref -d "$PR_REF" >/dev/null 2>&1 || true
-            rm -f "$PROMPT_FILE" "$SCHEMA_FILE" >/dev/null 2>&1 || true
+            rm -f "$PROMPT_FILE" "$SCHEMA_FILE" "$COMMENT_CONTEXT_FILE" >/dev/null 2>&1 || true
           }
 
           trap cleanup EXIT
@@ -158,16 +182,17 @@ jobs:
           # 기존 code-server 작업 브랜치/변경사항은 건드리지 않고, PR 코드만 임시 worktree에 분리
           git worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
           git worktree prune >/dev/null 2>&1 || true
+          git update-ref -d "$BASE_REVIEW_REF" >/dev/null 2>&1 || true
           git update-ref -d "$PR_REF" >/dev/null 2>&1 || true
-          rm -f "$CONTAINER_REVIEW_FILE"
+          rm -f "$CONTAINER_REVIEW_FILE" "$COMMENT_CONTEXT_FILE"
 
-          # base 브랜치 최신 상태 가져오기
+          # 공유 origin/main 같은 tracking ref를 건드리지 않고, 리뷰용 base ref만 가져온다.
           git fetch "https://x-access-token:${GH_TOKEN}@github.com/market-fit-team/market-fit.git" \
-            "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+            "+${BASE_REF}:${BASE_REVIEW_REF}"
 
           # PR head를 임시 ref로 가져오기
           git fetch "https://x-access-token:${GH_TOKEN}@github.com/market-fit-team/market-fit.git" \
-            "pull/${PR_NUMBER}/head:${PR_REF}"
+            "+pull/${PR_NUMBER}/head:${PR_REF}"
 
           # 리뷰 시작 후 새 커밋이 push되었다면 서로 다른 SHA의 diff와 API payload를 섞지 않는다.
           # 사용자가 최신 커밋에서 /code-review를 다시 실행하도록 명시적으로 실패시킨다.
@@ -182,6 +207,150 @@ jobs:
 
           cd "$WORKTREE"
 
+          NODE_BIN="/home/coder/.config/nvm/versions/node/v24.15.0/bin/node"
+          CODEX_CLI="/home/coder/.config/nvm/versions/node/v24.15.0/bin/codex"
+
+          # -c 옵션이 있으면 기존 PR 대화 전체를 시간순으로 모아 프롬프트에 추가한다.
+          if [ "${CONTINUE_CONTEXT:-false}" = "true" ]; then
+            "$NODE_BIN" <<'NODE' > "$COMMENT_CONTEXT_FILE"
+            const repoOwner = process.env.REPO_OWNER;
+            const repoName = process.env.REPO_NAME;
+            const prNumber = process.env.PR_NUMBER;
+            const ghToken = process.env.GH_TOKEN;
+            const triggerCommentId = Number(process.env.TRIGGER_COMMENT_ID || '0');
+            const startCommentId = Number(process.env.START_COMMENT_ID || '0');
+
+            async function githubPaginate(path) {
+              const items = [];
+              let page = 1;
+
+              while (true) {
+                const url = new URL(`https://api.github.com${path}`);
+                url.searchParams.set('per_page', '100');
+                url.searchParams.set('page', String(page));
+
+                const response = await fetch(url, {
+                  headers: {
+                    Accept: 'application/vnd.github+json',
+                    Authorization: `Bearer ${ghToken}`,
+                    'X-GitHub-Api-Version': '2022-11-28',
+                  },
+                });
+
+                if (!response.ok) {
+                  throw new Error(`GitHub API 요청 실패: ${response.status} ${response.statusText} ${path}`);
+                }
+
+                const pageItems = await response.json();
+                if (!Array.isArray(pageItems) || pageItems.length === 0) {
+                  break;
+                }
+
+                items.push(...pageItems);
+
+                if (pageItems.length < 100) {
+                  break;
+                }
+
+                page += 1;
+              }
+
+              return items;
+            }
+
+            function cleanText(text) {
+              return String(text || '').replace(/\r\n/g, '\n').trim();
+            }
+
+            function pushEntry(entries, entry) {
+              if (!entry.body) {
+                return;
+              }
+
+              entries.push(entry);
+            }
+
+            (async () => {
+              const repoBasePath = `/repos/${repoOwner}/${repoName}`;
+              const [issueComments, reviews, reviewComments] = await Promise.all([
+                githubPaginate(`${repoBasePath}/issues/${prNumber}/comments`),
+                githubPaginate(`${repoBasePath}/pulls/${prNumber}/reviews`),
+                githubPaginate(`${repoBasePath}/pulls/${prNumber}/comments`),
+              ]);
+
+              const entries = [];
+
+              for (const comment of issueComments) {
+                const commentId = Number(comment.id || '0');
+                if (commentId === triggerCommentId || commentId === startCommentId) {
+                  continue;
+                }
+
+                pushEntry(entries, {
+                  kind: '일반 댓글',
+                  author: comment.user?.login || 'unknown',
+                  createdAt: comment.created_at || '',
+                  meta: '',
+                  body: cleanText(comment.body),
+                });
+              }
+
+              for (const review of reviews) {
+                pushEntry(entries, {
+                  kind: '리뷰 요약',
+                  author: review.user?.login || 'unknown',
+                  createdAt: review.submitted_at || review.created_at || '',
+                  meta: review.state || '',
+                  body: cleanText(review.body),
+                });
+              }
+
+              for (const comment of reviewComments) {
+                const lineInfo = comment.line || comment.original_line || '?';
+                pushEntry(entries, {
+                  kind: '인라인 댓글',
+                  author: comment.user?.login || 'unknown',
+                  createdAt: comment.created_at || '',
+                  meta: `${comment.path || 'unknown'}:${lineInfo}`,
+                  body: cleanText(comment.body),
+                });
+              }
+
+              entries.sort((left, right) => {
+                if (left.createdAt !== right.createdAt) {
+                  return left.createdAt.localeCompare(right.createdAt);
+                }
+
+                if (left.kind !== right.kind) {
+                  return left.kind.localeCompare(right.kind);
+                }
+
+                return left.author.localeCompare(right.author);
+              });
+
+              const lines = [];
+              for (const entry of entries) {
+                const header = [`[${entry.kind}]`, entry.author];
+                if (entry.meta) {
+                  header.push(entry.meta);
+                }
+                if (entry.createdAt) {
+                  header.push(entry.createdAt);
+                }
+
+                lines.push(header.join(' / '));
+                lines.push(entry.body);
+                lines.push('');
+              }
+
+              process.stdout.write(lines.join('\n').trim());
+            })().catch((error) => {
+              console.error(error);
+              process.exit(1);
+            });
+          NODE
+          fi
+
           # heredoc 종료자는 YAML 들여쓰기 제거 후 반드시 열 0에 있어야 한다.
           cat > "$SCHEMA_FILE" <<'JSON_SCHEMA'
           {
@@ -194,7 +363,7 @@ jobs:
               },
               "review_event": {
                 "type": "string",
-                "enum": ["APPROVE", "REQUEST_CHANGES", "COMMENT"]
+                "enum": ["APPROVE", "COMMENT"]
               },
               "failure_reason": {
                 "type": "string"
@@ -263,26 +432,42 @@ jobs:
 
           # Codex에게 GitHub inline review에 바로 쓸 수 있는 JSON만 만들게 함
           cat > "$PROMPT_FILE" <<PROMPT
-          origin/${BASE_REF}...HEAD 범위의 머지될 변경사항만 코드리뷰해줘.
+          ${BASE_REVIEW_REF}...HEAD 범위의 머지될 변경사항만 코드리뷰해줘.
 
+          ***
           사용자 메시지:
           ${REVIEW_REQUEST:-추가 요청 없음}
+          ***
+          PROMPT
+
+          if [ -s "$COMMENT_CONTEXT_FILE" ]; then
+            {
+              printf '\n***\n'
+              printf '기존 PR 대화 맥락:\n'
+              cat "$COMMENT_CONTEXT_FILE"
+              printf '\n***\n\n'
+            } >> "$PROMPT_FILE"
+          fi
+
+          cat >> "$PROMPT_FILE" <<PROMPT
 
           위 사용자 메시지는 /code-review 명령을 실행한 사용자가 직접 작성한 리뷰 요청이다.
+          기존 PR 대화 맥락이 제공되면 이전 논의 흐름으로 참고하되, 최종 리뷰 판단은 현재 diff 기준으로 내려야 한다.
           추가 요청이 있다면 리뷰 범위, 우선순위, 관점에 반드시 반영하고 해당 요청을 따라야 한다.
           단, 아래의 필수 리뷰 규칙과 JSON 출력 형식은 항상 유지해야 한다.
 
           시스템 리뷰 정책:
+          - review_event는 반드시 APPROVE 또는 COMMENT 중 하나만 써. 다른 GitHub review event는 쓰지 마.
           - 심각한 수준의 문제나 소프트웨어 회귀가 없으면 반드시 review_event를 APPROVE로 써.
           - 심각한 수준의 문제는 보안 취약점, 데이터 손실, 인증/권한 우회, 서비스 장애, 기존 정상 동작의 명백한 회귀, 배포 차단급 버그를 뜻해.
-          - 심각한 수준의 문제나 소프트웨어 회귀가 있으면 review_event를 REQUEST_CHANGES로 써.
+          - 심각한 수준의 문제나 소프트웨어 회귀가 있으면 review_event를 COMMENT로 쓰고, 문제와 수정 제안을 inline comment 또는 전체 리뷰에 남겨.
           - 사소한 개선의견, 우선순위 낮음, 우선순위 보통 수준의 지적은 inline comment로 남기더라도 APPROVE를 유지해.
-          - COMMENT는 리뷰를 완료했지만 승인 또는 변경요청 어느 쪽으로도 판단하기 어려운 예외 상황에서만 써.
+          - COMMENT는 심각한 수준의 문제나 소프트웨어 회귀가 있거나, 리뷰를 완료했지만 승인하기 어려운 예외 상황에서만 써.
 
           중요:
-          - 빌드, 테스트, 실행은 하지 마.
-          - 코드와 git diff만 읽고 리뷰해.
-          - 변경사항 밖의 코드는 맥락 확인용으로만 참고해.
+          - 빌드, 테스트, 실행, 정적 검증은 하지 마.
+          - 코드와 git diff를 중심으로 읽고 리뷰해. 기존 PR 대화 맥락이 제공되면 함께 참고해.
+          - 소프트웨어 회귀와 버그 의심지점이 발생했을 때에 변경사항 외의 주변 코드와 핵심 로직들을 적은 범위에서 참고해도 돼.
           - 파일 경로는 반드시 repository root 기준 상대경로로 써. 예: backend/app.py
           - /home/coder, /tmp, 절대경로는 절대 쓰지 마.
           - inline comment의 line은 GitHub PR diff에 존재하는 실제 라인 번호만 써.
@@ -301,13 +486,13 @@ jobs:
           - 정확한 수정안을 제시하기 어렵고 설명만 필요한 리뷰는 suggestion을 null로 써.
           - suggestion은 선택한 한 줄 또는 start_line부터 line까지의 전체 범위를 통째로 대체한다는 점을 고려해.
           - comments가 없으면 빈 배열로 둬.
-          - 반드시 git diff origin/${BASE_REF}...HEAD를 직접 읽은 뒤에만 review_status를 completed로 써.
+          - 반드시 git diff ${BASE_REVIEW_REF}...HEAD를 직접 읽은 뒤에만 review_status를 completed로 써.
           - 저장소나 diff를 읽지 못했으면 review_status를 blocked로 쓰고 failure_reason에 원인을 적어.
           - 최종 출력은 JSON만. 마크다운 코드블록 금지.
 
           JSON 필드:
           - review_status: 리뷰를 실제 수행했으면 completed, 수행하지 못했으면 blocked
-          - review_event: GitHub Pull Request Review event. 심각한 문제나 소프트웨어 회귀가 없으면 APPROVE, 있으면 REQUEST_CHANGES, 예외 상황이면 COMMENT
+          - review_event: GitHub Pull Request Review event. APPROVE 또는 COMMENT만 허용. 심각한 문제나 소프트웨어 회귀가 없으면 APPROVE. APPROVE를 남기더라도 inline comment와 suggestion으로 변경사항을 제안할 수 있다.
           - failure_reason: completed이면 빈 문자열, blocked이면 실패 원인
           - pr_title: "type: ..." 형식의 명사형 종결어미 PR 제목. (type은 feat, fix, chore, docs, refactor, test, ui 중 하나)
           - pr_detail: 전체 변경사항 상세한 PR 문서. 한국어. 항상 친절한 문체로 모든 변경사항에 대해 코드블럭과 함께 매우 상세하게 적고, 이모지도 많이 적고, 매우 길고 상세하게 적는다.
@@ -317,9 +502,6 @@ jobs:
 
           # PR 코드의 지침이 GitHub 토큰에 접근하지 못하게 fetch 이후 환경에서 제거한다.
           unset GH_TOKEN
-
-          NODE_BIN="/home/coder/.config/nvm/versions/node/v24.15.0/bin/node"
-          CODEX_CLI="/home/coder/.config/nvm/versions/node/v24.15.0/bin/codex"
 
           "$NODE_BIN" "$CODEX_CLI" exec \
             --sandbox danger-full-access \
@@ -428,17 +610,21 @@ jobs:
                 }
               }
 
+              const allowedReviewEvents = ['APPROVE', 'COMMENT'];
+
               if (
                 !parsed ||
                 !['completed', 'blocked'].includes(parsed.review_status) ||
-                !['APPROVE', 'REQUEST_CHANGES', 'COMMENT'].includes(parsed.review_event) ||
+                !allowedReviewEvents.includes(parsed.review_event) ||
                 typeof parsed.failure_reason !== 'string' ||
                 typeof parsed.pr_title !== 'string' ||
                 typeof parsed.pr_detail !== 'string' ||
                 typeof parsed.overall_review !== 'string' ||
                 !Array.isArray(parsed.comments)
               ) {
-                throw new Error('Codex JSON 필수 필드 검증 실패');
+                throw new Error(
+                  `Codex JSON 필수 필드 검증 실패: review_event=${String(parsed?.review_event || 'unknown')}`
+                );
               }
 
               if (parsed.review_status !== 'completed') {

@@ -88,10 +88,10 @@ app.get("/echo", async (req, res) => {
   const auth = req.headers.authorization
   if (!auth) return res.status(401).json({ error: "NO_AUTH_HEADER" })
 
-  const r = await fetch(`${PROFILE_BASE_URL}/me`, {
+  const r = await fetch(`${PROFILE_BASE_URL}/user-profile`, {
     method: "GET",
     headers: {
-      // ✅ JWT 그대로 전달
+      // JWT를 그대로 전달해 profile-service가 동일한 사용자 컨텍스트를 조회하도록 한다.
       Authorization: auth,
     },
   })

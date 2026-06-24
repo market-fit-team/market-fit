@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { ChatComposerTextarea } from "@/features/llm-chat/components/composer/chat-composer-textarea"
 
 describe("ChatComposerTextarea", () => {
-  it("submits on Enter without Shift", () => {
+  it("Shift 없이 Enter를 누르면 제출된다", () => {
     const onSubmit = vi.fn()
 
     render(
@@ -22,7 +22,7 @@ describe("ChatComposerTextarea", () => {
     expect(onSubmit).toHaveBeenCalled()
   })
 
-  it("does not submit on Shift+Enter", () => {
+  it("Shift+Enter를 누르면 제출되지 않는다", () => {
     const onSubmit = vi.fn()
 
     render(

@@ -10,7 +10,7 @@ import {
 } from "@/features/llm-chat/testing/fixtures"
 
 describe("SdkMessageItem", () => {
-  it("renders reasoning separately from answer text", () => {
+  it("답변 텍스트와 별도로 추론 과정을 렌더링한다", () => {
     const message = createReasoningMessage()
 
     render(
@@ -22,7 +22,7 @@ describe("SdkMessageItem", () => {
     expect(screen.getByText("최종 답변")).toBeInTheDocument()
   })
 
-  it("renders user messages with the correct label", () => {
+  it("올바른 라벨과 함께 사용자 메시지를 렌더링한다", () => {
     const message = createUserMessage()
 
     render(
@@ -33,7 +33,7 @@ describe("SdkMessageItem", () => {
     expect(screen.getByText("사용자 질문")).toBeInTheDocument()
   })
 
-  it("does not render tool messages directly", () => {
+  it("도구 메시지를 직접 렌더링하지 않는다", () => {
     const { container } = render(
       <SdkMessageItem
         message={createToolMessage()}
@@ -45,7 +45,7 @@ describe("SdkMessageItem", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("pairs AI tool calls with assembled results", () => {
+  it("조합된 결과와 AI 도구 호출을 연결한다", () => {
     const message = createToolAiMessage()
 
     render(

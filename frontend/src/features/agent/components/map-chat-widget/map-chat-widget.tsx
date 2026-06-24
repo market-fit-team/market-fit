@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { FileText, Send, Sparkles, X } from "lucide-react"
+import { FileText, Send } from "lucide-react"
 import {
   buildMapChatReply,
   initialMapChatMessage,
@@ -11,26 +11,16 @@ import {
 import { useChatStore } from "@/features/agent/store/chat-store"
 import type { DistrictData } from "@/features/startup/lib/data"
 import { Button } from "@/shared/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/shared/components/ui/card"
+import { CardContent, CardFooter } from "@/shared/components/ui/card"
 import { Input } from "@/shared/components/ui/input"
 
 type MapChatWidgetProps = {
-  onClose: () => void
   selectedTradeArea: DistrictData | null
 }
 
 // MapChatWidget은 지도 페이지에 붙는 에이전트 채팅 UI다.
-// 지도 스토어를 직접 불러오지 않고 필요한 지도 맥락만 속성으로 받는다.
-export function MapChatWidget({
-  onClose,
-  selectedTradeArea,
-}: MapChatWidgetProps) {
+// 지도 스토어를 직접 불러오지 않고 헤더와 지도 맥락만 속성으로 받는다.
+export function MapChatWidget({ selectedTradeArea }: MapChatWidgetProps) {
   const router = useRouter()
   const [chatInput, setChatInput] = useState("")
   const addMessage = useChatStore((state) => state.addMessage)
@@ -75,17 +65,7 @@ export function MapChatWidget({
   }
 
   return (
-    <Card className="h-full gap-0 overflow-hidden py-0">
-      <CardHeader className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-4">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <CardTitle className="text-sm">AI 상권 분석 상담원</CardTitle>
-        </div>
-        <Button type="button" variant="ghost" size="icon-sm" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-
+    <>
       <CardContent className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4 text-xs">
         {messages.map((message, index) => (
           <div
@@ -165,9 +145,9 @@ export function MapChatWidget({
           className="w-full gap-1.5"
         >
           <FileText className="h-3.5 w-3.5 text-primary" />
-          <span>상권 리포트 작성</span>
+          <span>AI 리포트 작성</span>
         </Button>
       </CardFooter>
-    </Card>
+    </>
   )
 }

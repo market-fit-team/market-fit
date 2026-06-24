@@ -1,26 +1,23 @@
 import type {
   BudgetRange,
+  DongCode,
   TargetDemographic,
-  TradeAreaId,
 } from "@/features/map/types/map"
-import { districtsData, personaResults } from "@/features/startup/lib/data"
+import { districtsData } from "@/features/startup/lib/data"
 
 type FilteredTradeAreaInput = {
-  activePersona: string | null
   budgetRange: BudgetRange
-  recommendationsOnly: boolean
   selectedCategory: string
   targetDemographic: TargetDemographic
 }
 
 // 선택자 유틸은 필터링 규칙이 위젯과 스토어 조각에 흩어지지 않게 한다.
-export const getSelectedTradeArea = (selectedTradeAreaId: TradeAreaId | null) =>
-  districtsData.find((district) => district.id === selectedTradeAreaId) ?? null
+// 상권 데이터는 행정동 코드를 id로 쓰므로 선택된 동 코드로 바로 조회한다.
+export const getSelectedTradeArea = (selectedDongCode: DongCode | null) =>
+  districtsData.find((district) => district.id === selectedDongCode) ?? null
 
 export const getFilteredTradeAreas = ({
-  activePersona,
   budgetRange,
-  recommendationsOnly,
   selectedCategory,
   targetDemographic,
 }: FilteredTradeAreaInput) =>
@@ -62,17 +59,6 @@ export const getFilteredTradeAreas = ({
         targetDemographic === "50" &&
         dominantAge.ageGroup !== "40대" &&
         dominantAge.ageGroup !== "50대 이상"
-      ) {
-        return false
-      }
-    }
-
-    if (recommendationsOnly && activePersona) {
-      const personaInfo = personaResults[activePersona]
-
-      if (
-        personaInfo &&
-        !personaInfo.recommendedDistricts.includes(district.id)
       ) {
         return false
       }

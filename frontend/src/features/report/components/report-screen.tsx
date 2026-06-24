@@ -43,7 +43,7 @@ type SavedReport = {
 function ReportContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const districtId = searchParams.get("district") || "gangnam"
+  const districtId = searchParams.get("district") || "1123064" // 기본값: 강남
   const district =
     districtsData.find((d) => d.id === districtId) || districtsData[0]
   const [isSaved, setIsSaved] = useState(false)

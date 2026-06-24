@@ -1,0 +1,69 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# FastAPI / Python runtime
+*.log
+logs/
+*.pid
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.cache/
+
+# Type checker / linter
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# uv
+.uv-cache/
+.temp-*/
+
+# Model artifacts
+.artifacts/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# SQLite / local DB
+*.sqlite
+*.sqlite3
+*.db
+
+# Uploads / local storage
+uploads/
+media/
+storage/
+
+# Docker local override
+docker-compose.override.yml

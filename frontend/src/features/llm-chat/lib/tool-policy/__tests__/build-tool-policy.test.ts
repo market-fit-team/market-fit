@@ -7,7 +7,7 @@ import {
 } from "@/features/llm-chat/testing/fixtures"
 
 describe("buildToolPolicy", () => {
-  it("marks allowed tools as auto and others as review", () => {
+  it("허용된 도구는 auto로, 나머지는 review로 표시한다", () => {
     const policy = buildToolPolicy(llmChatTools, new Set(["search_web"]))
 
     expect(policy.allowedTools).toEqual(["search_web"])
@@ -17,7 +17,7 @@ describe("buildToolPolicy", () => {
     })
   })
 
-  it("ignores unknown allowed tool names", () => {
+  it("알려지지 않은 허용 도구 이름은 무시한다", () => {
     const policy = buildToolPolicy(llmChatTools, new Set(["missing"]))
 
     expect(policy.allowedTools).toEqual([])
@@ -26,15 +26,15 @@ describe("buildToolPolicy", () => {
 })
 
 describe("buildToolPolicySummary", () => {
-  it("formats auto/review counts", () => {
+  it("auto/review 개수를 포맷팅한다", () => {
     expect(buildToolPolicySummary(2, 1)).toBe("1 auto / 1 review")
   })
 
-  it("never returns a negative review count", () => {
+  it("review 개수가 음수가 되지 않도록 한다", () => {
     expect(buildToolPolicySummary(1, 3)).toBe("3 auto / 0 review")
   })
 
-  it("keeps the derived summary in the fixture helper aligned", () => {
+  it("fixture 헬퍼에서 파생된 요약이 정렬되도록 유지한다", () => {
     expect(createToolPolicyState().summary).toBe("1 auto / 1 review")
   })
 })

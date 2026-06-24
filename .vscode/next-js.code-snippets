@@ -1,0 +1,32 @@
+{
+  "TSX Function Component named Export": {
+    "prefix": "tfce",
+    "body": [
+      "export function ${TM_FILENAME_BASE/(.+)/${1:/pascalcase}/}() {",
+      "  return <div>${TM_FILENAME_BASE/(.+)/${1:/pascalcase}/}</div>;",
+      "}",
+    ],
+    "description": "TSX Function Component named Export with File Name for TypeScript",
+  },
+  "TSX Function Component for Next.js Page (w)ith Dynamic Params": {
+    "prefix": "tfcw",
+    "body": [
+      "export default async function Page({",
+      "  params,",
+      "  searchParams,",
+      "}: PageProps<\"${1:${TM_DIRECTORY/.*src[\\\\/]app(.*)/$1/}}\">) {",
+      "  const routeParams = await params;",
+      "  const query = await searchParams;",
+      "",
+      "  return (",
+      "    <div>",
+      "      <h1>Page Component</h1>",
+      "      <pre>{JSON.stringify(routeParams, null, 2)}</pre>",
+      "      <pre>{JSON.stringify(query, null, 2)}</pre>",
+      "    </div>",
+      "  );",
+      "}",
+    ],
+    "description": "TSX Function Component with Directory Name for Next.js 15.5 App Router",
+  },
+}

@@ -40,14 +40,14 @@ export interface PersonaResult {
   desc: string
   accentColor: string
   recommendedSectors: string[]
-  recommendedDistricts: string[] // DistrictData.id 참조
+  recommendedDistricts: string[] // DistrictData.id(행정동 코드) 참조
   franchises: string[]
 }
 
 // 1. 상권 데이터
 export const districtsData: DistrictData[] = [
   {
-    id: "gangnam",
+    id: "1123064", // 강남역 상권 행정동 코드
     nameKo: "강남역 상권",
     nameEn: "Gangnam Station",
     desc: "서울 최대의 오피스 및 상업 지구로, 20-30대 직장인과 대학생 유동인구가 압도적입니다. 높은 임대료와 치열한 경쟁이 특징이나 절대적인 배후 수요가 보장됩니다.",
@@ -96,7 +96,7 @@ export const districtsData: DistrictData[] = [
     ],
   },
   {
-    id: "mapo",
+    id: "1123051", // 지도 표시용 강남구 신사동 코드
     nameKo: "홍대/합정 상권",
     nameEn: "Hongdae/Hapjeong",
     desc: "젊은 층과 외국인 관광객의 비중이 매우 높은 문화/예술 중심의 상권입니다. 트렌드 변화가 극도로 빠르며, 감성적인 인테리어와 독창적인 F&B 아이템이 유효합니다.",
@@ -145,7 +145,7 @@ export const districtsData: DistrictData[] = [
     ],
   },
   {
-    id: "seongdong",
+    id: "1123078", // 지도 표시용 강남구 청담동 코드
     nameKo: "성수역 상권",
     nameEn: "Seongsu-dong",
     desc: "최근 가장 핫한 팝업 스토어 및 리테일 상권입니다. 붉은 벽돌의 공장형 카페와 힙한 브랜드 쇼룸이 혼재되어 있으며 주말 유동인구가 평일을 상회하는 복합 상권입니다.",
@@ -199,7 +199,7 @@ export const districtsData: DistrictData[] = [
     ],
   },
   {
-    id: "jongno",
+    id: "1123060", // 지도 표시용 강남구 대치1동 코드
     nameKo: "종로3가 상권",
     nameEn: "Jongno 3-ga",
     desc: "기존 장년층 중심의 유동인구에서 최근 '익선동', '서순라길' 등으로 젊은 세대의 유입이 급격하게 늘어난 신구 조화형 상권입니다. 전통 상권의 안정감과 트렌드가 공존합니다.",
@@ -248,7 +248,7 @@ export const districtsData: DistrictData[] = [
     ],
   },
   {
-    id: "itaewon",
+    id: "1123077", // 지도 표시용 강남구 압구정동 코드
     nameKo: "이태원/경리단 상권",
     nameEn: "Itaewon/Gyeongridan",
     desc: "외국 문화가 융합된 이국적인 먹거리와 개성 강한 펍이 발달했습니다. 금요일/주말 야간 영업 매출 비중이 매우 크며, 글로벌 테마나 F&B 바이어들의 밀집도가 높습니다.",
@@ -393,7 +393,7 @@ export const personaResults: Record<string, PersonaResult> = {
       "무인 가맹점",
       "테이크아웃 주스/에이드",
     ],
-    recommendedDistricts: ["mapo", "itaewon"],
+    recommendedDistricts: ["1123051", "1123077"],
     franchises: ["연돈볼카츠", "프랭크버거", "마라탕 브랜드"],
   },
   BALANCED: {
@@ -406,7 +406,7 @@ export const personaResults: Record<string, PersonaResult> = {
       "캐주얼 일식/돈까스",
       "대중 한식/국밥",
     ],
-    recommendedDistricts: ["gangnam", "jongno"],
+    recommendedDistricts: ["1123064", "1123060"],
     franchises: ["메가커피", "백소정", "이디야커피"],
   },
   PREMIUM: {
@@ -419,7 +419,7 @@ export const personaResults: Record<string, PersonaResult> = {
       "프리미엄 다이닝/와인바",
       "셀프 스튜디오/쇼룸",
     ],
-    recommendedDistricts: ["seongdong", "mapo"],
+    recommendedDistricts: ["1123078", "1123051"],
     franchises: ["아우어베이커리", "하루필름", "올리브영"],
   },
 }

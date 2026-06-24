@@ -5,7 +5,7 @@ import { ToolPolicyList } from "@/features/llm-chat/components/tool-policy/tool-
 import { llmChatTools } from "@/features/llm-chat/testing/fixtures"
 
 describe("ToolPolicyList", () => {
-  it("renders one row per tool", () => {
+  it("도구당 하나의 행을 렌더링한다", () => {
     render(
       <ToolPolicyList
         tools={llmChatTools}
@@ -18,7 +18,7 @@ describe("ToolPolicyList", () => {
     expect(screen.getByText("send_email")).toBeInTheDocument()
   })
 
-  it("passes the clicked tool name to onToggleTool", async () => {
+  it("클릭된 도구 이름을 onToggleTool에 전달한다", async () => {
     const onToggleTool = vi.fn()
 
     render(

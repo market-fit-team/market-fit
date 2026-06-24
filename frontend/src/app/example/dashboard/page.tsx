@@ -14,7 +14,7 @@ export default async function DashboardPage() {
     <main>
       <h1>Dashboard</h1>
       <p>
-        Welcome, <b>{session.user.name}</b>
+        Welcome, <b>{session.user.displayName}</b>
       </p>
       <pre>{JSON.stringify(session, null, 2)}</pre>
     </main>

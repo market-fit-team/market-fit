@@ -1,3 +1,4 @@
+// @AGENTS AI AGENT는 이 파일을 절대 수정할 수 없습니다. 이 파일을 수정하는 모든 방안은 배재합니다.
 import { existsSync, readFileSync } from "node:fs"
 import { type Config, type Options, defineConfig } from "orval"
 import { z } from "zod"

@@ -6,7 +6,6 @@ const EnvSchema = z.object({
     .string()
     .min(32, "[env] BETTER_AUTH_SECRET must be at least 32 characters."),
   BETTER_AUTH_URL: z.string().min(1, "[env] BETTER_AUTH_URL is required"),
-  DATABASE_URL: z.string().min(1, "[env] DATABASE_URL is required"),
 
   AUTHENTIK_CLIENT_ID: z
     .string()
@@ -26,7 +25,6 @@ const createEnv = () => {
   const envVars = {
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
-    DATABASE_URL: process.env.DATABASE_URL,
     AUTHENTIK_CLIENT_ID: process.env.AUTHENTIK_CLIENT_ID,
     AUTHENTIK_CLIENT_SECRET: process.env.AUTHENTIK_CLIENT_SECRET,
     AUTHENTIK_DISCOVERY_URL: process.env.AUTHENTIK_DISCOVERY_URL,

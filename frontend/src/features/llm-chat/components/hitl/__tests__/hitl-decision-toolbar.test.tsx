@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event"
 import { HitlDecisionToolbar } from "@/features/llm-chat/components/hitl/hitl-decision-toolbar"
 
 describe("HitlDecisionToolbar", () => {
-  it("shows only allowed decision buttons", () => {
+  it("허용된 결정 버튼만 보여준다", () => {
     render(
       <HitlDecisionToolbar
         activeDecision="approve"
@@ -20,7 +20,7 @@ describe("HitlDecisionToolbar", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("calls onSelect when a button is clicked", async () => {
+  it("버튼이 클릭되었을 때 onSelect를 호출한다", async () => {
     const onSelect = vi.fn()
 
     render(
