@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import holidays
 import numpy as np
 import pandas as pd
+
+# 한국 공휴일(음력 환산 포함: 설날·추석·부처님오신날, 대체공휴일). 외부 API 없이 내부 생성.
+_KR_HOLIDAYS = holidays.SouthKorea()
 
 # app/models/commercial_trend/features.py -> parents[3] == 서비스 루트
 SERVICE_ROOT = Path(__file__).resolve().parents[3]
@@ -38,6 +42,8 @@ FEATURE_NAMES = [
     "recent_vs_prior",  # 최근 7일 대 28일 평균
     "volatility",  # 변동성(표준편차/평균)
     "weekend_ratio",  # 주말/평일 유입 비율
+    "forecast_weekend_count",  # 예측 창(다음 7일)의 주말 수
+    "forecast_holiday_count",  # 예측 창(다음 7일)의 공휴일 수
 ]
 
 
@@ -138,10 +144,25 @@ def _slope(values: np.ndarray, mean: float) -> float:
     return float(np.polyfit(x, values, 1)[0]) / mean
 
 
+def _forecast_calendar(asof: pd.Timestamp) -> tuple[int, int]:
+    """as-of 다음날부터 HORIZON_DAYS일(예측 창)의 (주말 수, 공휴일 수)."""
+    weekend = 0
+    holiday = 0
+    for offset in range(1, HORIZON_DAYS + 1):
+        day = asof + pd.Timedelta(days=offset)
+        if day.weekday() >= 5:
+            weekend += 1
+        if day.date() in _KR_HOLIDAYS:
+            holiday += 1
+    return weekend, holiday
+
+
 def compute_window_features(window: pd.Series) -> dict[str, float]:
     """최근 WINDOW_DAYS 구간의 시계열에서 트렌드 피처를 뽑는다."""
     values = window.to_numpy(dtype=float)
     mean = float(values.mean()) or 1.0
+
+    forecast_weekend_count, forecast_holiday_count = _forecast_calendar(window.index[-1])
 
     slope_28 = _slope(values, mean)
     slope_7 = _slope(values[-7:], mean)
@@ -173,6 +194,8 @@ def compute_window_features(window: pd.Series) -> dict[str, float]:
         "recent_vs_prior": recent_vs_prior,
         "volatility": volatility,
         "weekend_ratio": weekend_ratio,
+        "forecast_weekend_count": float(forecast_weekend_count),
+        "forecast_holiday_count": float(forecast_holiday_count),
     }
 
 
