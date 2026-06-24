@@ -71,9 +71,11 @@ public class PostQueryService {
                         sectionTitle(category),
                         sectionDescription(category),
                         category,
-                        postRepository.findTop6ByCategoryAndSourceTypeAndDeletedAtIsNullOrderByPublishedAtDescIdDesc(
+                        postRepository.findTop6ByCategoryAndSourceTypeAndVisibilityAndStatusAndDeletedAtIsNullOrderByPublishedAtDescIdDesc(
                                         category,
-                                        PostSourceType.LLM_REPORT
+                                        PostSourceType.LLM_REPORT,
+                                        PostVisibility.PUBLIC,
+                                        PostStatus.PUBLISHED
                                 )
                                 .stream()
                                 .map(PostSummaryResponse::from)

@@ -2,6 +2,7 @@ package com.marketfit.post.core.crawling;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -16,6 +17,9 @@ class PostCrawlSourceTest {
                 "AI 채용",
                 "직접 입력한 원문"
         );
+
+        assertThat(source.getDiscoveredArticleUrls()).isEmpty();
+        assertThat(source.getMatchedKeywords()).isEmpty();
         UUID postId = UUID.randomUUID();
         Instant crawledAt = Instant.parse("2026-06-21T01:00:00Z");
 
@@ -31,5 +35,23 @@ class PostCrawlSourceTest {
         assertThat(source.getPostId()).isEqualTo(postId);
         assertThat(source.getStatus()).isEqualTo(PostCrawlStatus.CRAWLED);
         assertThat(source.getCrawledAt()).isEqualTo(crawledAt);
+    }
+
+    @Test
+    void persist_직전에_JSON_배열_null을_빈_배열로_복구한다() throws Exception {
+        PostCrawlSource source = PostCrawlSource.requested(null, null, "원문");
+        setField(source, "discoveredArticleUrls", null);
+        setField(source, "matchedKeywords", null);
+
+        source.prePersist();
+
+        assertThat(source.getDiscoveredArticleUrls()).isEmpty();
+        assertThat(source.getMatchedKeywords()).isEmpty();
+    }
+
+    private void setField(PostCrawlSource source, String name, Object value) throws Exception {
+        Field field = PostCrawlSource.class.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(source, value);
     }
 }

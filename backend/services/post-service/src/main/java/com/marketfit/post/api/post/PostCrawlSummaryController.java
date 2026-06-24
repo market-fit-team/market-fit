@@ -1,6 +1,8 @@
 package com.marketfit.post.api.post;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -18,7 +20,6 @@ import com.marketfit.post.application.report.PostCrawlSummaryFacade;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -30,6 +31,7 @@ public class PostCrawlSummaryController {
 
     private final PostCrawlSummaryFacade crawlSummaryFacade;
     private final PostCrawlService crawlService;
+    private final CrawlSummaryActorResolver actorResolver;
 
     @PostMapping("/crawl-preview")
     @Operation(operationId = "previewCrawl", summary = "검색/기사 URL 크롤링과 관련 문단 필터 결과 확인")
@@ -43,9 +45,11 @@ public class PostCrawlSummaryController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(operationId = "createCrawlSummary", summary = "크롤링 원문을 LLM로 요약해 Post 생성")
     public CrawlSummaryResponse create(
-            @RequestHeader("X-User-Id") @NotBlank String userId,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = "X-User-Id", required = false) String localUserId,
             @Valid @RequestBody CrawlSummaryRequest request
     ) {
+        String userId = actorResolver.resolve(jwt, localUserId);
         return CrawlSummaryResponse.from(crawlSummaryFacade.createDetailed(userId, request));
     }
 }

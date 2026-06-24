@@ -10,7 +10,7 @@ type MainPostCarouselWidgetContainerProps = {
 
 export function MainPostCarouselWidgetContainer({
   limit = 10,
-  onPostClick = () => undefined,
+  onPostClick,
 }: MainPostCarouselWidgetContainerProps) {
   const { posts, isLoading, error } = useMainPosts(limit)
 

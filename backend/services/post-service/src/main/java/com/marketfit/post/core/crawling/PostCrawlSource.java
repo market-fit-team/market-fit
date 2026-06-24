@@ -55,7 +55,7 @@ public class PostCrawlSource {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "discovered_article_urls", columnDefinition = "jsonb")
-    private List<String> discoveredArticleUrls;
+    private List<String> discoveredArticleUrls = new ArrayList<>();
 
     @Column(name = "crawled_article_count")
     private int crawledArticleCount;
@@ -65,7 +65,7 @@ public class PostCrawlSource {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "matched_keywords", columnDefinition = "jsonb")
-    private List<String> matchedKeywords;
+    private List<String> matchedKeywords = new ArrayList<>();
 
     @Column(name = "matched_paragraph_count")
     private int matchedParagraphCount;
@@ -115,10 +115,10 @@ public class PostCrawlSource {
     public void markCrawled(CrawledContent content) {
         markCrawled(content.sourceUrl(), content.title(), content.bodyText(), content.crawledAt());
         inputUrlType = content.inputUrlType();
-        discoveredArticleUrls = new ArrayList<>(content.discoveredArticleUrls());
+        discoveredArticleUrls = mutableList(content.discoveredArticleUrls());
         crawledArticleCount = content.crawledArticleCount();
         skippedArticleCount = content.skippedArticleCount();
-        matchedKeywords = new ArrayList<>(content.matchedKeywords());
+        matchedKeywords = mutableList(content.matchedKeywords());
         matchedParagraphCount = content.matchedParagraphCount();
         totalParagraphCount = content.totalParagraphCount();
         relevanceScore = content.relevanceScore();
@@ -135,6 +135,7 @@ public class PostCrawlSource {
 
     @PrePersist
     void prePersist() {
+        ensureJsonArrays();
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
@@ -142,6 +143,16 @@ public class PostCrawlSource {
 
     @PreUpdate
     void preUpdate() {
+        ensureJsonArrays();
         updatedAt = Instant.now();
+    }
+
+    private void ensureJsonArrays() {
+        discoveredArticleUrls = mutableList(discoveredArticleUrls);
+        matchedKeywords = mutableList(matchedKeywords);
+    }
+
+    private static List<String> mutableList(List<String> values) {
+        return values == null ? new ArrayList<>() : new ArrayList<>(values);
     }
 }

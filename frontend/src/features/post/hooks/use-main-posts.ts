@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { type MainPost, getMainPosts } from "@/features/post/api/get-main-posts"
+import { PUBLIC_POST_REPORT_BROWSER_EVENT } from "@/features/post/lib/public-post-report-events"
 
 const DEFAULT_ERROR_MESSAGE = "메인 Post를 불러오지 못했습니다."
 
@@ -24,7 +25,7 @@ export function useMainPosts(limit = 10) {
   useEffect(() => {
     const controller = new AbortController()
 
-    getMainPosts(limit, controller.signal)
+    const loadPosts = () => getMainPosts(limit, controller.signal)
       .then((posts) => {
         setResult({ limit, posts, error: null })
       })
@@ -37,7 +38,17 @@ export function useMainPosts(limit = 10) {
         })
       })
 
-    return () => controller.abort()
+    void loadPosts()
+    const handleCreated = () => void loadPosts()
+    window.addEventListener(PUBLIC_POST_REPORT_BROWSER_EVENT, handleCreated)
+
+    return () => {
+      controller.abort()
+      window.removeEventListener(
+        PUBLIC_POST_REPORT_BROWSER_EVENT,
+        handleCreated
+      )
+    }
   }, [limit])
 
   const isLoading = result.limit !== limit

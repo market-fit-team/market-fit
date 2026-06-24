@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import com.marketfit.post.core.post.Post;
+import com.marketfit.post.core.post.PostSourceType;
 import com.marketfit.post.core.post.PostStatus;
 import com.marketfit.post.core.post.PostVisibility;
 import com.marketfit.post.infrastructure.persistence.PostRepository;
@@ -23,7 +24,8 @@ class MainPostServiceTest {
 
     @Test
     void limit이_없으면_기본값_10으로_공개_발행_Post를_조회한다() {
-        when(repository.findByVisibilityAndStatusAndDeletedAtIsNull(
+        when(repository.findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()
@@ -32,9 +34,10 @@ class MainPostServiceTest {
         service.findMainPosts(null);
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(repository).findByVisibilityAndStatusAndDeletedAtIsNull(
+        verify(repository).findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
                 org.mockito.ArgumentMatchers.eq(PostVisibility.PUBLIC),
                 org.mockito.ArgumentMatchers.eq(PostStatus.PUBLISHED),
+                org.mockito.ArgumentMatchers.eq(PostSourceType.LLM_REPORT),
                 pageable.capture()
         );
         assertThat(pageable.getValue().getPageSize()).isEqualTo(10);
@@ -46,7 +49,8 @@ class MainPostServiceTest {
 
     @Test
     void limit은_최대_20으로_제한한다() {
-        when(repository.findByVisibilityAndStatusAndDeletedAtIsNull(
+        when(repository.findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()
@@ -55,9 +59,10 @@ class MainPostServiceTest {
         service.findMainPosts(100);
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(repository).findByVisibilityAndStatusAndDeletedAtIsNull(
+        verify(repository).findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
                 org.mockito.ArgumentMatchers.eq(PostVisibility.PUBLIC),
                 org.mockito.ArgumentMatchers.eq(PostStatus.PUBLISHED),
+                org.mockito.ArgumentMatchers.eq(PostSourceType.LLM_REPORT),
                 pageable.capture()
         );
         assertThat(pageable.getValue().getPageSize()).isEqualTo(20);
@@ -65,7 +70,8 @@ class MainPostServiceTest {
 
     @Test
     void limit이_0이하면_1로_보정한다() {
-        when(repository.findByVisibilityAndStatusAndDeletedAtIsNull(
+        when(repository.findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
+                org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any()
@@ -74,9 +80,10 @@ class MainPostServiceTest {
         service.findMainPosts(0);
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(repository).findByVisibilityAndStatusAndDeletedAtIsNull(
+        verify(repository).findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
                 org.mockito.ArgumentMatchers.eq(PostVisibility.PUBLIC),
                 org.mockito.ArgumentMatchers.eq(PostStatus.PUBLISHED),
+                org.mockito.ArgumentMatchers.eq(PostSourceType.LLM_REPORT),
                 pageable.capture()
         );
         assertThat(pageable.getValue().getPageSize()).isEqualTo(1);

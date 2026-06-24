@@ -12,7 +12,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.MediaType;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -36,11 +39,17 @@ class PostCrawlSummaryControllerTest {
     @Test
     void X_User_Id와_요청을_Facade에_전달하고_응답_DTO를_반환한다() throws Exception {
         PostCrawlSummaryFacade facade = org.mockito.Mockito.mock(PostCrawlSummaryFacade.class);
+        Environment environment = org.mockito.Mockito.mock(Environment.class);
+        when(environment.acceptsProfiles(org.mockito.ArgumentMatchers.any(Profiles.class)))
+                .thenReturn(true);
         PostCrawlSummaryController controller = new PostCrawlSummaryController(
                 facade,
-                org.mockito.Mockito.mock(com.marketfit.post.application.crawling.PostCrawlService.class)
+                org.mockito.Mockito.mock(com.marketfit.post.application.crawling.PostCrawlService.class),
+                new CrawlSummaryActorResolver(environment)
         );
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .build();
         ObjectMapper objectMapper = new ObjectMapper();
         CrawlSummaryRequest request = new CrawlSummaryRequest(
                 "https://example.com/article",
@@ -118,12 +127,18 @@ class PostCrawlSummaryControllerTest {
     }
 
     @Test
-    void X_User_Id가_없으면_400을_반환한다() throws Exception {
+    void 인증과_local_X_User_Id가_모두_없으면_401을_반환한다() throws Exception {
+        Environment environment = org.mockito.Mockito.mock(Environment.class);
+        when(environment.acceptsProfiles(org.mockito.ArgumentMatchers.any(Profiles.class)))
+                .thenReturn(false);
         PostCrawlSummaryController controller = new PostCrawlSummaryController(
                 org.mockito.Mockito.mock(PostCrawlSummaryFacade.class),
-                org.mockito.Mockito.mock(com.marketfit.post.application.crawling.PostCrawlService.class)
+                org.mockito.Mockito.mock(com.marketfit.post.application.crawling.PostCrawlService.class),
+                new CrawlSummaryActorResolver(environment)
         );
-        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver())
+                .build();
 
         mockMvc.perform(post("/api/posts/crawl-summary")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -133,6 +148,6 @@ class PostCrawlSummaryControllerTest {
                                   "visibility": "PUBLIC"
                                 }
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnauthorized());
     }
 }

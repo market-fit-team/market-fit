@@ -91,7 +91,7 @@ export function MainPostCarouselWidget({
   posts = [],
   isLoading = false,
   error = null,
-  onPostClick = () => undefined,
+  onPostClick,
 }: MainPostCarouselWidgetProps = {}) {
   return (
     <section className="space-y-4" aria-labelledby="main-post-carousel-title">
@@ -169,15 +169,17 @@ export function MainPostCarouselWidget({
                       <p className="mt-4 line-clamp-3 max-w-2xl text-sm leading-6 text-white/75 sm:text-base sm:leading-7">
                         {post.summary}
                       </p>
-                      <button
-                        type="button"
-                        aria-label={`${post.title} 게시글 보기`}
-                        className="mt-6 flex h-10 w-fit items-center gap-2 rounded-lg bg-white px-4 text-sm font-bold text-neutral-950 transition-colors hover:bg-neutral-200 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 focus-visible:outline-none"
-                        onClick={() => onPostClick(post.id)}
-                      >
-                        리포트 보기
-                        <ArrowRight className="size-4" aria-hidden="true" />
-                      </button>
+                      {onPostClick ? (
+                        <button
+                          type="button"
+                          aria-label={`${post.title} 게시글 보기`}
+                          className="mt-6 flex h-10 w-fit items-center gap-2 rounded-lg bg-white px-4 text-sm font-bold text-neutral-950 transition-colors hover:bg-neutral-200 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 focus-visible:outline-none"
+                          onClick={() => onPostClick(post.id)}
+                        >
+                          리포트 보기
+                          <ArrowRight className="size-4" aria-hidden="true" />
+                        </button>
+                      ) : null}
                     </div>
                   </article>
                 </CarouselItem>

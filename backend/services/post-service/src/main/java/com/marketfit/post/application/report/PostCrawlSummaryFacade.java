@@ -11,6 +11,7 @@ import com.marketfit.post.application.crawling.PostCrawlService;
 import com.marketfit.post.application.llm.PostLlmSummaryService;
 import com.marketfit.post.application.notification.PostReportNotificationService;
 import com.marketfit.post.application.notification.PostReportNotificationService.NotificationDecision;
+import com.marketfit.post.application.notification.PublicPostReportEventService;
 import com.marketfit.post.application.post.PostService;
 import com.marketfit.post.core.crawling.CrawledContent;
 import com.marketfit.post.core.llm.LlmReportRequest;
@@ -28,18 +29,21 @@ public class PostCrawlSummaryFacade {
     private final PostLlmSummaryService postLlmSummaryService;
     private final PostService postService;
     private final PostReportNotificationService notificationService;
+    private final PublicPostReportEventService publicEventService;
 
     @Autowired
     public PostCrawlSummaryFacade(
             PostCrawlService postCrawlService,
             PostLlmSummaryService postLlmSummaryService,
             PostService postService,
-            PostReportNotificationService notificationService
+            PostReportNotificationService notificationService,
+            PublicPostReportEventService publicEventService
     ) {
         this.postCrawlService = postCrawlService;
         this.postLlmSummaryService = postLlmSummaryService;
         this.postService = postService;
         this.notificationService = notificationService;
+        this.publicEventService = publicEventService;
     }
 
     public PostCrawlSummaryFacade(
@@ -47,7 +51,7 @@ public class PostCrawlSummaryFacade {
             PostLlmSummaryService postLlmSummaryService,
             PostService postService
     ) {
-        this(postCrawlService, postLlmSummaryService, postService, null);
+        this(postCrawlService, postLlmSummaryService, postService, null, null);
     }
 
     public Post create(String userId, CrawlSummaryRequest request) {
@@ -101,6 +105,9 @@ public class PostCrawlSummaryFacade {
                     "Post 저장은 완료됐지만 생성 메타데이터 연결에 실패했습니다.",
                     exception
             );
+        }
+        if (publicEventService != null) {
+            publicEventService.publishIfPublicReport(post);
         }
         NotificationDecision notification = notificationService == null
                 ? new NotificationDecision(false, null)

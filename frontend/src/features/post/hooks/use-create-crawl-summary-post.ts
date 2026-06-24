@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { createCrawlSummaryPost } from "@/features/post/api/create-crawl-summary-post"
+import { announcePublicPostReportCreated } from "@/features/post/lib/public-post-report-events"
 import type {
   CrawlSummaryPost,
   CreateCrawlSummaryPostInput,
@@ -38,6 +39,9 @@ export function useCreateCrawlSummaryPost() {
       const post = await createCrawlSummaryPost(input)
       setData(post)
       setStatus("success")
+      if (input.visibility === "PUBLIC") {
+        announcePublicPostReportCreated()
+      }
       return post
     } catch (cause) {
       setError(getErrorMessage(cause))

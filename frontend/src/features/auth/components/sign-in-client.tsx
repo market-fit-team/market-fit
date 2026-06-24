@@ -1,8 +1,10 @@
 "use client"
 
 import { ArrowRight, MessageCircle } from "lucide-react"
+import { useState } from "react"
 import { authClient } from "@/features/auth/lib/auth-client"
-import { AUTHENTIK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
+import { getDefaultLoginOption } from "@/features/auth/lib/login-options"
+import { buildOAuthSignInPayload } from "@/features/auth/lib/oauth-sign-in"
 
 const SOCIAL_PROVIDERS = [
   {
@@ -35,13 +37,23 @@ export default function SignInClient({
   callbackURL: string
   error?: string
 }) {
+  const [isPending, setIsPending] = useState(false)
+
   const signInWithAuthentik = async () => {
-    await authClient.signIn.oauth2({
-      providerId: AUTHENTIK_PROVIDER_ID,
-      callbackURL,
-      errorCallbackURL: "/login?error=oauth",
-      scopes: ["openid", "profile", "email"],
-    })
+    if (isPending) {
+      return
+    }
+
+    setIsPending(true)
+
+    try {
+      await authClient.signIn.oauth2(buildOAuthSignInPayload({
+        loginOption: getDefaultLoginOption(),
+        callbackURL,
+      }))
+    } finally {
+      setIsPending(false)
+    }
   }
 
   return (
@@ -61,10 +73,12 @@ export default function SignInClient({
             key={id}
             type="button"
             onClick={signInWithAuthentik}
+            disabled={isPending}
             className={[
               "group flex h-12 w-full items-center gap-3 rounded-xl border px-4 text-sm font-bold shadow-sm transition-all",
               "hover:-translate-y-0.5 hover:shadow-md",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/20 focus-visible:ring-offset-2",
+              "disabled:cursor-not-allowed disabled:opacity-60",
               className,
             ].join(" ")}
           >

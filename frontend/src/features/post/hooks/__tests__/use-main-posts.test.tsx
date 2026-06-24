@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { getMainPosts } from "@/features/post/api/get-main-posts"
 import { useMainPosts } from "@/features/post/hooks/use-main-posts"
 
@@ -42,5 +42,17 @@ describe("useMainPosts", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.posts).toEqual([])
     expect(result.current.error).toBe("조회 실패")
+  })
+
+  it("새 공개 리포트 이벤트를 받으면 main 목록을 다시 조회한다", async () => {
+    vi.mocked(getMainPosts).mockResolvedValue([])
+    renderHook(() => useMainPosts())
+    await waitFor(() => expect(getMainPosts).toHaveBeenCalledTimes(1))
+
+    act(() => {
+      window.dispatchEvent(new Event("public-post-report-created"))
+    })
+
+    await waitFor(() => expect(getMainPosts).toHaveBeenCalledTimes(2))
   })
 })

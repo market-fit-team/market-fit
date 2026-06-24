@@ -27,17 +27,20 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
             Pageable pageable
     );
 
-    List<Post> findByVisibilityAndStatusAndDeletedAtIsNull(
+    List<Post> findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
             PostVisibility visibility,
             PostStatus status,
+            PostSourceType sourceType,
             Pageable pageable
     );
 
     List<Post> findTop6ByCategoryAndDeletedAtIsNullOrderByPublishedAtDescIdDesc(PostCategory category);
 
-    List<Post> findTop6ByCategoryAndSourceTypeAndDeletedAtIsNullOrderByPublishedAtDescIdDesc(
+    List<Post> findTop6ByCategoryAndSourceTypeAndVisibilityAndStatusAndDeletedAtIsNullOrderByPublishedAtDescIdDesc(
             PostCategory category,
-            PostSourceType sourceType
+            PostSourceType sourceType,
+            PostVisibility visibility,
+            PostStatus status
     );
 
     List<Post> findTop5ByAuthorIdAndDeletedAtIsNullOrderByPublishedAtDescIdDesc(String authorId);

@@ -114,4 +114,20 @@ describe("MainPostCarouselWidget", () => {
 
     expect(onPostClick).toHaveBeenCalledWith(llmPost.id)
   })
+
+  it("onPostClick이 없으면 동작하지 않는 CTA를 표시하지 않는다", () => {
+    render(
+      <MainPostCarouselWidget
+        posts={[llmPost]}
+        isLoading={false}
+        error={null}
+      />
+    )
+
+    expect(
+      screen.queryByRole("button", {
+        name: `${llmPost.title} 게시글 보기`,
+      })
+    ).not.toBeInTheDocument()
+  })
 })

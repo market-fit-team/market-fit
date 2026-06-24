@@ -35,6 +35,8 @@ class PostRepositoryTest {
         Post newerPublic = post("공개 최신", PostVisibility.PUBLIC, PostStatus.PUBLISHED, null);
         Post privatePost = post("비공개", PostVisibility.PRIVATE, PostStatus.PUBLISHED, null);
         Post draftPost = post("초안", PostVisibility.PUBLIC, PostStatus.DRAFT, null);
+        Post manualPost = post("일반 게시글", PostVisibility.PUBLIC, PostStatus.PUBLISHED, null);
+        ReflectionTestUtils.setField(manualPost, "sourceType", PostSourceType.MANUAL);
         Post deletedPost = post(
                 "삭제",
                 PostVisibility.PUBLIC,
@@ -46,18 +48,21 @@ class PostRepositoryTest {
                 newerPublic,
                 privatePost,
                 draftPost,
+                manualPost,
                 deletedPost
         ));
         repository.flush();
 
-        List<Post> filtered = repository.findByVisibilityAndStatusAndDeletedAtIsNull(
+        List<Post> filtered = repository.findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
                 PostVisibility.PUBLIC,
                 PostStatus.PUBLISHED,
+                PostSourceType.LLM_REPORT,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"))
         );
-        List<Post> limited = repository.findByVisibilityAndStatusAndDeletedAtIsNull(
+        List<Post> limited = repository.findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
                 PostVisibility.PUBLIC,
                 PostStatus.PUBLISHED,
+                PostSourceType.LLM_REPORT,
                 PageRequest.of(0, 1, Sort.by(Sort.Direction.DESC, "createdAt"))
         );
 
@@ -65,6 +70,41 @@ class PostRepositoryTest {
                 .extracting(Post::getTitle)
                 .containsExactlyInAnyOrder("공개 이전", "공개 최신");
         assertThat(limited).hasSize(1);
+    }
+
+    @Test
+    void 메인_캐러셀은_PUBLIC_PUBLISHED_미삭제_LLM_REPORT만_반환한다() {
+        Post publicReport = post("공개 리포트", PostVisibility.PUBLIC, PostStatus.PUBLISHED, null);
+        Post privateReport = post("비공개 리포트", PostVisibility.PRIVATE, PostStatus.PUBLISHED, null);
+        Post draftReport = post("초안 리포트", PostVisibility.PUBLIC, PostStatus.DRAFT, null);
+        Post deletedReport = post(
+                "삭제 리포트",
+                PostVisibility.PUBLIC,
+                PostStatus.PUBLISHED,
+                Instant.parse("2026-06-21T02:00:00Z")
+        );
+        Post manualPost = post("일반 게시글", PostVisibility.PUBLIC, PostStatus.PUBLISHED, null);
+        ReflectionTestUtils.setField(manualPost, "sourceType", PostSourceType.MANUAL);
+        repository.saveAll(List.of(
+                publicReport,
+                privateReport,
+                draftReport,
+                deletedReport,
+                manualPost
+        ));
+        repository.flush();
+
+        List<Post> result =
+                repository.findTop6ByCategoryAndSourceTypeAndVisibilityAndStatusAndDeletedAtIsNullOrderByPublishedAtDescIdDesc(
+                        PostCategory.TREND,
+                        PostSourceType.LLM_REPORT,
+                        PostVisibility.PUBLIC,
+                        PostStatus.PUBLISHED
+                );
+
+        assertThat(result)
+                .extracting(Post::getTitle)
+                .containsExactly("공개 리포트");
     }
 
     private Post post(

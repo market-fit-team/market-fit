@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.marketfit.post.api.post.dto.MainPostResponse;
 import com.marketfit.post.core.post.PostStatus;
+import com.marketfit.post.core.post.PostSourceType;
 import com.marketfit.post.core.post.PostVisibility;
 import com.marketfit.post.infrastructure.persistence.PostRepository;
 
@@ -32,9 +33,10 @@ public class MainPostService {
                 Sort.by(Sort.Direction.DESC, "createdAt")
                         .and(Sort.by(Sort.Direction.DESC, "id"))
         );
-        return postRepository.findByVisibilityAndStatusAndDeletedAtIsNull(
+        return postRepository.findByVisibilityAndStatusAndSourceTypeAndDeletedAtIsNull(
                         PostVisibility.PUBLIC,
                         PostStatus.PUBLISHED,
+                        PostSourceType.LLM_REPORT,
                         pageRequest
                 )
                 .stream()
