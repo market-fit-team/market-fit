@@ -1,4 +1,4 @@
-from langchain_core.messages import AnyMessage, SystemMessage
+from langchain_core.messages import AnyMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.runtime import get_runtime
 
@@ -14,6 +14,12 @@ from agent.services.chat.toolkits.chat_toolkit import CHAT_TOOLS
 
 
 CHAT_SYSTEM_PROMPT = "도구 호출이 완료된 뒤에는 결과를 사용자에게 보고해야 합니다."
+
+
+def _should_bind_tools(messages: list[AnyMessage]) -> bool:
+    """마지막 메시지가 tool 결과이면 다음 model 호출은 최종 답변만 생성하게 합니다."""
+
+    return not messages or not isinstance(messages[-1], ToolMessage)
 
 
 async def prepare_system_context_state(
@@ -50,7 +56,12 @@ async def call_chat_model(
     model = get_chat_model(
         model=context["model"],
         reasoning_effort=context["reasoning_effort"],
-    ).bind_tools(CHAT_TOOLS)
+    )
+    # interrupt resume 뒤 tool 결과가 들어오면 model은 사용자에게 결과를 보고해야 합니다.
+    # 이 호출에서 도구를 다시 바인딩하면 같은 tool call이 재생성되어 같은 승인 카드가 반복될 수 있습니다.
+    # https://docs.langchain.com/oss/python/langgraph/interrupts
+    if _should_bind_tools(input_messages):
+        model = model.bind_tools(CHAT_TOOLS)
     response: AnyMessage = await model.ainvoke(
         [SystemMessage(content=CHAT_SYSTEM_PROMPT), *input_messages],
         config=config,

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ChatModelSelectionControls } from "@/features/llm-chat/hooks/langgraph-chat-stream-context"
@@ -87,6 +87,14 @@ function ProviderHarness() {
 }
 
 describe("LangGraphChatStreamProvider", () => {
+  beforeEach(() => {
+    submitMock.mockReset()
+    respondMock.mockReset()
+    submitMock.mockResolvedValue(undefined)
+    respondMock.mockResolvedValue(undefined)
+    useStreamOptions.current = null
+  })
+
   it("workspace thread hydrate는 useStream threadId에 맡기고 initialValues를 넘기지 않는다", () => {
     render(
       <LangGraphChatStreamProvider
@@ -148,5 +156,30 @@ describe("LangGraphChatStreamProvider", () => {
     expect(
       respondMock.mock.calls[0]?.[1]?.config.configurable
     ).not.toHaveProperty("selected_document_ids")
+  })
+
+  it("respond 전송 중에는 같은 interrupt resume을 중복 전송하지 않는다", async () => {
+    respondMock.mockReturnValue(new Promise(() => undefined))
+
+    render(
+      <LangGraphChatStreamProvider
+        tools={tools}
+        models={[modelSelection.selectedModel]}
+        modelSelection={modelSelection}
+        toolPolicy={toolPolicy}
+        workspaceThread={{
+          appThreadId: "app-thread-1",
+          langgraphThreadId: "langgraph-thread-1",
+        }}
+      >
+        <ProviderHarness />
+      </LangGraphChatStreamProvider>
+    )
+
+    const resumeButton = screen.getByRole("button", { name: "resume" })
+    await userEvent.click(resumeButton)
+    await userEvent.click(resumeButton)
+
+    expect(respondMock).toHaveBeenCalledTimes(1)
   })
 })
