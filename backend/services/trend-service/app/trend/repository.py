@@ -90,15 +90,14 @@ def latest_stat_date() -> date | None:
         return session.scalar(select(func.max(DailyLivingPopulation.stat_date)))
 
 
-def save_trend_scores(
-    ranking: list[dict[str, object]], run_at: datetime, as_of_date: date | None
+def save_theme_scores(
+    rankings: dict[str, list[dict[str, object]]], run_at: datetime, as_of_date: date | None
 ) -> int:
-    """배치 예측 결과를 trend_score에 저장한다(run_at 단위 이력)."""
-    if not ranking:
-        return 0
+    """주제별 예측 결과를 trend_score에 저장한다(run_at 단위 이력, theme로 구분)."""
     payload = [
         {
             "run_at": run_at,
+            "theme": theme,
             "area_code": str(item["area_code"]),
             "area_name": str(item["area_name"]),
             "as_of_date": as_of_date,
@@ -107,33 +106,40 @@ def save_trend_scores(
             "rank": rank,
             "signals": item["signals"],
         }
+        for theme, ranking in rankings.items()
         for rank, item in enumerate(ranking, start=1)
     ]
+    if not payload:
+        return 0
     with session_scope() as session:
         for start in range(0, len(payload), _UPSERT_CHUNK):
             statement = pg_insert(TrendScore).values(payload[start : start + _UPSERT_CHUNK])
             statement = statement.on_conflict_do_nothing(
-                index_elements=[TrendScore.run_at, TrendScore.area_code]
+                index_elements=[TrendScore.run_at, TrendScore.theme, TrendScore.area_code]
             )
             session.execute(statement)
         session.commit()
     return len(payload)
 
 
-def load_latest_trend_scores() -> list[dict[str, object]]:
-    """가장 최근 run_at의 예측 결과를 점수 내림차순으로 읽는다. 없으면 빈 리스트."""
+def load_latest_theme_scores() -> dict[str, list[dict[str, object]]]:
+    """가장 최근 run_at의 주제별 예측 결과를 {theme: 랭킹}으로 읽는다. 없으면 빈 dict."""
     with session_scope() as session:
         latest = session.scalar(select(func.max(TrendScore.run_at)))
         if latest is None:
-            return []
+            return {}
         rows = (
             session.execute(
-                select(TrendScore).where(TrendScore.run_at == latest).order_by(TrendScore.rank)
+                select(TrendScore)
+                .where(TrendScore.run_at == latest)
+                .order_by(TrendScore.theme, TrendScore.rank)
             )
             .scalars()
             .all()
         )
-        return [
+    result: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        result.setdefault(row.theme, []).append(
             {
                 "area_code": row.area_code,
                 "area_name": row.area_name,
@@ -141,5 +147,5 @@ def load_latest_trend_scores() -> list[dict[str, object]]:
                 "pred_growth": row.pred_growth,
                 "signals": row.signals,
             }
-            for row in rows
-        ]
+        )
+    return result

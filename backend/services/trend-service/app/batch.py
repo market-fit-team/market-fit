@@ -13,7 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from app.models.commercial_trend.runtime import refresh_ranking
+from app.models.commercial_trend.runtime import refresh_theme_rankings
 from app.models.commercial_trend.train import train
 
 
@@ -31,12 +31,13 @@ def run_batch(data_mode: str = "db", ingest: bool = False) -> dict[str, object]:
         ingest_bootstrap_into_db()  # 최신 월별 CSV 재적재(upsert)
 
     meta = train(data_mode)  # 누적된 전체 이력으로 재학습
-    ranking = refresh_ranking(data_mode)  # 예측 + trend_score 저장
+    rankings = refresh_theme_rankings(data_mode)  # 주제별 예측 + trend_score 저장
 
     return {
         "trained_samples": meta.get("n_samples"),
+        "saved_themes": list(rankings),
         "validation": meta.get("validation"),
-        "saved_scores": len(ranking),
+        "saved_scores": sum(len(ranking) for ranking in rankings.values()),
     }
 
 
