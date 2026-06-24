@@ -73,6 +73,15 @@ class ThreadRepository:
 
 
 class ThreadSettingsRepository:
+    async def get_preferences(
+        self, session: AsyncSession, owner: str
+    ) -> AgentUserPreferencesRecord | None:
+        return await session.scalar(
+            select(AgentUserPreferencesRecord).where(
+                AgentUserPreferencesRecord.auth_user_uuid == owner
+            )
+        )
+
     async def get(
         self, session: AsyncSession, thread_id: UUID
     ) -> AgentThreadSettingsRecord | None:
@@ -82,24 +91,22 @@ class ThreadSettingsRepository:
             )
         )
 
-    async def create_from_preferences(
-        self, session: AsyncSession, *, owner: str, thread_id: UUID
+    async def create(
+        self,
+        session: AsyncSession,
+        *,
+        thread_id: UUID,
+        model: str,
+        reasoning_effort: str,
+        allowed_tools: list[str],
+        interrupt_on: dict[str, Any],
     ) -> AgentThreadSettingsRecord:
-        preferences = await session.scalar(
-            select(AgentUserPreferencesRecord).where(
-                AgentUserPreferencesRecord.auth_user_uuid == owner
-            )
-        )
         record = AgentThreadSettingsRecord(
             thread_id=thread_id,
-            model=preferences.default_model if preferences else None,
-            reasoning_effort=preferences.default_reasoning_effort if preferences else None,
-            allowed_tools_json=(
-                list(preferences.default_allowed_tools_json) if preferences else []
-            ),
-            interrupt_on_json=(
-                dict(preferences.default_interrupt_on_json) if preferences else {}
-            ),
+            model=model,
+            reasoning_effort=reasoning_effort,
+            allowed_tools_json=list(allowed_tools),
+            interrupt_on_json=dict(interrupt_on),
         )
         session.add(record)
         await session.flush()

@@ -41,6 +41,7 @@ function ChatComposerHarness({ disabled = false }: { disabled?: boolean }) {
             return next
           })
         }}
+        onResetToolPolicy={() => setAllowedToolNames(new Set(["search_web"]))}
         streamStatus={disabled ? "streaming" : "idle"}
         modelControl={
           <ChatModelMenu

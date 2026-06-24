@@ -12,6 +12,7 @@ interface ChatComposerProps {
   tools: LlmToolDefinition[]
   toolPolicy: ToolPolicyState
   onToggleTool: (toolName: string) => void
+  onResetToolPolicy: () => void
   streamStatus: LlmChatStreamStatus
   modelControl: ReactNode
 }
@@ -22,6 +23,7 @@ export function ChatComposer({
   tools,
   toolPolicy,
   onToggleTool,
+  onResetToolPolicy,
   streamStatus,
   modelControl,
 }: ChatComposerProps) {
@@ -53,6 +55,7 @@ export function ChatComposer({
           tools={tools}
           toolPolicy={toolPolicy}
           onToggleTool={onToggleTool}
+          onResetToolPolicy={onResetToolPolicy}
           modelControl={modelControl}
           onSubmit={submit}
         />

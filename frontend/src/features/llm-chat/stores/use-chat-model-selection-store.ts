@@ -9,6 +9,7 @@ type ChatModelSelectionStore = {
     reasoningEffort: ChatReasoningEffort
   ) => void
   setSelectedReasoningEffort: (reasoningEffort: ChatReasoningEffort) => void
+  resetModelSelection: () => void
 }
 
 export const useChatModelSelectionStore = create<ChatModelSelectionStore>(
@@ -23,6 +24,12 @@ export const useChatModelSelectionStore = create<ChatModelSelectionStore>(
     },
     setSelectedReasoningEffort: (reasoningEffort) => {
       set({ selectedReasoningEffort: reasoningEffort })
+    },
+    resetModelSelection: () => {
+      set({
+        selectedModelId: null,
+        selectedReasoningEffort: null,
+      })
     },
   })
 )

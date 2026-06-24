@@ -1,12 +1,12 @@
 // src/proxy.ts
 // Next.js 16부터 middleware 파일 컨벤션이 proxy로 변경 (공식 문서).
-// https://nextjs.org/docs/app/api-reference/file-conventions/proxy :contentReference[oaicite:35]{index=35}
+// https://nextjs.org/docs/app/api-reference/file-conventions/proxy
 //
 // Better Auth도 Next.js 16에서 proxy.ts 사용 예시를 공식 문서로 제공합니다.
-// https://better-auth.com/docs/integrations/next :contentReference[oaicite:36]{index=36}
+// https://better-auth.com/docs/integrations/next
 //
 // NOTE: Next.js Proxy는 Node.js runtime이 기본이며, proxy에서 runtime config 옵션은 사용 불가(공식).
-// https://nextjs.org/docs/app/api-reference/file-conventions/proxy :contentReference[oaicite:37]{index=37}
+// https://nextjs.org/docs/app/api-reference/file-conventions/proxy
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 import { auth } from "@/features/auth/lib/auth"

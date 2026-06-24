@@ -47,18 +47,18 @@ def clean_system_context_refresh_state() -> SystemContextRefreshState:
 
 
 def parse_selected_ids(raw_ids: object) -> list[UUID]:
-    """실행 컨텍스트의 선택 ID 목록을 UUID list로 정규화한다."""
+    """실행 컨텍스트의 선택 ID 목록을 UUID list로 검증한다."""
 
     if not isinstance(raw_ids, list):
-        return []
+        raise ValueError("selected ids must be a list")
     resolved_ids: list[UUID] = []
     for raw_id in raw_ids:
         if not isinstance(raw_id, str):
-            continue
+            raise ValueError("selected id must be a string")
         try:
             resolved_ids.append(UUID(raw_id))
         except ValueError:
-            continue
+            raise ValueError(f"selected id is not a UUID: {raw_id}") from None
     return resolved_ids
 
 
@@ -119,17 +119,32 @@ def extract_app_thread_id(
         return None
 
 
+def _runtime_configurable_mapping(config: RunnableConfig) -> Mapping[str, Any] | None:
+    configurable = config.get("configurable", {})
+    return configurable if isinstance(configurable, Mapping) else None
+
+
+def _has_runtime_value(
+    config: RunnableConfig,
+    context: ChatRuntimeContext | None,
+    key: str,
+) -> bool:
+    context_mapping = _runtime_context_mapping(context)
+    if context_mapping is not None and key in context_mapping:
+        return True
+
+    configurable = _runtime_configurable_mapping(config)
+    return configurable is not None and key in configurable
+
+
 async def _build_selected_document_states(
     owner: str | None,
     *,
-    context: ChatRuntimeContext | None,
-    config: RunnableConfig,
+    raw_ids: object,
 ) -> list[SelectedDocumentContextState]:
     if owner is None:
-        return []
-    selected_document_ids = parse_selected_ids(
-        _runtime_context_value(config, context, "selected_document_ids")
-    )
+        raise ValueError("authenticated user is required for selected documents")
+    selected_document_ids = parse_selected_ids(raw_ids)
     if not selected_document_ids:
         return []
 
@@ -143,6 +158,11 @@ async def _build_selected_document_states(
                 session, [record.content_id for record in document_records]
             )
         }
+
+    found_ids = {record.id for record in document_records}
+    missing_ids = set(selected_document_ids) - found_ids
+    if missing_ids:
+        raise ValueError("selected documents must belong to the authenticated user")
 
     return [
         {
@@ -159,14 +179,11 @@ async def _build_selected_document_states(
 async def _build_selected_artifact_states(
     owner: str | None,
     *,
-    context: ChatRuntimeContext | None,
-    config: RunnableConfig,
+    raw_ids: object,
 ) -> list[SelectedArtifactContextState]:
     if owner is None:
-        return []
-    selected_artifact_ids = parse_selected_ids(
-        _runtime_context_value(config, context, "selected_artifact_ids")
-    )
+        raise ValueError("authenticated user is required for selected artifacts")
+    selected_artifact_ids = parse_selected_ids(raw_ids)
     if not selected_artifact_ids:
         return []
 
@@ -180,6 +197,11 @@ async def _build_selected_artifact_states(
                 session, [record.content_id for record in artifact_records]
             )
         }
+
+    found_ids = {record.id for record in artifact_records}
+    missing_ids = set(selected_artifact_ids) - found_ids
+    if missing_ids:
+        raise ValueError("selected artifacts must belong to the authenticated user")
 
     return [
         {
@@ -263,12 +285,16 @@ async def prepare_system_context_state_update(
         else clean_system_context_refresh_state()
     )
 
-    system_context["selected_documents"] = await _build_selected_document_states(
-        owner, context=context, config=config
-    )
-    system_context["selected_artifacts"] = await _build_selected_artifact_states(
-        owner, context=context, config=config
-    )
+    if _has_runtime_value(config, context, "selected_document_ids"):
+        system_context["selected_documents"] = await _build_selected_document_states(
+            owner,
+            raw_ids=_runtime_context_value(config, context, "selected_document_ids"),
+        )
+    if _has_runtime_value(config, context, "selected_artifact_ids"):
+        system_context["selected_artifacts"] = await _build_selected_artifact_states(
+            owner,
+            raw_ids=_runtime_context_value(config, context, "selected_artifact_ids"),
+        )
 
     if current_system_context is None or refresh_state["memory_summary_dirty"]:
         system_context["memory_summary"] = await _build_memory_summary(owner)

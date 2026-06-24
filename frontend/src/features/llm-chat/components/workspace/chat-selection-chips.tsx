@@ -17,6 +17,7 @@ export function ChatSelectionChips({
   const { documents } = useChatWorkspaceDocuments()
   const { artifacts } = useChatWorkspaceArtifacts(currentThreadId)
   const {
+    isSelectionLocked,
     selectedDocumentIds,
     selectedArtifactIds,
     toggleDocument,
@@ -47,6 +48,7 @@ export function ChatSelectionChips({
             variant="ghost"
             size="icon-xs"
             className="size-4 rounded-full"
+            disabled={isSelectionLocked}
             onClick={() => toggleDocument(document.id)}
           >
             <X className="size-2.5" />
@@ -66,6 +68,7 @@ export function ChatSelectionChips({
             variant="ghost"
             size="icon-xs"
             className="size-4 rounded-full"
+            disabled={isSelectionLocked}
             onClick={() => toggleArtifact(artifact.id)}
           >
             <X className="size-2.5" />

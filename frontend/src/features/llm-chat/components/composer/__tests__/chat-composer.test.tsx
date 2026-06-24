@@ -18,6 +18,7 @@ describe("ChatComposer", () => {
         tools={llmChatTools}
         toolPolicy={createToolPolicyState()}
         onToggleTool={vi.fn()}
+        onResetToolPolicy={vi.fn()}
         streamStatus="idle"
         modelControl={<div>model control</div>}
       />
@@ -37,6 +38,7 @@ describe("ChatComposer", () => {
         tools={llmChatTools}
         toolPolicy={createToolPolicyState()}
         onToggleTool={vi.fn()}
+        onResetToolPolicy={vi.fn()}
         streamStatus="idle"
         modelControl={<div>model control</div>}
       />
@@ -62,6 +64,7 @@ describe("ChatComposer", () => {
         tools={llmChatTools}
         toolPolicy={createToolPolicyState()}
         onToggleTool={vi.fn()}
+        onResetToolPolicy={vi.fn()}
         streamStatus="streaming"
         modelControl={<div>model control</div>}
       />

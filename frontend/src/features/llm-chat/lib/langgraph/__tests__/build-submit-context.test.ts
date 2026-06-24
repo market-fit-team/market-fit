@@ -53,6 +53,20 @@ describe("buildSubmitContext", () => {
     expect(context.selected_document_ids).toEqual(["doc-1", "doc-2"])
   })
 
+  it("선택 문서 ID가 빈 배열이어도 실행 컨텍스트에 포함한다", () => {
+    const context = buildSubmitContext(
+      {
+        model: "gpt-5-mini",
+        reasoningEffort: "medium",
+      },
+      createToolPolicyState(),
+      undefined,
+      []
+    )
+
+    expect(context.selected_document_ids).toEqual([])
+  })
+
   it("선택 아티팩트 ID가 있으면 실행 컨텍스트에 포함한다", () => {
     const context = buildSubmitContext(
       {

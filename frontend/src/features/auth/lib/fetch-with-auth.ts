@@ -1,18 +1,52 @@
 import { authClient } from "./auth-client"
 import { AUTHENTIK_PROVIDER_ID } from "./auth-constants"
 
+type AccessTokenResult = {
+  accessToken?: string
+  data?: {
+    accessToken?: string
+  }
+}
+
+export class AuthSessionError extends Error {
+  constructor(message = "로그인 세션의 access token을 확인하지 못했습니다.") {
+    super(message)
+    this.name = "AuthSessionError"
+  }
+}
+
+export class HttpStatusError extends Error {
+  constructor(
+    readonly status: number,
+    readonly body: unknown
+  ) {
+    super(`HTTP ${status}`)
+    this.name = "HttpStatusError"
+  }
+}
+
+const extractAccessToken = (result: AccessTokenResult | null | undefined) => {
+  return result?.accessToken ?? result?.data?.accessToken
+}
+
 /**
  * 브라우저 환경에서 Better Auth가 보관 중인 Authentik access token을 조회한다.
  *
- * Orval 생성 API들이 공통으로 이 경로를 타므로, 토큰 조회 방식이 바뀌면
- * 각 endpoint 파일이 아니라 이 함수 한 곳만 조정하면 된다.
+ * Orval 생성 API와 @langchain/react stream fetch가 공통으로 이 경로를 탄다.
+ * Better Auth는 provider access token 조회 시 만료된 token refresh를 수행한다.
+ * https://better-auth.com/docs/concepts/oauth#get-access-token
  */
-const getClientOidcAccessToken = async () => {
-  const { data } = await authClient.getAccessToken({
+export const getClientOidcAccessToken = async () => {
+  const result = (await authClient.getAccessToken({
     providerId: AUTHENTIK_PROVIDER_ID,
-  })
+  })) as AccessTokenResult
+  const accessToken = extractAccessToken(result)
 
-  return data?.accessToken
+  if (!accessToken) {
+    throw new AuthSessionError()
+  }
+
+  return accessToken
 }
 
 /**
@@ -35,6 +69,32 @@ const parseResponseBody = async (response: Response) => {
   return response.text()
 }
 
+export const fetchWithAuthResponse: typeof fetch = async (input, init) => {
+  const headers = new Headers(init?.headers)
+
+  if (!headers.has("authorization")) {
+    if (typeof window === "undefined") {
+      throw new AuthSessionError()
+    }
+    const accessToken = await getClientOidcAccessToken()
+    headers.set("authorization", `Bearer ${accessToken}`)
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    headers,
+  })
+
+  if (!response.ok) {
+    throw new HttpStatusError(
+      response.status,
+      await parseResponseBody(response)
+    )
+  }
+
+  return response
+}
+
 /**
  * 프론트엔드 공용 인증 fetch 래퍼다.
  *
@@ -46,24 +106,7 @@ export const fetchWithAuth = async <T>(
   input: string,
   init?: RequestInit
 ): Promise<T> => {
-  const headers = new Headers(init?.headers)
-
-  if (!headers.has("authorization") && typeof window !== "undefined") {
-    const accessToken = await getClientOidcAccessToken()
-
-    if (accessToken) {
-      headers.set("authorization", `Bearer ${accessToken}`)
-    }
-  }
-
-  const response = await fetch(input, {
-    ...init,
-    headers,
-  })
-
-  if (!response.ok) {
-    throw await parseResponseBody(response)
-  }
+  const response = await fetchWithAuthResponse(input, init)
 
   return (await parseResponseBody(response)) as T
 }

@@ -5,7 +5,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import Avatar from "boring-avatars"
 import { LogOut } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { signOut } from "@/features/auth/lib/auth-client"
+import { clearClientSessionState } from "@/features/auth/lib/client-session-cleanup"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +38,7 @@ export function HeaderAuthLogoutButton({
   userName,
 }: HeaderAuthLogoutButtonProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false)
   const [isSigningOut, setIsSigningOut] = useState(false)
   const resolvedUserName = userName?.trim() || "내 계정"
@@ -104,8 +107,11 @@ export function HeaderAuthLogoutButton({
                 await signOut({
                   fetchOptions: {
                     onSuccess: () => {
+                      clearClientSessionState(queryClient)
                       setIsLogoutDialogOpen(false)
-                      router.push("/")
+                      // Better Auth는 signOut의 fetchOptions.onSuccess에서 후속 이동을 지원한다.
+                      // https://better-auth.com/docs/basic-usage#signout
+                      router.replace("/")
                     },
                   },
                 })

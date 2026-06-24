@@ -2,16 +2,19 @@
 "use client"
 
 // useSession: reactive 훅 공식 제공
-// https://better-auth.com/docs/basic-usage :contentReference[oaicite:38]{index=38}
+// https://better-auth.com/docs/basic-usage#session
 // signOut: 클라이언트 signOut 공식 제공
-// https://better-auth.com/docs/basic-usage :contentReference[oaicite:39]{index=39}
+// https://better-auth.com/docs/basic-usage#signout
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { authClient } from "@/features/auth/lib/auth-client"
+import { clearClientSessionState } from "@/features/auth/lib/client-session-cleanup"
 import { Button } from "@/shared/components/ui/button"
 
 export function UserNav() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { data: session, isPending } = authClient.useSession()
 
   if (isPending) return <div>Loading session...</div>
@@ -35,7 +38,10 @@ export function UserNav() {
         onClick={async () => {
           await authClient.signOut({
             fetchOptions: {
-              onSuccess: () => router.push("/"),
+              onSuccess: () => {
+                clearClientSessionState(queryClient)
+                router.replace("/")
+              },
             },
           })
         }}

@@ -17,6 +17,7 @@ from agent.schemas.workspace import (
     UpdateArtifactRequest,
     UpdateDocumentRequest,
 )
+from agent.services.chat.approvals.policy import default_allowed_tools
 from agent.services.workspace.service import WorkspaceService
 
 
@@ -77,6 +78,22 @@ async def test_thread_crud_is_scoped_by_owner(
     other_threads = await service.list_threads(session, "user-b")
     assert [item.id for item in own_threads] == [thread.id]
     assert other_threads == []
+
+
+async def test_thread_settings_are_created_with_concrete_defaults(
+    service: WorkspaceService, session: AsyncSession
+) -> None:
+    """스레드 설정은 생성 시점에 nullable fallback 없이 저장된다."""
+
+    thread = await _create_thread(service, session, "user-a")
+
+    settings = await service.get_settings(session, owner="user-a", thread_id=thread.id)
+
+    assert settings.model == "gpt-oss:120b"
+    assert settings.reasoning_effort == "medium"
+    assert settings.allowed_tools == default_allowed_tools()
+    assert settings.interrupt_on["add"] is False
+    assert "memory_create" in settings.interrupt_on
 
 
 async def test_memory_soft_delete_hides_record(

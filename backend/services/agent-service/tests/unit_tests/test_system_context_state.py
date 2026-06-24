@@ -217,6 +217,79 @@ async def test_prepare_system_context_state_refreshes_only_dirty_summary(
 
 
 @pytest.mark.asyncio
+async def test_prepare_system_context_state_preserves_selected_resources_when_keys_are_absent(
+    session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """resume처럼 선택 ID key가 없으면 checkpoint의 선택 상태를 유지한다."""
+
+    from agent.services.chat import system_context_state as module
+
+    thread_id, _, _ = await _seed_workspace(session_factory)
+    monkeypatch.setattr(module, "get_session_factory", lambda: session_factory)
+
+    selected_documents = [
+        {
+            "id": "0a40bf78-783a-4a53-a94e-b6f2134df5e1",
+            "type": "commercial_report",
+            "title": "기존 문서",
+            "summary": "기존 요약",
+        }
+    ]
+    selected_artifacts = [
+        {
+            "id": "9b05d8b8-3e7e-4cd7-a02a-3068e292f89f",
+            "type": "research_report",
+            "title": "기존 아티팩트",
+            "summary": "기존 요약",
+            "version": 1,
+        }
+    ]
+
+    result = await prepare_system_context_state_update(
+        {
+            "selected_documents": selected_documents,
+            "selected_artifacts": selected_artifacts,
+            "memory_summary": {"has_memories": False, "memory_count": 0},
+            "onboarding_summary": None,
+        },
+        {
+            "memory_summary_dirty": False,
+            "onboarding_summary_dirty": False,
+        },
+        config={},
+        context={"app_thread_id": thread_id},
+        server_user=FakeUser(identity="user-a", access_token="token"),
+    )
+
+    assert result["system_context"]["selected_documents"] == selected_documents
+    assert result["system_context"]["selected_artifacts"] == selected_artifacts
+
+
+@pytest.mark.asyncio
+async def test_prepare_system_context_state_rejects_invalid_selected_ids(
+    session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """선택 ID가 제공됐는데 UUID 형식이 아니면 즉시 실패한다."""
+
+    from agent.services.chat import system_context_state as module
+
+    thread_id, _, _ = await _seed_workspace(session_factory)
+    monkeypatch.setattr(module, "get_session_factory", lambda: session_factory)
+
+    with pytest.raises(ValueError, match="not a UUID"):
+        await prepare_system_context_state_update(
+            None,
+            None,
+            config={},
+            context={
+                "app_thread_id": thread_id,
+                "selected_document_ids": ["not-a-uuid"],
+            },
+            server_user=FakeUser(identity="user-a", access_token="token"),
+        )
+
+
+@pytest.mark.asyncio
 async def test_prepare_system_context_state_keeps_chat_running_when_onboarding_init_fails(
     session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:

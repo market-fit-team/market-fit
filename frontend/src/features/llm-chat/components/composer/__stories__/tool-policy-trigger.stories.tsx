@@ -14,6 +14,7 @@ const meta = {
     tools: llmChatTools,
     toolPolicy: createToolPolicyState(),
     onToggleTool: () => {},
+    onResetToolPolicy: () => {},
   },
 } satisfies Meta<typeof ToolPolicyTrigger>
 

@@ -26,6 +26,11 @@ from agent.repositories.workspace import (
     thread_settings_repository,
     utc_now,
 )
+from agent.services.chat.approvals.policy import (
+    default_allowed_tools,
+    default_interrupt_on_config,
+)
+from agent.services.chat.model_cards import list_chat_model_cards
 from agent.schemas.workspace import (
     AgentThreadResponse,
     ArtifactResponse,
@@ -48,6 +53,14 @@ from agent.schemas.workspace import (
 )
 
 
+def _default_model_settings() -> tuple[str, str]:
+    cards = list_chat_model_cards()
+    if not cards:
+        raise RuntimeError("chat model catalog is empty")
+    default_card = cards[0]
+    return default_card.id, default_card.default_reasoning_effort
+
+
 def _not_found(resource: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{resource}을 찾을 수 없습니다.")
 
@@ -57,6 +70,8 @@ def _thread_response(record: Any) -> AgentThreadResponse:
 
 
 def _settings_response(record: Any) -> ThreadSettingsResponse:
+    if record.model is None or record.reasoning_effort is None:
+        raise RuntimeError("thread settings must have model and reasoning_effort")
     return ThreadSettingsResponse(
         model=record.model,
         reasoning_effort=record.reasoning_effort,
@@ -123,6 +138,38 @@ class WorkspaceService:
     def __init__(self, agent_client: ThreadCreator = agent_server_client) -> None:
         self._agent_client = agent_client
 
+    async def _create_default_settings(
+        self,
+        session: AsyncSession,
+        *,
+        owner: str,
+        thread_id: UUID,
+    ) -> Any:
+        default_model, default_reasoning_effort = _default_model_settings()
+        preferences = await thread_settings_repository.get_preferences(session, owner)
+        allowed_tools = (
+            list(preferences.default_allowed_tools_json)
+            if preferences and preferences.default_allowed_tools_json
+            else default_allowed_tools()
+        )
+        interrupt_on = (
+            dict(preferences.default_interrupt_on_json)
+            if preferences and preferences.default_interrupt_on_json
+            else default_interrupt_on_config(allowed_tools)
+        )
+        return await thread_settings_repository.create(
+            session,
+            thread_id=thread_id,
+            model=preferences.default_model if preferences and preferences.default_model else default_model,
+            reasoning_effort=(
+                preferences.default_reasoning_effort
+                if preferences and preferences.default_reasoning_effort
+                else default_reasoning_effort
+            ),
+            allowed_tools=allowed_tools,
+            interrupt_on=interrupt_on,
+        )
+
     async def list_threads(
         self, session: AsyncSession, owner: str
     ) -> list[AgentThreadResponse]:
@@ -146,9 +193,7 @@ class WorkspaceService:
             title=request.title,
             subtitle=request.subtitle,
         )
-        await thread_settings_repository.create_from_preferences(
-            session, owner=owner, thread_id=record.id
-        )
+        await self._create_default_settings(session, owner=owner, thread_id=record.id)
         await session.commit()
         await session.refresh(record)
         return _thread_response(record)
@@ -187,7 +232,7 @@ class WorkspaceService:
             raise _not_found("스레드")
         record = await thread_settings_repository.get(session, thread_id)
         if record is None:
-            record = await thread_settings_repository.create_from_preferences(
+            record = await self._create_default_settings(
                 session, owner=owner, thread_id=thread_id
             )
             await session.commit()
@@ -207,7 +252,7 @@ class WorkspaceService:
             raise _not_found("스레드")
         record = await thread_settings_repository.get(session, thread_id)
         if record is None:
-            record = await thread_settings_repository.create_from_preferences(
+            record = await self._create_default_settings(
                 session, owner=owner, thread_id=thread_id
             )
         record.model = request.model

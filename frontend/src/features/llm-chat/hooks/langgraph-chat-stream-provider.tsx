@@ -3,12 +3,14 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react"
 import { useStream } from "@langchain/react"
-import { authClient } from "@/features/auth/lib/auth-client"
-import { AUTHENTIK_PROVIDER_ID } from "@/features/auth/lib/auth-constants"
+import {
+  AuthSessionError,
+  HttpStatusError,
+  fetchWithAuthResponse,
+} from "@/features/auth/lib/fetch-with-auth"
 import {
   type ChatTurnOptions,
   LangGraphChatStreamContext,
@@ -31,25 +33,22 @@ type LangGraphChatStreamProviderProps = {
   models: LangGraphChatStreamContextValue["models"]
   modelSelection: LangGraphChatStreamContextValue["modelSelection"]
   toolPolicy: LangGraphChatStreamContextValue["toolPolicy"]
-  initialValues?: LlmChatGraphState
   workspaceThread?: {
     appThreadId: string
     langgraphThreadId: string
   } | null
 }
 
-type AccessTokenResult = {
-  accessToken?: string
-  data?: {
-    accessToken?: string
-  }
-}
-
-const extractAccessToken = (result: AccessTokenResult | null | undefined) => {
-  return result?.accessToken ?? result?.data?.accessToken
-}
-
 const normalizeStreamErrorMessage = (error: unknown) => {
+  if (error instanceof HttpStatusError) {
+    if (typeof error.body === "string" && error.body.trim()) {
+      return error.body
+    }
+    if (error.body != null) {
+      return JSON.stringify(error.body)
+    }
+  }
+
   if (error instanceof Error) {
     return error.message
   }
@@ -65,20 +64,6 @@ const isAlreadyConsumedInterruptError = (message: string) => {
   )
 }
 
-const toLocalNotice = (error: unknown) => {
-  const message = normalizeStreamErrorMessage(error)
-
-  if (message.includes("HTTP 401")) {
-    return "오류: 로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 채팅을 이어가 주세요."
-  }
-
-  if (isAlreadyConsumedInterruptError(message)) {
-    return "오류: 이미 처리된 승인 요청입니다. 최신 대화 상태를 다시 불러온 뒤 이어가 주세요."
-  }
-
-  return `오류: ${message}`
-}
-
 const buildInterruptSignature = (interrupts: HitlInterrupt[]) => {
   return interrupts
     .map((interrupt, index) => `${index}:${JSON.stringify(interrupt)}`)
@@ -86,22 +71,28 @@ const buildInterruptSignature = (interrupts: HitlInterrupt[]) => {
 }
 
 const langGraphFetch: typeof fetch = async (input, init) => {
-  const headers = new Headers(withCsrfHeaders(init?.headers))
-  const result = (await authClient.getAccessToken({
-    providerId: AUTHENTIK_PROVIDER_ID,
-  })) as AccessTokenResult
-  const accessToken = extractAccessToken(result)
-
-  if (!accessToken) {
-    throw new Error("로그인 세션의 access token을 확인하지 못했습니다.")
-  }
-
-  headers.set("authorization", `Bearer ${accessToken}`)
-
-  return fetch(input, {
+  return fetchWithAuthResponse(input, {
     ...init,
-    headers,
+    headers: withCsrfHeaders(init?.headers),
   })
+}
+
+const toLocalNotice = (error: unknown) => {
+  const message = normalizeStreamErrorMessage(error)
+
+  if (error instanceof AuthSessionError) {
+    return "오류: 로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 채팅을 이어가 주세요."
+  }
+  if (error instanceof HttpStatusError && error.status === 401) {
+    return "오류: 로그인 세션을 확인하지 못했습니다. 다시 로그인한 뒤 채팅을 이어가 주세요."
+  }
+  if (isAlreadyConsumedInterruptError(message)) {
+    return "오류: 이미 처리된 승인 요청입니다. 최신 대화 상태를 다시 불러온 뒤 이어가 주세요."
+  }
+  if (error instanceof HttpStatusError) {
+    return `오류: 요청이 실패했습니다. (HTTP ${error.status})`
+  }
+  return `오류: ${message}`
 }
 
 export function LangGraphChatStreamProvider({
@@ -110,13 +101,11 @@ export function LangGraphChatStreamProvider({
   models,
   modelSelection,
   toolPolicy,
-  initialValues,
   workspaceThread,
 }: LangGraphChatStreamProviderProps) {
   const [threadId, setThreadId] = useState<string | null>(
     workspaceThread?.langgraphThreadId ?? null
   )
-  const latestTurnOptionsRef = useRef<ChatTurnOptions>({})
   const activeThreadId = workspaceThread?.langgraphThreadId ?? threadId
   const [localErrorNotice, setLocalErrorNotice] = useState<string | null>(null)
   const [dismissedInterruptSignature, setDismissedInterruptSignature] =
@@ -142,16 +131,16 @@ export function LangGraphChatStreamProvider({
   >({
     // Protocol V2 공식 React hook입니다. 기존 @langchain/langgraph-sdk/react useStream은
     // /runs/stream 기반 legacy 흐름으로 tools mode와 충돌했으므로 사용하지 않습니다.
-    // 이 hook은 built-in SSE transport로 /stream/events + /commands를 사용하며,
-    // messages/toolCalls/interrupts projection을 직접 제공합니다.
+    // 이 hook은 thread lifecycle과 hydrate를 소유하고 messages/toolCalls/interrupts
+    // projection을 직접 제공합니다. workspace는 별도 initialValues를 넣지 않습니다.
     // 근거:
     // https://reference.langchain.com/javascript/langchain-react/use-stream
+    // https://docs.langchain.com/oss/python/langchain/frontend/overview
     // https://github.com/langchain-ai/langgraphjs/blob/main/libs/sdk/CHANGELOG.md
     apiUrl,
     assistantId: "chat",
     fetch: langGraphFetch,
     messagesKey: "messages",
-    initialValues,
     optimistic: true,
     transport: "sse",
     threadId: activeThreadId,
@@ -187,18 +176,14 @@ export function LangGraphChatStreamProvider({
       if (!trimmed || stream.isLoading) {
         return
       }
-      latestTurnOptionsRef.current = {
-        selectedDocumentIds: options.selectedDocumentIds,
-        selectedArtifactIds: options.selectedArtifactIds,
-      }
       setLocalErrorNotice(null)
 
       const context = buildSubmitContext(
         modelSelection,
         toolPolicy,
         workspaceThread?.appThreadId,
-        options.selectedDocumentIds,
-        options.selectedArtifactIds
+        options.selectedDocumentIds ?? [],
+        options.selectedArtifactIds ?? []
       )
       const input = buildSubmitInput(trimmed)
 
@@ -233,9 +218,7 @@ export function LangGraphChatStreamProvider({
       const context = buildSubmitContext(
         modelSelection,
         toolPolicy,
-        workspaceThread?.appThreadId,
-        latestTurnOptionsRef.current.selectedDocumentIds,
-        latestTurnOptionsRef.current.selectedArtifactIds
+        workspaceThread?.appThreadId
       )
 
       setLocalErrorNotice(null)
@@ -258,9 +241,7 @@ export function LangGraphChatStreamProvider({
         )
       } catch (error) {
         const notice = toLocalNotice(error)
-        if (
-          isAlreadyConsumedInterruptError(normalizeStreamErrorMessage(error))
-        ) {
+        if (isAlreadyConsumedInterruptError(normalizeStreamErrorMessage(error))) {
           setDismissedInterruptSignature(interruptSignature)
         }
         setLocalErrorNotice(notice)
@@ -280,7 +261,6 @@ export function LangGraphChatStreamProvider({
       await stream.stop({ cancel: true })
     }
     setThreadId(null)
-    latestTurnOptionsRef.current = {}
     toolPolicy.resetToDefault()
   }, [stream, toolPolicy])
 
@@ -296,6 +276,8 @@ export function LangGraphChatStreamProvider({
       hitlInterrupts,
       localNotice,
       isBusy: stream.isLoading,
+      isHydrating: stream.isThreadLoading,
+      hasPendingInterrupt: stream.interrupts.length > 0,
       streamStatus: stream.isLoading ? "streaming" : "idle",
       sendMessage,
       resume,
@@ -312,6 +294,7 @@ export function LangGraphChatStreamProvider({
     stream.toolCalls,
     hitlInterrupts,
     stream.isLoading,
+    stream.isThreadLoading,
     localNotice,
     sendMessage,
     resume,

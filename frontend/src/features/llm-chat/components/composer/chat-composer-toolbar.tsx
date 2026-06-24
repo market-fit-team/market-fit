@@ -10,6 +10,7 @@ interface ChatComposerToolbarProps {
   tools: LlmToolDefinition[]
   toolPolicy: ToolPolicyState
   onToggleTool: (toolName: string) => void
+  onResetToolPolicy: () => void
   modelControl: ReactNode
   onSubmit: () => void
 }
@@ -19,6 +20,7 @@ export function ChatComposerToolbar({
   tools,
   toolPolicy,
   onToggleTool,
+  onResetToolPolicy,
   modelControl,
   onSubmit,
 }: ChatComposerToolbarProps) {
@@ -28,6 +30,8 @@ export function ChatComposerToolbar({
         tools={tools}
         toolPolicy={toolPolicy}
         onToggleTool={onToggleTool}
+        onResetToolPolicy={onResetToolPolicy}
+        disabled={disabled}
       />
       <div className="flex shrink-0 items-center gap-2">
         {modelControl}

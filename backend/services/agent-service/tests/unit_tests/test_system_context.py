@@ -1,3 +1,4 @@
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from agent.services.chat.system_context import (
@@ -9,10 +10,21 @@ from agent.services.chat.system_context_state import (
 )
 
 
-def test_parse_selected_ids_ignores_invalid_values() -> None:
+def test_parse_selected_ids_rejects_invalid_values() -> None:
+    """선택 ID가 제공되면 잘못된 UUID를 조용히 건너뛰지 않는다."""
+
     valid_id = "0a40bf78-783a-4a53-a94e-b6f2134df5e1"
 
-    result = parse_selected_ids([valid_id, "not-a-uuid", 123])
+    with pytest.raises(ValueError, match="not a UUID"):
+        parse_selected_ids([valid_id, "not-a-uuid"])
+
+
+def test_parse_selected_ids_accepts_valid_uuid_list() -> None:
+    """유효한 UUID 문자열 목록은 UUID list로 변환한다."""
+
+    valid_id = "0a40bf78-783a-4a53-a94e-b6f2134df5e1"
+
+    result = parse_selected_ids([valid_id])
 
     assert [str(item) for item in result] == [valid_id]
 

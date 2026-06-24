@@ -47,6 +47,8 @@ export type LangGraphChatStreamContextValue = {
   hitlInterrupts: HitlInterrupt[]
   localNotice: string | null
   isBusy: boolean
+  isHydrating: boolean
+  hasPendingInterrupt: boolean
   streamStatus: LlmChatStreamStatus
   sendMessage: (content: string, options?: ChatTurnOptions) => Promise<void>
   resume: (decisions: HitlDecision[]) => Promise<void>

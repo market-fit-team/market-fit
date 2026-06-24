@@ -1,5 +1,4 @@
 import { RotateCcw } from "lucide-react"
-import { useToolPolicyStore } from "@/features/llm-chat/stores/use-tool-policy-store"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,9 +18,15 @@ import {
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip"
 
-export function ToolPolicyResetTrigger() {
-  const resetToolPolicy = useToolPolicyStore((state) => state.resetToolPolicy)
+type ToolPolicyResetTriggerProps = {
+  disabled?: boolean
+  onReset: () => void
+}
 
+export function ToolPolicyResetTrigger({
+  disabled,
+  onReset,
+}: ToolPolicyResetTriggerProps) {
   return (
     <TooltipProvider delayDuration={0}>
       <Tooltip>
@@ -32,6 +37,7 @@ export function ToolPolicyResetTrigger() {
                 variant="ghost"
                 size="icon"
                 className="size-6 shrink-0 text-muted-foreground hover:text-foreground"
+                disabled={disabled}
               >
                 <RotateCcw className="size-3" />
                 <span className="sr-only">기본값으로 복원</span>
@@ -50,7 +56,7 @@ export function ToolPolicyResetTrigger() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>취소</AlertDialogCancel>
-              <AlertDialogAction onClick={resetToolPolicy}>
+              <AlertDialogAction disabled={disabled} onClick={onReset}>
                 복원
               </AlertDialogAction>
             </AlertDialogFooter>

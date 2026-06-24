@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from agent.schemas.chat import ReasoningEffort
+
 
 class WorkspaceModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -48,8 +50,8 @@ class UpdateAgentThreadRequest(BaseModel):
 
 
 class ThreadSettingsResponse(WorkspaceModel):
-    model: str | None
-    reasoning_effort: str | None
+    model: str
+    reasoning_effort: ReasoningEffort
     allowed_tools: list[str]
     interrupt_on: dict[str, Any]
     created_at: datetime
@@ -57,10 +59,10 @@ class ThreadSettingsResponse(WorkspaceModel):
 
 
 class UpdateThreadSettingsRequest(BaseModel):
-    model: str | None = None
-    reasoning_effort: Literal["low", "medium", "high"] | None = None
-    allowed_tools: list[str] = Field(default_factory=list)
-    interrupt_on: dict[str, Any] = Field(default_factory=dict)
+    model: str = Field(min_length=1, max_length=128)
+    reasoning_effort: ReasoningEffort
+    allowed_tools: list[str]
+    interrupt_on: dict[str, Any]
 
 
 class MemoryResponse(WorkspaceModel):

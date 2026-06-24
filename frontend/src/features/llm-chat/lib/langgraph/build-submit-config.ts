@@ -28,10 +28,10 @@ export const buildSubmitContext = (
   allowed_tools: toolPolicy.allowedTools,
   interrupt_on: toolPolicy.interruptOn,
   ...(appThreadId ? { app_thread_id: appThreadId } : {}),
-  ...(selectedDocumentIds && selectedDocumentIds.length > 0
+  ...(selectedDocumentIds !== undefined
     ? { selected_document_ids: selectedDocumentIds }
     : {}),
-  ...(selectedArtifactIds && selectedArtifactIds.length > 0
+  ...(selectedArtifactIds !== undefined
     ? { selected_artifact_ids: selectedArtifactIds }
     : {}),
 })

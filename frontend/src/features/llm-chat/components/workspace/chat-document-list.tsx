@@ -24,7 +24,8 @@ import { formatRelativeTime } from "@/shared/utils"
 
 export function ChatDocumentList() {
   const { documents, error, isLoading } = useChatWorkspaceDocuments()
-  const { selectedDocumentIds, toggleDocument } = useChatWorkspaceUi()
+  const { isSelectionLocked, selectedDocumentIds, toggleDocument } =
+    useChatWorkspaceUi()
 
   if (isLoading) {
     return (
@@ -75,6 +76,7 @@ export function ChatDocumentList() {
                 <div className="flex items-start gap-2">
                   <Checkbox
                     checked={checked}
+                    disabled={isSelectionLocked}
                     onCheckedChange={() => toggleDocument(document.id)}
                     aria-label={`${document.title} 선택`}
                   />

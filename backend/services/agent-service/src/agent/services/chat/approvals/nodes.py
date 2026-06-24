@@ -21,7 +21,6 @@ from agent.services.chat.approvals.messages import (
 from agent.services.chat.approvals.policy import (
     build_action_request,
     build_review_config,
-    default_allowed_tools,
     requires_approval,
 )
 from agent.services.chat.approvals.schemas import (
@@ -79,6 +78,16 @@ MEMORY_MUTATION_TOOLS = {"memory_create", "memory_update", "memory_delete"}
 ONBOARDING_MUTATION_TOOLS = {"onboarding_commit_profile_update"}
 
 
+def _require_approval_context(context: ChatRuntimeContext) -> tuple[list[str], dict[str, Any]]:
+    allowed_tools = context.get("allowed_tools")
+    interrupt_on = context.get("interrupt_on")
+    if not isinstance(allowed_tools, list):
+        raise ValueError("chat runtime context allowed_tools is required")
+    if not isinstance(interrupt_on, dict):
+        raise ValueError("chat runtime context interrupt_on is required")
+    return allowed_tools, interrupt_on
+
+
 def _require_tool_call_id(tool_call: ToolCall) -> str:
     tool_call_id = tool_call["id"]
     if tool_call_id is None:
@@ -110,8 +119,7 @@ def approval_gate(
 
     runtime = get_runtime(ChatRuntimeContext)
     context = runtime.context
-    allowed_tools = context.get("allowed_tools", default_allowed_tools())
-    interrupt_on = context.get("interrupt_on", {})
+    allowed_tools, interrupt_on = _require_approval_context(context)
     action_requests = []
     review_configs = []
 
@@ -175,8 +183,7 @@ async def call_tools_with_approval(
 
     runtime = get_runtime(ChatRuntimeContext)
     context = runtime.context
-    allowed_tools = context.get("allowed_tools", default_allowed_tools())
-    interrupt_on = context.get("interrupt_on", {})
+    allowed_tools, interrupt_on = _require_approval_context(context)
     decisions = state.get("tool_approval_decisions", [])
     executable_calls: list[ToolCall] = []
     synthetic_messages_by_id: dict[str, ToolMessage] = {}

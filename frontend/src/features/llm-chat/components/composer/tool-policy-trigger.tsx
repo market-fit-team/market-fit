@@ -24,18 +24,27 @@ interface ToolPolicyTriggerProps {
   tools: LlmToolDefinition[]
   toolPolicy: ToolPolicyState
   onToggleTool: (toolName: string) => void
+  onResetToolPolicy: () => void
+  disabled?: boolean
 }
 
 export function ToolPolicyTrigger({
   tools,
   toolPolicy,
   onToggleTool,
+  onResetToolPolicy,
+  disabled,
 }: ToolPolicyTriggerProps) {
   return (
     <Dialog>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="gap-2 px-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 px-2"
+            disabled={disabled}
+          >
             <Settings2 className="size-3.5 text-muted-foreground" />
             <span className="text-sm">도구</span>
             <span className="text-sm tracking-wide text-muted-foreground">
@@ -68,7 +77,10 @@ export function ToolPolicyTrigger({
               auto는 즉시 실행되고 review는 HITL 승인을 요구합니다.
             </DialogDescription>
 
-            <ToolPolicyResetTrigger />
+            <ToolPolicyResetTrigger
+              disabled={disabled}
+              onReset={onResetToolPolicy}
+            />
           </div>
         </DialogHeader>
 
@@ -76,7 +88,7 @@ export function ToolPolicyTrigger({
           <ToolPolicyList
             tools={tools}
             allowedToolNames={toolPolicy.allowedToolNames}
-            onToggleTool={onToggleTool}
+            onToggleTool={disabled ? () => undefined : onToggleTool}
           />
         </div>
       </DialogContent>

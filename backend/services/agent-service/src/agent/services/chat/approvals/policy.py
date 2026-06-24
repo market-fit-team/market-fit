@@ -3,6 +3,7 @@ from agent.services.chat.approvals.schemas import (
     ApprovalReviewConfig,
     ApprovalDecisionType,
     InterruptOnConfig,
+    InterruptOnPolicy,
 )
 from agent.services.chat.toolkits.chat_toolkit import CHAT_TOOL_SPECS_BY_NAME, CHAT_TOOLS_BY_NAME
 
@@ -11,6 +12,20 @@ def default_allowed_tools() -> list[str]:
     """기본적으로 사용자 승인 없이 실행할 수 있는 tool 목록을 새 list로 반환합니다."""
 
     return [spec.name for spec in CHAT_TOOL_SPECS_BY_NAME.values() if spec.default_allowed]
+
+
+def default_interrupt_on_config(allowed_tools: list[str]) -> InterruptOnConfig:
+    """프런트 tool policy와 같은 기본 HITL 설정을 만듭니다."""
+
+    allowed_tool_names = set(allowed_tools)
+    interrupt_on: InterruptOnConfig = {}
+    for spec in CHAT_TOOL_SPECS_BY_NAME.values():
+        interrupt_on[spec.name] = (
+            False
+            if spec.name in allowed_tool_names
+            else InterruptOnPolicy(allowed_decisions=list(spec.allowed_decisions))
+        )
+    return interrupt_on
 
 
 def default_allowed_decisions() -> list[ApprovalDecisionType]:

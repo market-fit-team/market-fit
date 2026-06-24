@@ -3,14 +3,30 @@ import { HitlInterruptCard } from "@/features/llm-chat/components/hitl/hitl-inte
 import { SdkMessageList } from "@/features/llm-chat/components/messages/sdk-message-list"
 import { useLangGraphChatStream } from "@/features/llm-chat/hooks/use-langgraph-chat-stream"
 import { Alert, AlertDescription } from "@/shared/components/ui/alert"
+import { Skeleton } from "@/shared/components/ui/skeleton"
 
 export function ChatMessagesPanel() {
-  const { hitlInterrupts, isBusy, localNotice, messages, resume, toolCalls } =
-    useLangGraphChatStream()
+  const {
+    hitlInterrupts,
+    isBusy,
+    isHydrating,
+    localNotice,
+    messages,
+    resume,
+    toolCalls,
+  } = useLangGraphChatStream()
 
   return (
     <section className="relative min-h-0 flex-1 overflow-hidden bg-muted/20">
-      {messages.length === 0 && !localNotice && hitlInterrupts?.length === 0 ? (
+      {isHydrating ? (
+        <div className="space-y-3 p-4">
+          <Skeleton className="h-14 w-2/3 rounded-lg" />
+          <Skeleton className="ml-auto h-14 w-1/2 rounded-lg" />
+          <Skeleton className="h-24 w-3/4 rounded-lg" />
+        </div>
+      ) : messages.length === 0 &&
+        !localNotice &&
+        hitlInterrupts?.length === 0 ? (
         <EmptyChatState />
       ) : (
         <div className="h-full">
@@ -25,7 +41,7 @@ export function ChatMessagesPanel() {
                 {hitlInterrupts?.length > 0 && (
                   <HitlInterruptCard
                     interrupts={hitlInterrupts}
-                    disabled={isBusy}
+                    disabled={isBusy || isHydrating}
                     onDecide={(decisions) => void resume(decisions)}
                   />
                 )}

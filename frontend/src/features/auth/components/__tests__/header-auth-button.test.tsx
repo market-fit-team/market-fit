@@ -6,23 +6,38 @@ import { HeaderAuthButtonFallback } from "@/features/auth/components/header/head
 import { HeaderAuthLoginButton } from "@/features/auth/components/header/header-auth-login-button"
 import { HeaderAuthLogoutButton } from "@/features/auth/components/header/header-auth-logout-button"
 
-const { pushMock, signOutMock, usePathnameMock, useSessionMock } = vi.hoisted(
-  () => {
-    return {
-      pushMock: vi.fn(),
-      signOutMock: vi.fn(),
-      usePathnameMock: vi.fn(),
-      useSessionMock: vi.fn(),
-    }
+const {
+  queryClientClearMock,
+  replaceMock,
+  signOutMock,
+  usePathnameMock,
+  useSessionMock,
+} = vi.hoisted(() => {
+  return {
+    queryClientClearMock: vi.fn(),
+    replaceMock: vi.fn(),
+    signOutMock: vi.fn(),
+    usePathnameMock: vi.fn(),
+    useSessionMock: vi.fn(),
   }
-)
+})
 
 vi.mock("next/navigation", () => ({
   usePathname: usePathnameMock,
   useRouter: () => ({
-    push: pushMock,
+    replace: replaceMock,
   }),
 }))
+
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>()
+  return {
+    ...actual,
+    useQueryClient: () => ({
+      clear: queryClientClearMock,
+    }),
+  }
+})
 
 vi.mock("@/features/auth/lib/auth-client", () => ({
   signOut: signOutMock,
@@ -31,7 +46,8 @@ vi.mock("@/features/auth/lib/auth-client", () => ({
 
 describe("Header auth buttons", () => {
   beforeEach(() => {
-    pushMock.mockReset()
+    queryClientClearMock.mockReset()
+    replaceMock.mockReset()
     signOutMock.mockReset()
     usePathnameMock.mockReset()
     useSessionMock.mockReset()
@@ -85,7 +101,8 @@ describe("Header auth buttons", () => {
         onSuccess: expect.any(Function),
       },
     })
-    expect(pushMock).toHaveBeenCalledWith("/")
+    expect(queryClientClearMock).toHaveBeenCalled()
+    expect(replaceMock).toHaveBeenCalledWith("/")
   })
 
   it("세션이 없을 때 로그인 버튼을 렌더링한다", () => {

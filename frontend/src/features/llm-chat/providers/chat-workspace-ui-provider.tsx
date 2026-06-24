@@ -18,12 +18,14 @@ type ChatWorkspaceUiContextValue = {
   activeTab: ChatWorkspaceTab
   isSidebarOpen: boolean
   isContextPanelOpen: boolean
+  isSelectionLocked: boolean
   detailTarget: ChatWorkspaceDetailTarget | null
   toggleDocument: (documentId: string) => void
   toggleArtifact: (artifactId: string) => void
   setActiveTab: (tab: ChatWorkspaceTab) => void
   setSidebarOpen: (open: boolean) => void
   setContextPanelOpen: (open: boolean) => void
+  setSelectionLocked: (locked: boolean) => void
   setDetailTarget: (detailTarget: ChatWorkspaceDetailTarget | null) => void
   resetSelections: () => void
 }
@@ -49,6 +51,7 @@ export function ChatWorkspaceUiProvider({
   const [activeTab, setActiveTab] = useState<ChatWorkspaceTab>("documents")
   const [isSidebarOpen, setSidebarOpen] = useState(false)
   const [isContextPanelOpen, setContextPanelOpen] = useState(false)
+  const [isSelectionLocked, setSelectionLocked] = useState(false)
   const [detailTarget, setDetailTarget] =
     useState<ChatWorkspaceDetailTarget | null>(null)
 
@@ -59,6 +62,7 @@ export function ChatWorkspaceUiProvider({
       activeTab,
       isSidebarOpen,
       isContextPanelOpen,
+      isSelectionLocked,
       detailTarget,
       toggleDocument: (documentId) =>
         setSelectedDocumentIds((current) => toggleId(current, documentId)),
@@ -67,6 +71,7 @@ export function ChatWorkspaceUiProvider({
       setActiveTab,
       setSidebarOpen,
       setContextPanelOpen,
+      setSelectionLocked,
       setDetailTarget,
       resetSelections: () => {
         setSelectedDocumentIds([])
@@ -79,6 +84,7 @@ export function ChatWorkspaceUiProvider({
     activeTab,
     isSidebarOpen,
     isContextPanelOpen,
+    isSelectionLocked,
     detailTarget,
   ])
 

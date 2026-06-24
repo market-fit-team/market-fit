@@ -1,22 +1,19 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ChatMessagesPanel } from "@/features/llm-chat/components/chat-app/chat-messages-panel"
 import { ChatWorkspaceComposerPanel } from "@/features/llm-chat/components/workspace/chat-workspace-composer-panel"
 import { ChatWorkspaceHeader } from "@/features/llm-chat/components/workspace/chat-workspace-header"
 import { LangGraphChatStreamProvider } from "@/features/llm-chat/hooks/langgraph-chat-stream-provider"
-import { useChatModelSelection } from "@/features/llm-chat/hooks/use-chat-model-selection"
 import { useLangGraphChatStream } from "@/features/llm-chat/hooks/use-langgraph-chat-stream"
-import { useToolPolicy } from "@/features/llm-chat/hooks/use-tool-policy"
 import { useChatWorkspaceThread } from "@/features/llm-chat/hooks/workspace/use-chat-workspace-thread"
-import { parseThreadStateMessages } from "@/features/llm-chat/lib/workspace/parse-thread-state-messages"
-import type { LlmChatGraphState } from "@/features/llm-chat/types/langgraph-chat-state"
+import { useWorkspaceRuntimeSettings } from "@/features/llm-chat/hooks/workspace/use-workspace-runtime-settings"
+import { useChatWorkspaceUi } from "@/features/llm-chat/providers/chat-workspace-ui-provider"
 import {
   useListLlmModelsApiV1LlmModelsGetSuspense,
   useListLlmToolsApiV1LlmToolsGetSuspense,
 } from "@/shared/api/generated/agent/endpoints/llm/llm"
-import { useGetLatestThreadStateThreadsThreadIdStateGet } from "@/shared/api/generated/agent/endpoints/threads/threads"
 import { Alert, AlertDescription } from "@/shared/components/ui/alert"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
@@ -56,6 +53,18 @@ function ChatWorkspaceThreadStarter({
   return null
 }
 
+function ChatWorkspaceSelectionLock() {
+  const { hasPendingInterrupt, isBusy, isHydrating } = useLangGraphChatStream()
+  const { setSelectionLocked } = useChatWorkspaceUi()
+
+  useEffect(() => {
+    setSelectionLocked(hasPendingInterrupt || isBusy || isHydrating)
+    return () => setSelectionLocked(false)
+  }, [hasPendingInterrupt, isBusy, isHydrating, setSelectionLocked])
+
+  return null
+}
+
 export function ChatWorkspaceThreadView({
   threadId,
   starterMessage,
@@ -85,33 +94,13 @@ export function ChatWorkspaceThreadView({
   })
   const { thread, isLoading: isThreadLoading } =
     useChatWorkspaceThread(threadId)
-  const latestStateQuery = useGetLatestThreadStateThreadsThreadIdStateGet(
-    thread?.langgraphThreadId ?? "",
-    undefined,
-    {
-      query: {
-        enabled: Boolean(thread?.langgraphThreadId),
-      },
-    }
-  )
+  const runtimeSettings = useWorkspaceRuntimeSettings({
+    threadId: thread?.id ?? null,
+    tools,
+    models,
+  })
 
-  const toolPolicy = useToolPolicy(tools)
-  const modelSelection = useChatModelSelection(models)
-  const initialValues = useMemo<LlmChatGraphState | undefined>(() => {
-    if (!latestStateQuery.data) {
-      return undefined
-    }
-
-    // 최신 state를 먼저 보여주고 이후 공식 stream 상태로 이어받는다.
-    // initialValues / thread state 참고:
-    // https://reference.langchain.com/javascript/langchain-react/UseStreamOptions/initialValues
-    // https://docs.langchain.com/langsmith/use-threads
-    return {
-      messages: parseThreadStateMessages(latestStateQuery.data),
-    }
-  }, [latestStateQuery.data])
-
-  if (isThreadLoading) {
+  if (isThreadLoading || (thread && runtimeSettings.isLoading)) {
     return <Skeleton className="m-4 h-[calc(100%-2rem)] rounded-xl" />
   }
 
@@ -127,14 +116,25 @@ export function ChatWorkspaceThreadView({
     )
   }
 
+  if (runtimeSettings.error || !runtimeSettings.controls) {
+    return (
+      <div className="p-4">
+        <Alert>
+          <AlertDescription>
+            스레드 실행 설정을 불러오지 못했습니다.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   return (
     <LangGraphChatStreamProvider
       key={thread.langgraphThreadId}
       tools={tools}
       models={models}
-      modelSelection={modelSelection}
-      toolPolicy={toolPolicy}
-      initialValues={initialValues}
+      modelSelection={runtimeSettings.controls.modelSelection}
+      toolPolicy={runtimeSettings.controls.toolPolicy}
       workspaceThread={{
         appThreadId: thread.id,
         langgraphThreadId: thread.langgraphThreadId,
@@ -142,6 +142,7 @@ export function ChatWorkspaceThreadView({
     >
       <div className="flex h-full min-h-0 flex-col">
         <ChatWorkspaceThreadStarter starterMessage={starterMessage} />
+        <ChatWorkspaceSelectionLock />
         <ChatWorkspaceHeader
           appThreadId={thread.id}
           title={thread.title}

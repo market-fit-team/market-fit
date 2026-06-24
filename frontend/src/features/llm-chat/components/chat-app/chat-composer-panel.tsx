@@ -8,19 +8,23 @@ export function ChatComposerPanel() {
     tools,
     modelSelection,
     toolPolicy,
+    hasPendingInterrupt,
     isBusy,
+    isHydrating,
     streamStatus,
     sendMessage,
   } = useLangGraphChatStream()
+  const disabled = isBusy || isHydrating || hasPendingInterrupt
 
   return (
     <div className="border-t border-border bg-background/95 p-3 backdrop-blur supports-backdrop-filter:bg-background/85">
       <ChatComposer
-        disabled={isBusy}
+        disabled={disabled}
         onSubmit={sendMessage}
         tools={tools}
         toolPolicy={toolPolicy}
         onToggleTool={toolPolicy.toggleTool}
+        onResetToolPolicy={toolPolicy.resetToDefault}
         streamStatus={streamStatus}
         modelControl={
           <ChatModelMenu
@@ -29,7 +33,7 @@ export function ChatComposerPanel() {
             selectedReasoningEffort={modelSelection.reasoningEffort}
             onSelectModel={modelSelection.selectModel}
             onSelectReasoningEffort={modelSelection.selectReasoningEffort}
-            disabled={isBusy}
+            disabled={disabled}
           />
         }
       />

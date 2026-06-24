@@ -29,7 +29,8 @@ type ChatArtifactListProps = {
 export function ChatArtifactList({ currentThreadId }: ChatArtifactListProps) {
   const { artifacts, error, isLoading } =
     useChatWorkspaceArtifacts(currentThreadId)
-  const { selectedArtifactIds, toggleArtifact } = useChatWorkspaceUi()
+  const { isSelectionLocked, selectedArtifactIds, toggleArtifact } =
+    useChatWorkspaceUi()
 
   if (!currentThreadId) {
     return (
@@ -95,6 +96,7 @@ export function ChatArtifactList({ currentThreadId }: ChatArtifactListProps) {
                 <div className="flex items-start gap-2">
                   <Checkbox
                     checked={checked}
+                    disabled={isSelectionLocked}
                     onCheckedChange={() => toggleArtifact(artifact.id)}
                     aria-label={`${artifact.title} 선택`}
                   />
