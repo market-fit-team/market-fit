@@ -1,5 +1,3 @@
-"use client"
-
 import { Loader2, MapPin, SearchX, X } from "lucide-react"
 import type { MarketSearchArea } from "@/features/map/types/map"
 import { Button } from "@/shared/components/ui/button"

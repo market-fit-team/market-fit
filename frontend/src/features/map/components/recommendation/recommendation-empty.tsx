@@ -1,25 +1,23 @@
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { Sparkles } from "lucide-react"
-import { useSession } from "@/features/auth/lib/auth-client"
 import { Button } from "@/shared/components/ui/button"
 import { CardContent } from "@/shared/components/ui/card"
 
 type RecommendationEmptyProps = {
   hasRecommendations: boolean
+  isSessionPending: boolean
+  loginHref: string
   onResetFilters: () => void
+  shouldShowLoginCta: boolean
 }
 
 export function RecommendationEmpty({
   hasRecommendations,
+  isSessionPending,
+  loginHref,
   onResetFilters,
+  shouldShowLoginCta,
 }: RecommendationEmptyProps) {
-  const pathname = usePathname()
-  const { data: session, isPending } = useSession()
-  const loginHref = `/login?${new URLSearchParams({
-    callbackURL: pathname ?? "/map",
-  }).toString()}`
-
   return (
     <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-3 text-center text-xs">
       <Sparkles className="h-6 w-6 text-muted-foreground" />
@@ -37,11 +35,11 @@ export function RecommendationEmpty({
             필터 초기화
           </Button>
         </>
-      ) : isPending ? (
+      ) : isSessionPending ? (
         <p className="leading-relaxed text-muted-foreground">
           추천 상권 상태를 확인하는 중입니다.
         </p>
-      ) : !session ? (
+      ) : shouldShowLoginCta ? (
         <>
           <p className="leading-relaxed text-muted-foreground">
             로그인하면 성향 분석 결과를 바탕으로 어울리는 행정동 상권을

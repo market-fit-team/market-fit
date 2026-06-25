@@ -1,5 +1,3 @@
-"use client"
-
 import { useMemo, useRef } from "react"
 import { useTheme } from "next-themes"
 import { useAdminAreas } from "@/features/map/hooks/use-admin-areas"

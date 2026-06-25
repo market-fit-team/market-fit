@@ -1,5 +1,3 @@
-"use client"
-
 import { useState } from "react"
 import { Bookmark, BookmarkCheck } from "lucide-react"
 import { useMarketScrap } from "@/features/map/hooks/use-market-scrap"

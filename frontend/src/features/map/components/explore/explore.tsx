@@ -1,5 +1,3 @@
-"use client"
-
 import { MapChatWidget } from "@/features/agent/components/map-chat-widget/map-chat-widget"
 import { ExploreHeader } from "@/features/map/components/explore/explore-header"
 import { Recommendation } from "@/features/map/components/recommendation/recommendation"
