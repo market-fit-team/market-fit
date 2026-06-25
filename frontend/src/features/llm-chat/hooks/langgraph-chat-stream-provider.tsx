@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { Client } from "@langchain/langgraph-sdk"
 import { useStream } from "@langchain/react"
 import {
   AuthSessionError,
@@ -39,6 +40,30 @@ type LangGraphChatStreamProviderProps = {
   } | null
 }
 
+const extractActiveInterruptIds = (state: unknown) => {
+  const tasks = (state as { tasks?: unknown })?.tasks
+  if (!Array.isArray(tasks)) {
+    return new Set<string>()
+  }
+
+  const activeIds = new Set<string>()
+  for (const task of tasks) {
+    const interrupts = (task as { interrupts?: unknown })?.interrupts
+    if (!Array.isArray(interrupts)) {
+      continue
+    }
+
+    for (const interrupt of interrupts) {
+      const id = (interrupt as { id?: unknown })?.id
+      if (typeof id === "string") {
+        activeIds.add(id)
+      }
+    }
+  }
+
+  return activeIds
+}
+
 const normalizeStreamErrorMessage = (error: unknown) => {
   if (error instanceof HttpStatusError) {
     if (typeof error.body === "string" && error.body.trim()) {
@@ -57,20 +82,10 @@ const normalizeStreamErrorMessage = (error: unknown) => {
 }
 
 const langGraphFetch: typeof fetch = async (input, init) => {
-  try {
-    return await fetchWithAuthResponse(input, {
-      ...init,
-      headers: withCsrfHeaders(init?.headers),
-    })
-  } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[llm-chat] LangGraph fetch failed", {
-        input: String(input),
-        error,
-      })
-    }
-    throw error
-  }
+  return fetchWithAuthResponse(input, {
+    ...init,
+    headers: withCsrfHeaders(init?.headers),
+  })
 }
 
 const toLocalNotice = (error: unknown) => {
@@ -117,6 +132,21 @@ export function LangGraphChatStreamProvider({
     return new URL(AGENT_PUBLIC_PATH, origin).toString()
   }, [])
 
+  const langGraphClient = useMemo(
+    () =>
+      new Client({
+        apiUrl,
+        // useStream의 hydrate는 client.threads.getState()를 직접 호출하므로,
+        // stream transport의 fetch 옵션만으로는 /threads/{id}/state 인증이 보장되지 않는다.
+        // 같은 auth fetch를 Client에도 넣어 state hydrate와 command/stream 인증 경로를 맞춘다.
+        // https://github.com/langchain-ai/langgraphjs/tree/main/libs/sdk-js
+        callerOptions: {
+          fetch: langGraphFetch,
+        },
+      }),
+    [apiUrl]
+  )
+
   const stream = useStream<
     LlmChatGraphState,
     HitlRequest,
@@ -130,8 +160,8 @@ export function LangGraphChatStreamProvider({
     // https://reference.langchain.com/javascript/langchain-react/use-stream
     // https://docs.langchain.com/oss/python/langchain/frontend/overview
     // https://github.com/langchain-ai/langgraphjs/blob/main/libs/sdk/CHANGELOG.md
-    apiUrl,
     assistantId: "chat",
+    client: langGraphClient,
     fetch: langGraphFetch,
     messagesKey: "messages",
     optimistic: true,
@@ -141,60 +171,90 @@ export function LangGraphChatStreamProvider({
   })
 
   const rawHitlInterrupts = stream.interrupts
+  const [verifiedInterruptSnapshot, setVerifiedInterruptSnapshot] = useState<{
+    key: string
+    ids: Set<string>
+  }>(() => ({ key: "", ids: new Set() }))
   const streamErrorNotice = stream.error ? toLocalNotice(stream.error) : null
   const localNotice = localErrorNotice ?? streamErrorNotice
   const isStreamProjectionReliable = !stream.error
-  const hitlInterrupts = useMemo(
-    () => (isStreamProjectionReliable ? rawHitlInterrupts : []),
-    [isStreamProjectionReliable, rawHitlInterrupts]
-  )
-
   const rawHitlInterruptIds = useMemo(
-    () => rawHitlInterrupts.map((interrupt) => interrupt.id),
+    () =>
+      rawHitlInterrupts
+        .map((interrupt) => interrupt.id)
+        .filter((id): id is string => typeof id === "string"),
     [rawHitlInterrupts]
   )
-  const visibleHitlInterruptIds = useMemo(
-    () => hitlInterrupts.map((interrupt) => interrupt.id),
-    [hitlInterrupts]
-  )
+  const rawHitlInterruptIdKey = rawHitlInterruptIds.join("\u0000")
+  const hitlInterrupts = useMemo(() => {
+    if (
+      !isStreamProjectionReliable ||
+      verifiedInterruptSnapshot.key !== rawHitlInterruptIdKey ||
+      verifiedInterruptSnapshot.ids.size === 0
+    ) {
+      return []
+    }
+
+    return rawHitlInterrupts.filter(
+      (interrupt) =>
+        typeof interrupt.id === "string" &&
+        verifiedInterruptSnapshot.ids.has(interrupt.id)
+    )
+  }, [
+    isStreamProjectionReliable,
+    rawHitlInterruptIdKey,
+    rawHitlInterrupts,
+    verifiedInterruptSnapshot,
+  ])
 
   useEffect(() => {
-    if (process.env.NODE_ENV === "production") {
-      return
-    }
-    if (rawHitlInterruptIds.length === 0 && !stream.error) {
+    const targetThreadId = stream.threadId ?? activeThreadId
+    const interruptIds = rawHitlInterruptIdKey
+      ? rawHitlInterruptIdKey.split("\u0000")
+      : []
+
+    if (interruptIds.length === 0 || targetThreadId == null) {
       return
     }
 
-    // HITL은 LangGraph checkpoint에 남아 있는 pending interrupt만 렌더링한다.
-    // @langchain/react는 hydrate(getState) 성공 시 tasks[].interrupts를 기준으로
-    // replay된 input.requested를 거르므로, stream.error가 있으면 projection을 승인 UI로
-    // 쓰지 않는다.
-    // 근거:
+    let isCurrent = true
+    // SDK는 submit 시작 시 hydrate allowlist를 비워 live interrupt를 허용한다.
+    // event-stream replay가 이미 소비된 input.requested를 다시 넣을 수 있으므로,
+    // 화면에는 현재 checkpointer의 tasks[].interrupts에 남은 ID만 노출한다.
     // https://reference.langchain.com/javascript/langchain-react/use-stream
     // https://docs.langchain.com/oss/python/langchain/frontend/human-in-the-loop
-    // 예제:
-    // https://github.com/langchain-ai/agent-chat-ui
-    console.debug("[llm-chat] LangGraph HITL snapshot", {
-      threadId: stream.threadId ?? activeThreadId,
-      isThreadLoading: stream.isThreadLoading,
-      isLoading: stream.isLoading,
-      error: stream.error,
-      rawInterruptIds: rawHitlInterruptIds,
-      visibleInterruptIds: visibleHitlInterruptIds,
-      suppressedByStreamError:
-        !isStreamProjectionReliable && rawHitlInterruptIds.length > 0,
-    })
-  }, [
-    activeThreadId,
-    isStreamProjectionReliable,
-    rawHitlInterruptIds,
-    stream.error,
-    stream.isLoading,
-    stream.isThreadLoading,
-    stream.threadId,
-    visibleHitlInterruptIds,
-  ])
+    void langGraphClient.threads
+      .getState(targetThreadId)
+      .then((state) => {
+        if (!isCurrent) {
+          return
+        }
+        setVerifiedInterruptSnapshot({
+          key: rawHitlInterruptIdKey,
+          ids: extractActiveInterruptIds(state),
+        })
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) {
+          return
+        }
+        setVerifiedInterruptSnapshot({
+          key: rawHitlInterruptIdKey,
+          ids: new Set(),
+        })
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[llm-chat] HITL state verification failed", {
+            threadId: targetThreadId,
+            interruptIds,
+            error,
+          })
+        }
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [activeThreadId, langGraphClient, rawHitlInterruptIdKey, stream.threadId])
 
   const sendMessage = useCallback(
     async (content: string, options: ChatTurnOptions = {}) => {

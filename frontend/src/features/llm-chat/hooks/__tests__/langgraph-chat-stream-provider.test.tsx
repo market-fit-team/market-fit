@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ChatModelSelectionControls } from "@/features/llm-chat/hooks/langgraph-chat-stream-context"
 import type { ToolPolicyControls } from "@/features/llm-chat/hooks/langgraph-chat-stream-context"
@@ -11,6 +11,7 @@ import type { LlmToolDefinition } from "@/features/llm-chat/types/llm-tool-defin
 const submitMock = vi.hoisted(() => vi.fn())
 const respondMock = vi.hoisted(() => vi.fn())
 const stopMock = vi.hoisted(() => vi.fn())
+const getStateMock = vi.hoisted(() => vi.fn())
 const useStreamOptions = vi.hoisted(() => ({
   current: null as Record<string, unknown> | null,
 }))
@@ -44,6 +45,16 @@ vi.mock("@langchain/react", () => ({
       stop: stopMock,
     }
   },
+}))
+
+vi.mock("@langchain/langgraph-sdk", () => ({
+  Client: vi.fn().mockImplementation(function MockClient() {
+    return {
+      threads: {
+        getState: getStateMock,
+      },
+    }
+  }),
 }))
 
 const createHitlInterrupt = (id = "interrupt-1"): HitlInterrupt => ({
@@ -135,8 +146,10 @@ describe("LangGraphChatStreamProvider", () => {
     submitMock.mockReset()
     respondMock.mockReset()
     stopMock.mockReset()
+    getStateMock.mockReset()
     submitMock.mockResolvedValue(undefined)
     respondMock.mockResolvedValue(undefined)
+    getStateMock.mockResolvedValue({ tasks: [] })
     useStreamOptions.current = null
     useStreamState.current = {
       threadId: "langgraph-thread-1",
@@ -174,6 +187,7 @@ describe("LangGraphChatStreamProvider", () => {
       threadId: "langgraph-thread-1",
       assistantId: "chat",
     })
+    expect(useStreamOptions.current?.client).toBeDefined()
     expect(useStreamOptions.current).not.toHaveProperty("initialValues")
   })
 
@@ -270,6 +284,76 @@ describe("LangGraphChatStreamProvider", () => {
     )
     expect(screen.getByLabelText("local-notice")).toHaveTextContent(
       "오류: HTTP 401"
+    )
+  })
+
+  it("checkpointer에 없는 replay interrupt는 pending HITL로 노출하지 않는다", async () => {
+    useStreamState.current = {
+      ...useStreamState.current,
+      interrupts: [createHitlInterrupt("consumed-interrupt-1")],
+    }
+
+    render(
+      <LangGraphChatStreamProvider
+        tools={tools}
+        models={[modelSelection.selectedModel]}
+        modelSelection={modelSelection}
+        toolPolicy={toolPolicy}
+        workspaceThread={{
+          appThreadId: "app-thread-1",
+          langgraphThreadId: "langgraph-thread-1",
+        }}
+      >
+        <ProviderHarness />
+      </LangGraphChatStreamProvider>
+    )
+
+    await waitFor(() => {
+      expect(getStateMock).toHaveBeenCalledWith("langgraph-thread-1")
+    })
+    expect(screen.getByLabelText("hitl-count")).toHaveTextContent("0")
+    expect(screen.getByLabelText("has-pending-interrupt")).toHaveTextContent(
+      "false"
+    )
+  })
+
+  it("checkpointer에 active로 남은 interrupt만 pending HITL로 노출한다", async () => {
+    useStreamState.current = {
+      ...useStreamState.current,
+      interrupts: [createHitlInterrupt("active-interrupt-1")],
+    }
+    getStateMock.mockResolvedValue({
+      tasks: [
+        {
+          interrupts: [
+            {
+              id: "active-interrupt-1",
+            },
+          ],
+        },
+      ],
+    })
+
+    render(
+      <LangGraphChatStreamProvider
+        tools={tools}
+        models={[modelSelection.selectedModel]}
+        modelSelection={modelSelection}
+        toolPolicy={toolPolicy}
+        workspaceThread={{
+          appThreadId: "app-thread-1",
+          langgraphThreadId: "langgraph-thread-1",
+        }}
+      >
+        <ProviderHarness />
+      </LangGraphChatStreamProvider>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("hitl-count")).toHaveTextContent("1")
+    })
+    expect(screen.getByLabelText("has-pending-interrupt")).toHaveTextContent(
+      "true"
     )
   })
 })

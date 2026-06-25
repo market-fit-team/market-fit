@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   AuthSessionError,
-  HttpStatusError,
   fetchWithAuth,
   fetchWithAuthResponse,
 } from "@/features/auth/lib/fetch-with-auth"
+import type { HttpStatusError } from "@/features/auth/lib/fetch-with-auth"
 
 const getAccessTokenMock = vi.hoisted(() => vi.fn())
 
