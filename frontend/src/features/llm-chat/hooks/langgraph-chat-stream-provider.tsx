@@ -21,12 +21,16 @@ import {
 import { buildSubmitContext } from "@/features/llm-chat/lib/langgraph/build-submit-config"
 import { buildSubmitInput } from "@/features/llm-chat/lib/langgraph/build-submit-input"
 import type {
+  HitlInterrupt,
   HitlRequest,
   HitlResume,
 } from "@/features/llm-chat/types/hitl-interrupt-payload"
 import type { LlmChatGraphState } from "@/features/llm-chat/types/langgraph-chat-state"
 import type { LlmToolDefinition } from "@/features/llm-chat/types/llm-tool-definition"
 import { withCsrfHeaders } from "@/shared/api/csrf"
+
+const AGENT_PUBLIC_PATH = "/api/agent"
+const CHAT_ASSISTANT_ID = "chat"
 
 type LangGraphChatStreamProviderProps = {
   children: ReactNode
@@ -39,6 +43,35 @@ type LangGraphChatStreamProviderProps = {
     langgraphThreadId: string
   } | null
 }
+
+type VerifiedInterruptSnapshot = {
+  key: string
+  ids: Set<string>
+}
+
+const buildAgentApiUrl = () => {
+  const origin = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8088"
+
+  // @langchain/react의 agent-server branch는 절대 URL을 기준으로
+  // Protocol V2 /threads/{thread_id}/stream/events 및 /commands를 호출합니다.
+  // Traefik은 이 경로를 그대로 Agent Server로 프록시하고, Authorization header의 OIDC token은 backend가 검증합니다.
+  // 근거:
+  // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
+  // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
+  return new URL(AGENT_PUBLIC_PATH, origin).toString()
+}
+
+const createLangGraphClient = (apiUrl: string) =>
+  new Client({
+    apiUrl,
+    // useStream의 hydrate는 client.threads.getState()를 직접 호출하므로,
+    // stream transport의 fetch 옵션만으로는 /threads/{id}/state 인증이 보장되지 않는다.
+    // 같은 auth fetch를 Client에도 넣어 state hydrate와 command/stream 인증 경로를 맞춘다.
+    // https://github.com/langchain-ai/langgraphjs/tree/main/libs/sdk-js
+    callerOptions: {
+      fetch: langGraphFetch,
+    },
+  })
 
 const extractActiveInterruptIds = (state: unknown) => {
   const tasks = (state as { tasks?: unknown })?.tasks
@@ -63,6 +96,13 @@ const extractActiveInterruptIds = (state: unknown) => {
 
   return activeIds
 }
+
+const getInterruptIds = (interrupts: { id?: string }[]) =>
+  interrupts
+    .map((interrupt) => interrupt.id)
+    .filter((id): id is string => typeof id === "string")
+
+const toInterruptIdKey = (ids: string[]) => JSON.stringify(ids)
 
 const normalizeStreamErrorMessage = (error: unknown) => {
   if (error instanceof HttpStatusError) {
@@ -103,6 +143,85 @@ const toLocalNotice = (error: unknown) => {
   return `오류: ${message}`
 }
 
+function useVerifiedHitlInterrupts({
+  activeThreadId,
+  client,
+  rawInterrupts,
+  streamError,
+  streamThreadId,
+}: {
+  activeThreadId: string | null
+  client: Client
+  rawInterrupts: HitlInterrupt[]
+  streamError: unknown
+  streamThreadId: string | null
+}) {
+  const [snapshot, setSnapshot] = useState<VerifiedInterruptSnapshot>(() => ({
+    key: "",
+    ids: new Set(),
+  }))
+  const isProjectionReliable = !streamError
+  const interruptIds = useMemo(
+    () => getInterruptIds(rawInterrupts),
+    [rawInterrupts]
+  )
+  const interruptIdKey = toInterruptIdKey(interruptIds)
+
+  useEffect(() => {
+    const targetThreadId = streamThreadId ?? activeThreadId
+
+    if (interruptIds.length === 0 || targetThreadId == null) {
+      return
+    }
+
+    let isCurrent = true
+    // SDK는 submit 시작 시 hydrate allowlist를 비워 live interrupt를 허용한다.
+    // event-stream replay가 이미 소비된 input.requested를 다시 넣을 수 있으므로,
+    // 화면에는 현재 checkpointer의 tasks[].interrupts에 남은 ID만 노출한다.
+    // https://reference.langchain.com/javascript/langchain-react/use-stream
+    // https://docs.langchain.com/oss/python/langchain/frontend/human-in-the-loop
+    void client.threads
+      .getState(targetThreadId)
+      .then((state) => {
+        if (!isCurrent) {
+          return
+        }
+        setSnapshot({
+          key: interruptIdKey,
+          ids: extractActiveInterruptIds(state),
+        })
+      })
+      .catch(() => {
+        if (!isCurrent) {
+          return
+        }
+        setSnapshot({
+          key: interruptIdKey,
+          ids: new Set(),
+        })
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [activeThreadId, client, interruptIdKey, interruptIds, streamThreadId])
+
+  return useMemo(() => {
+    if (
+      !isProjectionReliable ||
+      snapshot.key !== interruptIdKey ||
+      snapshot.ids.size === 0
+    ) {
+      return []
+    }
+
+    return rawInterrupts.filter(
+      (interrupt) =>
+        typeof interrupt.id === "string" && snapshot.ids.has(interrupt.id)
+    )
+  }, [interruptIdKey, isProjectionReliable, rawInterrupts, snapshot])
+}
+
 export function LangGraphChatStreamProvider({
   children,
   tools,
@@ -119,33 +238,8 @@ export function LangGraphChatStreamProvider({
   const [isResumePending, setIsResumePending] = useState(false)
   const isResumePendingRef = useRef(false)
 
-  const apiUrl = useMemo(() => {
-    const AGENT_PUBLIC_PATH = "/api/agent"
-    const origin = process.env.NEXT_PUBLIC_API_ORIGIN ?? "http://localhost:8088"
-
-    // @langchain/react의 agent-server branch는 절대 URL을 기준으로
-    // Protocol V2 /threads/{thread_id}/stream/events 및 /commands를 호출합니다.
-    // Traefik은 이 경로를 그대로 Agent Server로 프록시하고, Authorization header의 OIDC token은 backend가 검증합니다.
-    // 근거:
-    // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-event-stream-sse
-    // https://docs.langchain.com/langsmith/agent-server-api/streaming/protocol-v2-command
-    return new URL(AGENT_PUBLIC_PATH, origin).toString()
-  }, [])
-
-  const langGraphClient = useMemo(
-    () =>
-      new Client({
-        apiUrl,
-        // useStream의 hydrate는 client.threads.getState()를 직접 호출하므로,
-        // stream transport의 fetch 옵션만으로는 /threads/{id}/state 인증이 보장되지 않는다.
-        // 같은 auth fetch를 Client에도 넣어 state hydrate와 command/stream 인증 경로를 맞춘다.
-        // https://github.com/langchain-ai/langgraphjs/tree/main/libs/sdk-js
-        callerOptions: {
-          fetch: langGraphFetch,
-        },
-      }),
-    [apiUrl]
-  )
+  const apiUrl = useMemo(() => buildAgentApiUrl(), [])
+  const langGraphClient = useMemo(() => createLangGraphClient(apiUrl), [apiUrl])
 
   const stream = useStream<
     LlmChatGraphState,
@@ -160,7 +254,7 @@ export function LangGraphChatStreamProvider({
     // https://reference.langchain.com/javascript/langchain-react/use-stream
     // https://docs.langchain.com/oss/python/langchain/frontend/overview
     // https://github.com/langchain-ai/langgraphjs/blob/main/libs/sdk/CHANGELOG.md
-    assistantId: "chat",
+    assistantId: CHAT_ASSISTANT_ID,
     client: langGraphClient,
     fetch: langGraphFetch,
     messagesKey: "messages",
@@ -171,90 +265,15 @@ export function LangGraphChatStreamProvider({
   })
 
   const rawHitlInterrupts = stream.interrupts
-  const [verifiedInterruptSnapshot, setVerifiedInterruptSnapshot] = useState<{
-    key: string
-    ids: Set<string>
-  }>(() => ({ key: "", ids: new Set() }))
   const streamErrorNotice = stream.error ? toLocalNotice(stream.error) : null
   const localNotice = localErrorNotice ?? streamErrorNotice
-  const isStreamProjectionReliable = !stream.error
-  const rawHitlInterruptIds = useMemo(
-    () =>
-      rawHitlInterrupts
-        .map((interrupt) => interrupt.id)
-        .filter((id): id is string => typeof id === "string"),
-    [rawHitlInterrupts]
-  )
-  const rawHitlInterruptIdKey = rawHitlInterruptIds.join("\u0000")
-  const hitlInterrupts = useMemo(() => {
-    if (
-      !isStreamProjectionReliable ||
-      verifiedInterruptSnapshot.key !== rawHitlInterruptIdKey ||
-      verifiedInterruptSnapshot.ids.size === 0
-    ) {
-      return []
-    }
-
-    return rawHitlInterrupts.filter(
-      (interrupt) =>
-        typeof interrupt.id === "string" &&
-        verifiedInterruptSnapshot.ids.has(interrupt.id)
-    )
-  }, [
-    isStreamProjectionReliable,
-    rawHitlInterruptIdKey,
-    rawHitlInterrupts,
-    verifiedInterruptSnapshot,
-  ])
-
-  useEffect(() => {
-    const targetThreadId = stream.threadId ?? activeThreadId
-    const interruptIds = rawHitlInterruptIdKey
-      ? rawHitlInterruptIdKey.split("\u0000")
-      : []
-
-    if (interruptIds.length === 0 || targetThreadId == null) {
-      return
-    }
-
-    let isCurrent = true
-    // SDK는 submit 시작 시 hydrate allowlist를 비워 live interrupt를 허용한다.
-    // event-stream replay가 이미 소비된 input.requested를 다시 넣을 수 있으므로,
-    // 화면에는 현재 checkpointer의 tasks[].interrupts에 남은 ID만 노출한다.
-    // https://reference.langchain.com/javascript/langchain-react/use-stream
-    // https://docs.langchain.com/oss/python/langchain/frontend/human-in-the-loop
-    void langGraphClient.threads
-      .getState(targetThreadId)
-      .then((state) => {
-        if (!isCurrent) {
-          return
-        }
-        setVerifiedInterruptSnapshot({
-          key: rawHitlInterruptIdKey,
-          ids: extractActiveInterruptIds(state),
-        })
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) {
-          return
-        }
-        setVerifiedInterruptSnapshot({
-          key: rawHitlInterruptIdKey,
-          ids: new Set(),
-        })
-        if (process.env.NODE_ENV !== "production") {
-          console.debug("[llm-chat] HITL state verification failed", {
-            threadId: targetThreadId,
-            interruptIds,
-            error,
-          })
-        }
-      })
-
-    return () => {
-      isCurrent = false
-    }
-  }, [activeThreadId, langGraphClient, rawHitlInterruptIdKey, stream.threadId])
+  const hitlInterrupts = useVerifiedHitlInterrupts({
+    activeThreadId,
+    client: langGraphClient,
+    rawInterrupts: rawHitlInterrupts,
+    streamError: stream.error,
+    streamThreadId: stream.threadId,
+  })
 
   const sendMessage = useCallback(
     async (content: string, options: ChatTurnOptions = {}) => {
