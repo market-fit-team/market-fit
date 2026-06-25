@@ -1,6 +1,7 @@
 import {
   type ReactNode,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -56,10 +57,20 @@ const normalizeStreamErrorMessage = (error: unknown) => {
 }
 
 const langGraphFetch: typeof fetch = async (input, init) => {
-  return fetchWithAuthResponse(input, {
-    ...init,
-    headers: withCsrfHeaders(init?.headers),
-  })
+  try {
+    return await fetchWithAuthResponse(input, {
+      ...init,
+      headers: withCsrfHeaders(init?.headers),
+    })
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[llm-chat] LangGraph fetch failed", {
+        input: String(input),
+        error,
+      })
+    }
+    throw error
+  }
 }
 
 const toLocalNotice = (error: unknown) => {
@@ -129,9 +140,61 @@ export function LangGraphChatStreamProvider({
     onThreadId: workspaceThread ? undefined : setThreadId,
   })
 
-  const hitlInterrupts = stream.interrupts
+  const rawHitlInterrupts = stream.interrupts
   const streamErrorNotice = stream.error ? toLocalNotice(stream.error) : null
   const localNotice = localErrorNotice ?? streamErrorNotice
+  const isStreamProjectionReliable = !stream.error
+  const hitlInterrupts = useMemo(
+    () => (isStreamProjectionReliable ? rawHitlInterrupts : []),
+    [isStreamProjectionReliable, rawHitlInterrupts]
+  )
+
+  const rawHitlInterruptIds = useMemo(
+    () => rawHitlInterrupts.map((interrupt) => interrupt.id),
+    [rawHitlInterrupts]
+  )
+  const visibleHitlInterruptIds = useMemo(
+    () => hitlInterrupts.map((interrupt) => interrupt.id),
+    [hitlInterrupts]
+  )
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") {
+      return
+    }
+    if (rawHitlInterruptIds.length === 0 && !stream.error) {
+      return
+    }
+
+    // HITL은 LangGraph checkpoint에 남아 있는 pending interrupt만 렌더링한다.
+    // @langchain/react는 hydrate(getState) 성공 시 tasks[].interrupts를 기준으로
+    // replay된 input.requested를 거르므로, stream.error가 있으면 projection을 승인 UI로
+    // 쓰지 않는다.
+    // 근거:
+    // https://reference.langchain.com/javascript/langchain-react/use-stream
+    // https://docs.langchain.com/oss/python/langchain/frontend/human-in-the-loop
+    // 예제:
+    // https://github.com/langchain-ai/agent-chat-ui
+    console.debug("[llm-chat] LangGraph HITL snapshot", {
+      threadId: stream.threadId ?? activeThreadId,
+      isThreadLoading: stream.isThreadLoading,
+      isLoading: stream.isLoading,
+      error: stream.error,
+      rawInterruptIds: rawHitlInterruptIds,
+      visibleInterruptIds: visibleHitlInterruptIds,
+      suppressedByStreamError:
+        !isStreamProjectionReliable && rawHitlInterruptIds.length > 0,
+    })
+  }, [
+    activeThreadId,
+    isStreamProjectionReliable,
+    rawHitlInterruptIds,
+    stream.error,
+    stream.isLoading,
+    stream.isThreadLoading,
+    stream.threadId,
+    visibleHitlInterruptIds,
+  ])
 
   const sendMessage = useCallback(
     async (content: string, options: ChatTurnOptions = {}) => {
