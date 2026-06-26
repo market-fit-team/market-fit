@@ -1,5 +1,7 @@
 package com.eodigage.franchise.infrastructure.persistence.ingest;
 
+import static java.util.Map.entry;
+
 import java.util.Map;
 
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -11,6 +13,40 @@ import lombok.RequiredArgsConstructor;
 @Repository
 @RequiredArgsConstructor
 public class FranchiseIngestJdbcRepository {
+
+    private static final Map<String, MarketIndustryMapping> MARKET_INDUSTRY_MAPPINGS = Map.ofEntries(
+            entry("한식", new MarketIndustryMapping("CS100001", "한식음식점")),
+            entry("일식", new MarketIndustryMapping("CS100003", "일식음식점")),
+            entry("중식", new MarketIndustryMapping("CS100002", "중식음식점")),
+            entry("서양식", new MarketIndustryMapping("CS100004", "양식음식점")),
+            entry("기타 외국식", new MarketIndustryMapping("CS100004", "양식음식점")),
+            entry("피자", new MarketIndustryMapping("CS100004", "양식음식점")),
+            entry("치킨", new MarketIndustryMapping("CS100007", "치킨전문점")),
+            entry("분식", new MarketIndustryMapping("CS100008", "분식전문점")),
+            entry("제과제빵", new MarketIndustryMapping("CS100005", "제과점")),
+            entry("패스트푸드", new MarketIndustryMapping("CS100006", "패스트푸드점")),
+            entry("주점", new MarketIndustryMapping("CS100009", "호프-간이주점")),
+            entry("커피", new MarketIndustryMapping("CS100010", "커피-음료")),
+            entry("음료 (커피 외)", new MarketIndustryMapping("CS100010", "커피-음료")),
+            entry("아이스크림/빙수", new MarketIndustryMapping("CS100010", "커피-음료")),
+            entry("이미용", new MarketIndustryMapping("CS200028", "미용실")),
+            entry("교육 (외국어)", new MarketIndustryMapping("CS200002", "외국어학원")),
+            entry("교육 (교과)", new MarketIndustryMapping("CS200001", "일반교습학원")),
+            entry("스포츠 관련", new MarketIndustryMapping("CS200024", "스포츠클럽")),
+            entry("자동차 관련", new MarketIndustryMapping("CS200025", "자동차수리")),
+            entry("PC방", new MarketIndustryMapping("CS200019", "PC방")),
+            entry("오락", new MarketIndustryMapping("CS200021", "기타오락장")),
+            entry("세탁", new MarketIndustryMapping("CS200031", "세탁소")),
+            entry("부동산 중개", new MarketIndustryMapping("CS200033", "부동산중개업")),
+            entry("숙박", new MarketIndustryMapping("CS200034", "여관")),
+            entry("안경", new MarketIndustryMapping("CS300016", "안경")),
+            entry("약국", new MarketIndustryMapping("CS300018", "의약품")),
+            entry("반려동물 관련", new MarketIndustryMapping("CS300029", "애완동물")),
+            entry("편의점", new MarketIndustryMapping("CS300002", "편의점")),
+            entry("의류 / 패션", new MarketIndustryMapping("CS300011", "일반의류")),
+            entry("화장품", new MarketIndustryMapping("CS300022", "화장품")),
+            entry("종합소매점", new MarketIndustryMapping("CS300001", "슈퍼마켓"))
+    );
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -108,14 +144,17 @@ public class FranchiseIngestJdbcRepository {
     }
 
     public Long upsertIndustry(String indutyLclasNm, String indutyMlsfcNm) {
+        MarketIndustryMapping mapping = marketIndustryMapping(indutyMlsfcNm);
         String sql = """
                 INSERT INTO franchise_industries (
-                    induty_lclas_nm, induty_mlsfc_nm
+                    induty_lclas_nm, induty_mlsfc_nm, market_svc_induty_cd, market_svc_induty_cd_nm
                 )
                 VALUES (
-                    :indutyLclasNm, :indutyMlsfcNm
+                    :indutyLclasNm, :indutyMlsfcNm, :marketSvcIndutyCd, :marketSvcIndutyCdNm
                 )
                 ON CONFLICT (induty_lclas_nm, induty_mlsfc_nm) DO UPDATE SET
+                    market_svc_induty_cd = EXCLUDED.market_svc_induty_cd,
+                    market_svc_induty_cd_nm = EXCLUDED.market_svc_induty_cd_nm,
                     updated_at = NOW()
                 RETURNING id
                 """;
@@ -124,7 +163,9 @@ public class FranchiseIngestJdbcRepository {
                 sql,
                 new MapSqlParameterSource()
                         .addValue("indutyLclasNm", indutyLclasNm)
-                        .addValue("indutyMlsfcNm", indutyMlsfcNm),
+                        .addValue("indutyMlsfcNm", indutyMlsfcNm)
+                        .addValue("marketSvcIndutyCd", mapping == null ? null : mapping.code())
+                        .addValue("marketSvcIndutyCdNm", mapping == null ? null : mapping.name()),
                 Long.class
         );
     }
@@ -283,5 +324,12 @@ public class FranchiseIngestJdbcRepository {
             return null;
         }
         return value.length() <= max ? value : value.substring(0, max);
+    }
+
+    static MarketIndustryMapping marketIndustryMapping(String indutyMlsfcNm) {
+        return MARKET_INDUSTRY_MAPPINGS.get(indutyMlsfcNm);
+    }
+
+    record MarketIndustryMapping(String code, String name) {
     }
 }
