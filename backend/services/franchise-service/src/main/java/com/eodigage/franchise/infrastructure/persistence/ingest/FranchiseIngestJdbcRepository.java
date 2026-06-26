@@ -250,11 +250,11 @@ public class FranchiseIngestJdbcRepository {
                 ON CONFLICT (induty_lclas_nm, induty_mlsfc_nm) DO UPDATE SET
                     market_svc_induty_cd = COALESCE(
                         EXCLUDED.market_svc_induty_cd,
-                        franchise_brands.market_svc_induty_cd
+                        franchise_industries.market_svc_induty_cd
                     ),
                     market_svc_induty_cd_nm = COALESCE(
                         EXCLUDED.market_svc_induty_cd_nm,
-                        franchise_brands.market_svc_induty_cd_nm
+                        franchise_industries.market_svc_induty_cd_nm
                     ),
                     updated_at = NOW()
                 RETURNING id
@@ -295,8 +295,14 @@ public class FranchiseIngestJdbcRepository {
                         franchise_brands.primary_industry_id,
                         EXCLUDED.primary_industry_id
                     ),
-                    market_svc_induty_cd = EXCLUDED.market_svc_induty_cd,
-                    market_svc_induty_cd_nm = EXCLUDED.market_svc_induty_cd_nm,
+                    market_svc_induty_cd = COALESCE(
+                        EXCLUDED.market_svc_induty_cd,
+                        franchise_brands.market_svc_induty_cd
+                    ),
+                    market_svc_induty_cd_nm = COALESCE(
+                        EXCLUDED.market_svc_induty_cd_nm,
+                        franchise_brands.market_svc_induty_cd_nm
+                    ),
                     updated_at = NOW()
                 RETURNING id
                 """;
