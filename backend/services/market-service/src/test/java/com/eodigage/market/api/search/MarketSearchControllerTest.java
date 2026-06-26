@@ -1,7 +1,6 @@
 package com.eodigage.market.api.search;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
@@ -40,7 +39,7 @@ class MarketSearchControllerTest {
 
     @Test
     void 이름검색_성공시_행정동_목록을_ApiResponse_래퍼로_응답한다() throws Exception {
-        given(marketSearchQueryService.searchAreas(eq("도봉구"), isNull(), any(), anyInt()))
+        given(marketSearchQueryService.searchAreas(eq("도봉구"), isNull(), any()))
                 .willReturn(new AreaSearchResponse(
                         "도봉구", null, null, "20261", "20261", null,
                         List.of(new AreaItem(
@@ -62,7 +61,7 @@ class MarketSearchControllerTest {
 
     @Test
     void 업종필터_성공시_순위정보를_포함해_응답한다() throws Exception {
-        given(marketSearchQueryService.searchAreas(isNull(), eq("CS100001"), any(), anyInt()))
+        given(marketSearchQueryService.searchAreas(isNull(), eq("CS100001"), any()))
                 .willReturn(new AreaSearchResponse(
                         null, "CS100001", "한식음식점", "20261", "20261", 3,
                         List.of(new AreaItem(
@@ -83,7 +82,7 @@ class MarketSearchControllerTest {
 
     @Test
     void keyword와_industryCode가_모두_없으면_400_ProblemDetail을_반환한다() throws Exception {
-        given(marketSearchQueryService.searchAreas(isNull(), isNull(), any(), anyInt()))
+        given(marketSearchQueryService.searchAreas(isNull(), isNull(), any()))
                 .willThrow(new MarketBadRequestException(
                         "MARKET_INVALID_REQUEST",
                         "keyword 또는 industryCode 중 하나 이상이 필요합니다."
@@ -97,7 +96,7 @@ class MarketSearchControllerTest {
 
     @Test
     void 존재하지_않는_업종은_404_ProblemDetail을_반환한다() throws Exception {
-        given(marketSearchQueryService.searchAreas(isNull(), eq("NOPE"), any(), anyInt()))
+        given(marketSearchQueryService.searchAreas(isNull(), eq("NOPE"), any()))
                 .willThrow(new MarketResourceNotFoundException(
                         "MARKET_INDUSTRY_NOT_FOUND",
                         "업종을 찾을 수 없습니다. industryCode=NOPE"
@@ -107,15 +106,5 @@ class MarketSearchControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("MARKET_INDUSTRY_NOT_FOUND"));
-    }
-
-    @Test
-    void maxRank가_3을_초과하면_400_ProblemDetail을_반환한다() throws Exception {
-        mockMvc.perform(get("/api/v1/market-search/areas")
-                        .param("industryCode", "CS100001")
-                        .param("maxRank", "4"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
-                .andExpect(jsonPath("$.code").value("MARKET_INVALID_REQUEST"));
     }
 }

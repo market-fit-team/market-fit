@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.eodigage.market.api.report.dto.MarketReportResponse;
+import com.eodigage.market.application.recommendation.MarketFranchiseRecommendationService;
 import com.eodigage.market.core.common.exception.MarketResourceNotFoundException;
 import com.eodigage.market.infrastructure.persistence.report.MarketReportJdbcRepository;
 import com.eodigage.market.infrastructure.persistence.report.MarketReportJdbcRepository.DongRow;
@@ -32,6 +33,9 @@ class MarketReportQueryServiceTest {
 
     @Mock
     private MarketReportJdbcRepository repository;
+
+    @Mock
+    private MarketFranchiseRecommendationService marketFranchiseRecommendationService;
 
     @InjectMocks
     private MarketReportQueryService service;

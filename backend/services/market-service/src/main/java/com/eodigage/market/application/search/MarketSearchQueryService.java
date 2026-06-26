@@ -24,12 +24,15 @@ public class MarketSearchQueryService {
 
     private static final String LATEST_PERIOD = "latest";
 
+    /** 업종 필터 검색은 추정매출 상위 3개 상권으로 고정한다. */
+    private static final int TOP_RANK = 3;
+
     private final MarketSearchJdbcRepository marketSearchJdbcRepository;
 
     /**
      * 상권(행정동) 검색 단일 진입점.
      *
-     * <p>- {@code industryCode}가 있으면 해당 업종의 추정매출 Top{@code maxRank} 상권을 반환하며,
+     * <p>- {@code industryCode}가 있으면 해당 업종의 추정매출 Top3 상권을 반환하며,
      *   {@code keyword}가 함께 오면 시군구/행정동명으로 추가 필터링한다.
      * <p>- {@code industryCode}가 없고 {@code keyword}만 있으면 이름 검색을 한다.
      * <p>- 둘 다 없으면 400.
@@ -37,8 +40,7 @@ public class MarketSearchQueryService {
     public AreaSearchResponse searchAreas(
             String keyword,
             String industryCode,
-            String period,
-            int maxRank
+            String period
     ) {
         String trimmedKeyword = trimToNull(keyword);
         String trimmedIndustryCode = trimToNull(industryCode);
@@ -51,7 +53,7 @@ public class MarketSearchQueryService {
         }
 
         if (trimmedIndustryCode != null) {
-            return industrySearch(trimmedIndustryCode, trimmedKeyword, period, maxRank);
+            return industrySearch(trimmedIndustryCode, trimmedKeyword, period, TOP_RANK);
         }
         return nameSearch(trimmedKeyword);
     }

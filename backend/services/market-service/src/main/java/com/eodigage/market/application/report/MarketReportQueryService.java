@@ -7,10 +7,11 @@ import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import com.eodigage.market.api.recommendation.dto.RecommendedFranchise;
 import com.eodigage.market.api.report.dto.MarketReportResponse;
 import com.eodigage.market.api.report.dto.MarketReportPreviewResponse;
+import com.eodigage.market.application.recommendation.MarketFranchiseRecommendationService;
 import com.eodigage.market.core.common.exception.MarketResourceNotFoundException;
 import com.eodigage.market.infrastructure.persistence.report.MarketReportJdbcRepository;
 import com.eodigage.market.infrastructure.persistence.report.MarketReportJdbcRepository.DongRow;
@@ -26,12 +27,12 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class MarketReportQueryService {
 
     private static final String LATEST_PERIOD = "latest";
 
     private final MarketReportJdbcRepository marketReportJdbcRepository;
+    private final MarketFranchiseRecommendationService marketFranchiseRecommendationService;
 
     public MarketReportResponse getReport(String dongCode, String period) {
         DongRow dong = resolveDong(dongCode);
@@ -56,6 +57,10 @@ public class MarketReportQueryService {
                 .findTradeAreaChange(dong.id(), reportPeriod.id())
                 .orElse(null);
 
+        // 1위 업종은 위에서 구한 salesRankings를 재사용한다(top-industry 쿼리를 다시 실행하지 않는다).
+        List<RecommendedFranchise> franchiseRecommendations =
+                marketFranchiseRecommendationService.recommendByIndustry(topIndustryCode(salesRankings));
+
         return new MarketReportResponse(
                 toDongSummary(dong),
                 toPeriodSummary(reportPeriod),
@@ -64,7 +69,8 @@ public class MarketReportQueryService {
                 toSalesSection(salesAggregate, salesRankings),
                 toStoreSection(stores),
                 toTradeAreaChangeSection(change),
-                toDataQualitySection(floating, resident, salesRankings, stores, change)
+                toDataQualitySection(floating, resident, salesRankings, stores, change),
+                franchiseRecommendations
         );
     }
 
@@ -75,8 +81,18 @@ public class MarketReportQueryService {
                 .orElse(null);
         List<IndustrySalesRow> salesRankings = marketReportJdbcRepository
                 .findTopIndustrySalesByAmount(dong.id(), reportPeriod.id(), previousPeriodId);
+        List<RecommendedFranchise> franchiseRecommendations =
+                marketFranchiseRecommendationService.recommendByIndustry(topIndustryCode(salesRankings));
 
-        return new MarketReportPreviewResponse(toSalesRankingItems(salesRankings));
+        return new MarketReportPreviewResponse(
+                toSalesRankingItems(salesRankings),
+                franchiseRecommendations
+        );
+    }
+
+    /** 추정매출 1위 업종코드(없으면 null). 프랜차이즈 추천의 기준 업종으로 쓴다. */
+    private String topIndustryCode(List<IndustrySalesRow> salesRankings) {
+        return salesRankings.isEmpty() ? null : salesRankings.get(0).industryCode();
     }
 
     private DongRow resolveDong(String dongCode) {

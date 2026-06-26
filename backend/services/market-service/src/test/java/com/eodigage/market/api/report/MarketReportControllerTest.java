@@ -106,11 +106,12 @@ class MarketReportControllerTest {
     }
 
     private MarketReportPreviewResponse samplePreview() {
-        return new MarketReportPreviewResponse(List.of(
-                new MarketReportResponse.SalesRankingItem(
+        return new MarketReportPreviewResponse(
+                List.of(new MarketReportResponse.SalesRankingItem(
                         1, "CS100", "한식음식점", 300L, 50L, new BigDecimal("50.00"), 10L, 30L
-                )
-        ));
+                )),
+                List.of()
+        );
     }
 
     private MarketReportResponse sampleReport() {
@@ -129,7 +130,8 @@ class MarketReportControllerTest {
                 null,
                 null,
                 null,
-                null
+                null,
+                List.of()
         );
     }
 }

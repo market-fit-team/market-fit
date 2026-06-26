@@ -46,7 +46,7 @@ class MarketSearchQueryServiceTest {
                         null, null, null)
         ));
 
-        AreaSearchResponse response = service.searchAreas("명일동", null, "latest", 3);
+        AreaSearchResponse response = service.searchAreas("명일동", null, "latest");
 
         assertThat(response.keyword()).isEqualTo("명일동");
         assertThat(response.industryCode()).isNull();
@@ -75,7 +75,7 @@ class MarketSearchQueryServiceTest {
                         new BigDecimal("37.4998"), new BigDecimal("127.0320"), 1, 115_810_239_035L)
         ));
 
-        AreaSearchResponse response = service.searchAreas(null, "CS100001", "latest", 3);
+        AreaSearchResponse response = service.searchAreas(null, "CS100001", "latest");
 
         assertThat(response.industryName()).isEqualTo("한식음식점");
         assertThat(response.stdrYyquCd()).isEqualTo("20261");
@@ -93,7 +93,7 @@ class MarketSearchQueryServiceTest {
                 .willReturn(Optional.of(new PeriodRow(10L, "20261", "20261")));
         given(repository.findTopAreasByIndustry(10L, 7L, 3, "강동구")).willReturn(List.of());
 
-        AreaSearchResponse response = service.searchAreas("강동구", "CS100001", "latest", 3);
+        AreaSearchResponse response = service.searchAreas("강동구", "CS100001", "latest");
 
         assertThat(response.keyword()).isEqualTo("강동구");
         assertThat(response.industryCode()).isEqualTo("CS100001");
@@ -102,7 +102,7 @@ class MarketSearchQueryServiceTest {
 
     @Test
     void keyword와_industryCode가_모두_없으면_MARKET_INVALID_REQUEST_예외를_던진다() {
-        assertThatThrownBy(() -> service.searchAreas(null, "  ", "latest", 3))
+        assertThatThrownBy(() -> service.searchAreas(null, "  ", "latest"))
                 .isInstanceOf(MarketBadRequestException.class)
                 .extracting("code")
                 .isEqualTo("MARKET_INVALID_REQUEST");
@@ -112,7 +112,7 @@ class MarketSearchQueryServiceTest {
     void 존재하지_않는_업종은_MARKET_INDUSTRY_NOT_FOUND_예외를_던진다() {
         given(repository.findIndustryByCode("UNKNOWN")).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.searchAreas(null, "UNKNOWN", "latest", 3))
+        assertThatThrownBy(() -> service.searchAreas(null, "UNKNOWN", "latest"))
                 .isInstanceOf(MarketResourceNotFoundException.class)
                 .extracting("code")
                 .isEqualTo("MARKET_INDUSTRY_NOT_FOUND");
@@ -124,7 +124,7 @@ class MarketSearchQueryServiceTest {
                 .willReturn(Optional.of(new IndustryRow(7L, "CS100001", "한식음식점")));
         given(repository.findLatestSalesPeriod()).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.searchAreas(null, "CS100001", "latest", 3))
+        assertThatThrownBy(() -> service.searchAreas(null, "CS100001", "latest"))
                 .isInstanceOf(MarketResourceNotFoundException.class)
                 .extracting("code")
                 .isEqualTo("MARKET_REPORT_NOT_FOUND");
@@ -136,7 +136,7 @@ class MarketSearchQueryServiceTest {
                 .willReturn(Optional.of(new IndustryRow(7L, "CS100001", "한식음식점")));
         given(repository.findPeriodByStdrYyquCd("20231")).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.searchAreas(null, "CS100001", "20231", 3))
+        assertThatThrownBy(() -> service.searchAreas(null, "CS100001", "20231"))
                 .isInstanceOf(MarketResourceNotFoundException.class)
                 .extracting("code")
                 .isEqualTo("MARKET_PERIOD_NOT_FOUND");

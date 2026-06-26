@@ -11,8 +11,6 @@ import com.eodigage.market.application.search.MarketSearchQueryService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -26,16 +24,15 @@ public class MarketSearchController {
     @GetMapping("/areas")
     @Operation(
             operationId = "searchAreas",
-            summary = "Search dongs by name keyword and/or industry estimated-sales top rank filter"
+            summary = "Search dongs by name keyword and/or industry estimated-sales Top3 filter"
     )
     public ApiResponse<AreaSearchResponse> searchAreas(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String industryCode,
-            @RequestParam(defaultValue = "latest") String period,
-            @RequestParam(defaultValue = "3") @Min(1) @Max(3) int maxRank
+            @RequestParam(defaultValue = "latest") String period
     ) {
         return ApiResponse.success(
-                marketSearchQueryService.searchAreas(keyword, industryCode, period, maxRank)
+                marketSearchQueryService.searchAreas(keyword, industryCode, period)
         );
     }
 }
