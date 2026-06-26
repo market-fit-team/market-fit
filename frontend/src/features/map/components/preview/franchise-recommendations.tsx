@@ -20,7 +20,7 @@ export function PreviewFranchiseRecommendations({
     <div className="flex flex-col gap-2">
       {franchises.map((franchise) => (
         <div
-          key={franchise.franchiseId}
+          key={franchise.brandCode}
           className="rounded-lg border border-border px-3 py-3"
         >
           <div className="min-w-0">
@@ -28,10 +28,10 @@ export function PreviewFranchiseRecommendations({
               {franchise.brandName}
             </p>
             <p className="mt-1 truncate text-xs text-muted-foreground">
-              {franchise.industryName ?? "프랜차이즈"}
-              {franchise.expectedStartupCost == null
+              {franchise.companyName ?? "프랜차이즈"}
+              {franchise.startupCostTotal == null
                 ? ""
-                : ` · 예상 창업 비용 ${franchise.expectedStartupCost.toLocaleString()}만원`}
+                : ` · 예상 창업 비용 ${franchise.startupCostTotal.toLocaleString()}만원`}
             </p>
           </div>
         </div>

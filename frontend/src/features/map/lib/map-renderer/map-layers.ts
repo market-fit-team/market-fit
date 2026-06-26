@@ -12,6 +12,8 @@ type SymbolTextField = SymbolLayerLayout["text-field"]
 
 // MapLibre source/layer id는 setFilter, setPaintProperty, 이벤트 바인딩에서 공유
 export const DONG_SOURCE_ID = "seoul-dongs"
+// 라벨은 폴리곤이 아닌 동별 대표점(centroid) 소스에서 그려 행정동당 1개만 노출
+export const DONG_LABEL_SOURCE_ID = "seoul-dong-labels"
 export const GU_BOUNDARY_SOURCE_ID = "seoul-gu-boundaries"
 export const SEARCH_RESULT_SOURCE_ID = "market-search-result-points"
 export const DONG_BASE_LAYER_ID = "seoul-dongs-base"
@@ -48,6 +50,19 @@ export const getLayerFilterByCodes = (codes: DongCode[]) =>
         ["literal", codes],
       ] satisfies FilterSpecification)
     : EMPTY_FILTER
+
+// 검색 결과 마커(📍+이름)와 라벨이 중복되지 않도록 해당 dongCode를 라벨에서 제외
+export const excludeSearchResultCodes = (
+  baseFilter: FilterSpecification,
+  searchResultCodes: DongCode[]
+): FilterSpecification =>
+  searchResultCodes.length === 0
+    ? baseFilter
+    : ([
+        "all",
+        baseFilter,
+        ["!", ["in", ["get", "code"], ["literal", searchResultCodes]]],
+      ] as FilterSpecification)
 
 export const createFillLayer = ({
   fillColor,
@@ -128,7 +143,7 @@ export const createLabelLayer = ({
     "text-halo-color": "#ffffff",
     "text-halo-width": 1.5,
   },
-  source: DONG_SOURCE_ID,
+  source: DONG_LABEL_SOURCE_ID,
   type: "symbol",
 })
 

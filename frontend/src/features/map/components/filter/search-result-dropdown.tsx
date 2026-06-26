@@ -10,8 +10,6 @@ type SearchResultDropdownProps = {
   onSelectArea: (area: MarketSearchArea) => void
 }
 
-const MAX_VISIBLE_RESULT_COUNT = 8
-
 const formatManwon = (value: number) =>
   `${Math.round(value / 10_000).toLocaleString()}만원`
 
@@ -22,9 +20,6 @@ export function SearchResultDropdown({
   onClose,
   onSelectArea,
 }: SearchResultDropdownProps) {
-  const visibleAreas = areas.slice(0, MAX_VISIBLE_RESULT_COUNT)
-  const hiddenAreaCount = Math.max(areas.length - visibleAreas.length, 0)
-
   return (
     <div className="border-t bg-popover text-popover-foreground">
       <div className="flex items-center justify-between gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
@@ -63,9 +58,9 @@ export function SearchResultDropdown({
         </div>
       ) : null}
 
-      {!isLoading && !isError && visibleAreas.length > 0 ? (
+      {!isLoading && !isError && areas.length > 0 ? (
         <div className="grid max-h-72 grid-cols-1 gap-1 overflow-y-auto p-1.5 md:grid-cols-2 xl:grid-cols-3">
-          {visibleAreas.map((area) => (
+          {areas.map((area) => (
             <Button
               key={area.dongCode}
               type="button"
@@ -96,13 +91,6 @@ export function SearchResultDropdown({
               </span>
             </Button>
           ))}
-
-          {hiddenAreaCount > 0 ? (
-            <div className="px-2 py-2 text-xs text-muted-foreground md:col-span-2 xl:col-span-3">
-              외 {hiddenAreaCount}개 결과는 지도 마커와 조건 조정으로 확인할 수
-              있습니다.
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>

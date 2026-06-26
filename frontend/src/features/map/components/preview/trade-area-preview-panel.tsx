@@ -7,7 +7,6 @@ import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent } from "@/shared/components/ui/card"
 
 type TradeAreaPreviewPanelProps = {
-  dongCode: string
   dongName: string
   isError: boolean
   isLoading: boolean
@@ -18,7 +17,6 @@ type TradeAreaPreviewPanelProps = {
 }
 
 export function TradeAreaPreviewPanel({
-  dongCode,
   dongName,
   isError,
   isLoading,
@@ -32,7 +30,6 @@ export function TradeAreaPreviewPanel({
       <CardContent className="flex min-h-0 flex-1 flex-col p-0">
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
           <PreviewSummary
-            dongCode={dongCode}
             dongName={dongName}
             onClose={onClose}
             sigunguName={sigunguName}

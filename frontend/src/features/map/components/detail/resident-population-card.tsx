@@ -81,14 +81,14 @@ export function ResidentPopulationCard({
           }}
           className="h-64 w-full"
         >
-          <BarChart data={chartData} layout="vertical" margin={{ right: 48 }}>
+          <BarChart data={chartData} layout="vertical" margin={{ right: 64 }}>
             <XAxis type="number" hide />
             <YAxis
               type="category"
               dataKey="ageGroup"
               tickLine={false}
               axisLine={false}
-              width={44}
+              width={52}
             />
             <ChartTooltip
               content={
@@ -118,6 +118,7 @@ export function ResidentPopulationCard({
                 position="right"
                 className="fill-muted-foreground"
                 fontSize={11}
+                formatter={(value) => Number(value ?? 0).toLocaleString()}
               />
             </Bar>
           </BarChart>

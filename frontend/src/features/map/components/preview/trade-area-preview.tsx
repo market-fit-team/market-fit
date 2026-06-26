@@ -21,7 +21,6 @@ export function TradeAreaPreview() {
 
   return (
     <TradeAreaPreviewPanel
-      dongCode={selectedDongCode}
       dongName={selectedDong?.name ?? selectedDongCode}
       isError={isError}
       isLoading={isLoading}

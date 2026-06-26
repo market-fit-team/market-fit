@@ -54,7 +54,9 @@ export function DetailReportView({
           ) : (
             <>
               <DetailReportSections data={report} />
-              <FranchiseStartupCostCard franchises={[]} />
+              <FranchiseStartupCostCard
+                franchises={report.franchiseRecommendations}
+              />
               <FootTrafficChartCard footTraffic={report.footTraffic} />
             </>
           )}

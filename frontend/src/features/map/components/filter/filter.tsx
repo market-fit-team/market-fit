@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
+import { type KeyboardEvent, useEffect, useRef, useState } from "react"
 import { FilterBar } from "@/features/map/components/filter/filter-bar"
 import { SearchResultDropdown } from "@/features/map/components/filter/search-result-dropdown"
 import { useMarketAreaResults } from "@/features/map/hooks/use-market-area-results"
@@ -25,12 +25,7 @@ export function Filter() {
   const selectedMinorCategory = useMapStore(
     (state) => state.selectedMinorCategory
   )
-  const setSelectedMajorCategory = useMapStore(
-    (state) => state.setSelectedMajorCategory
-  )
-  const setSelectedMinorCategory = useMapStore(
-    (state) => state.setSelectedMinorCategory
-  )
+  const setSelectedIndustry = useMapStore((state) => state.setSelectedIndustry)
 
   const { areas, hasSearchCondition, isError, isLoading } =
     useMarketAreaResults()
@@ -39,13 +34,6 @@ export function Filter() {
     isError: isIndustryOptionsError,
     isLoading: isIndustryOptionsLoading,
   } = useMarketIndustries()
-  const minorOptions = useMemo(
-    () =>
-      industryOptions.find(
-        (option) => option.code === selectedMajorCategory
-      )?.minors ?? [],
-    [industryOptions, selectedMajorCategory]
-  )
   const resultKey = [
     appliedSearchKeyword.trim(),
     selectedMajorCategory,
@@ -111,12 +99,17 @@ export function Filter() {
   }
 
   const handleClearSearchKeyword = () => {
-    if (!searchInputRef.current) {
-      return
+    if (searchInputRef.current) {
+      searchInputRef.current.value = ""
+      searchInputRef.current.focus()
     }
 
-    searchInputRef.current.value = ""
-    searchInputRef.current.focus()
+    // 적용된 검색어까지 비워야 검색 결과가 즉시 갱신된다.
+    executeTextSearch("")
+    // 검색어를 비운 직후의 결과 드롭다운은 닫아 둔다(다시 열리지 않도록).
+    setClosedResultKey(
+      ["", selectedMajorCategory, selectedMinorCategory].join("|")
+    )
   }
 
   return (
@@ -127,7 +120,6 @@ export function Filter() {
       industryOptions={industryOptions}
       isIndustryOptionsError={isIndustryOptionsError}
       isIndustryOptionsLoading={isIndustryOptionsLoading}
-      minorOptions={minorOptions}
       onClearSearchKeyword={handleClearSearchKeyword}
       onExecuteTextSearch={handleExecuteTextSearch}
       onFilterPointerDown={handleFilterPointerDown}
@@ -138,8 +130,7 @@ export function Filter() {
         }
       }}
       onSearchKeyDown={handleSearchKeyDown}
-      onSelectMajorCategory={setSelectedMajorCategory}
-      onSelectMinorCategory={setSelectedMinorCategory}
+      onSelectIndustry={setSelectedIndustry}
       resultCount={areas.length}
       resultDropdown={
         hasSearchCondition && isResultOpen ? (

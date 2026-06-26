@@ -47,10 +47,14 @@ export type MarketRecommendedArea = {
 }
 
 export type MarketFranchiseRecommendation = {
+  brandCode: string
   brandName: string
-  expectedStartupCost?: number
-  franchiseId: string
-  industryName?: string
+  companyName?: string
+  // 가맹점 평균 추정매출(만원/년) — 응답의 천원 단위를 만원으로 환산해 보관
+  estimatedSalesAmount?: number
+  franchiseCount?: number
+  // 예상 창업비용 합계(만원) — 응답의 천원 단위를 만원으로 환산해 보관
+  startupCostTotal?: number
 }
 
 export type MarketAreaListItem = MarketSearchArea & {
@@ -160,4 +164,5 @@ export type DetailReportData = {
   competition: CompetitionStats | null
   commercialChangeIndicator: CommercialChangeIndicator | null
   dataQuality: DetailDataQuality
+  franchiseRecommendations: MarketFranchiseRecommendation[]
 }

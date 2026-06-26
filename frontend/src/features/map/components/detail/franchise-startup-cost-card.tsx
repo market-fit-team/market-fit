@@ -1,4 +1,5 @@
 import { WalletCards } from "lucide-react"
+import type { MarketFranchiseRecommendation } from "@/features/map/types/map"
 import {
   Card,
   CardContent,
@@ -14,14 +15,8 @@ import {
   TableRow,
 } from "@/shared/components/ui/table"
 
-type FranchiseStartupCost = {
-  minCapital: number
-  name: string
-  sector: string
-}
-
 type FranchiseStartupCostCardProps = {
-  franchises: FranchiseStartupCost[]
+  franchises: MarketFranchiseRecommendation[]
 }
 
 export function FranchiseStartupCostCard({
@@ -45,19 +40,21 @@ export function FranchiseStartupCostCard({
             <TableHeader>
               <TableRow>
                 <TableHead>브랜드</TableHead>
-                <TableHead>업종</TableHead>
+                <TableHead>운영사</TableHead>
                 <TableHead className="text-right">예상 창업 비용</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {franchises.map((franchise) => (
-                <TableRow key={franchise.name}>
+                <TableRow key={franchise.brandCode}>
                   <TableCell className="font-medium text-foreground">
-                    {franchise.name}
+                    {franchise.brandName}
                   </TableCell>
-                  <TableCell>{franchise.sector}</TableCell>
+                  <TableCell>{franchise.companyName ?? "-"}</TableCell>
                   <TableCell className="text-right font-mono font-medium text-foreground">
-                    {franchise.minCapital.toLocaleString()}만원
+                    {franchise.startupCostTotal == null
+                      ? "-"
+                      : `${franchise.startupCostTotal.toLocaleString()}만원`}
                   </TableCell>
                 </TableRow>
               ))}

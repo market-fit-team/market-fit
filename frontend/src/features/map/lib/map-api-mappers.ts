@@ -1,9 +1,11 @@
 import type { Geometry } from "geojson"
+import type { IndustryMajorOption } from "@/features/map/lib/industry-filter-options"
 import type {
   AdminAreaFeature,
   AdminAreaMapData,
   DetailReportData,
   IndustryCompetitionRank,
+  MarketFranchiseRecommendation,
   MarketPreviewData,
   MarketPreviewIndustryRanking,
   MarketSearchArea,
@@ -11,6 +13,7 @@ import type {
 import type {
   ApiResponseAdminAreaHierarchyResponse,
   ApiResponseAreaSearchResponse,
+  ApiResponseIndustryCategoriesResponse,
   ApiResponseMarketReportPreviewResponse,
   ApiResponseMarketReportResponse,
 } from "@/shared/api/generated/market/schemas"
@@ -34,6 +37,20 @@ type GeneratedSearchAreas = NonNullable<
 type GeneratedAreaProperties = NonNullable<
   NonNullable<GeneratedAdminAreas["sigungu"]>[number]["properties"]
 >
+
+type GeneratedIndustryCategories = NonNullable<
+  ApiResponseIndustryCategoriesResponse["data"]
+>
+
+// preview·report 응답의 franchiseRecommendations 항목은 구조가 동일하다.
+type GeneratedFranchiseRecommendation = {
+  brandCode?: string
+  brandName?: string
+  companyName?: string
+  estimatedSalesAmount?: number
+  franchiseCount?: number
+  startupCostTotal?: number
+}
 
 const toStringValue = (value: string | undefined, fallback = "") =>
   value ?? fallback
@@ -193,11 +210,40 @@ export const toAdminAreaMapData = (
   }
 }
 
+// 응답 금액 단위(천원)를 만원으로 환산한다. 값이 없으면 undefined를 유지한다.
+const toManwonFromThousand = (value: number | undefined) =>
+  value == null ? undefined : Math.round(value / 10)
+
+const toFranchiseRecommendation = (
+  item: GeneratedFranchiseRecommendation
+): MarketFranchiseRecommendation => ({
+  brandCode: toStringValue(item.brandCode, toStringValue(item.brandName)),
+  brandName: toStringValue(item.brandName),
+  companyName: toOptionalString(item.companyName),
+  estimatedSalesAmount: toManwonFromThousand(item.estimatedSalesAmount),
+  franchiseCount: toOptionalNumber(item.franchiseCount),
+  startupCostTotal: toManwonFromThousand(item.startupCostTotal),
+})
+
+// 대분류별 업종 목록 응답을 필터 UI용 옵션 트리로 변환한다.
+export const toMarketIndustryOptions = (
+  payload: GeneratedIndustryCategories | undefined
+): IndustryMajorOption[] =>
+  (payload?.categories ?? []).map((category) => ({
+    code: toStringValue(category.categoryCode),
+    minors: (category.industries ?? []).map((industry) => ({
+      code: toStringValue(industry.code),
+      name: toStringValue(industry.name),
+    })),
+    name: toStringValue(category.categoryName),
+  }))
+
 export const toMarketPreviewData = (
   payload: GeneratedMarketPreview | undefined
 ): MarketPreviewData => ({
-  // 프랜차이즈 추천은 market preview 응답에 포함되면 여기서 매핑한다.
-  franchiseRecommendations: [],
+  franchiseRecommendations: (payload?.franchiseRecommendations ?? []).map(
+    toFranchiseRecommendation
+  ),
   industryRankings: (payload?.industryRankings ?? []).map(
     toMarketPreviewRanking
   ),
@@ -265,6 +311,9 @@ export const toDetailReportData = (
       missingSections: payload.dataQuality?.missingSections ?? [],
       note: toStringValue(payload.dataQuality?.note),
     },
+    franchiseRecommendations: (payload.franchiseRecommendations ?? []).map(
+      toFranchiseRecommendation
+    ),
     footTraffic: payload.floatingPopulation
       ? {
           peakTimeSlot: toOptionalString(payload.floatingPopulation.peakTimeSlot),

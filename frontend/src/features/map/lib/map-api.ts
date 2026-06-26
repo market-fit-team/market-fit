@@ -6,6 +6,7 @@ import {
   toAdminAreaMapData,
   toDetailReportData,
   toMarketAreaSearchResult,
+  toMarketIndustryOptions,
   toMarketPreviewData,
 } from "@/features/map/lib/map-api-mappers"
 import { fetchPublicMarketApi } from "@/features/map/lib/map-public-fetch"
@@ -14,6 +15,7 @@ import type {
   MarketRecommendedArea,
 } from "@/features/map/types/map"
 import { getGetAdminAreasUrl } from "@/shared/api/generated/market/endpoints/admin-areas/admin-areas"
+import { getGetMarketIndustriesUrl } from "@/shared/api/generated/market/endpoints/market-industry/market-industry"
 import {
   getGetMarketReportByDongUrl,
   getGetMarketReportPreviewByDongUrl,
@@ -22,6 +24,7 @@ import { getSearchAreasUrl } from "@/shared/api/generated/market/endpoints/marke
 import type {
   ApiResponseAdminAreaHierarchyResponse,
   ApiResponseAreaSearchResponse,
+  ApiResponseIndustryCategoriesResponse,
   ApiResponseMarketReportPreviewResponse,
   ApiResponseMarketReportResponse,
 } from "@/shared/api/generated/market/schemas"
@@ -68,9 +71,18 @@ export const searchMarketAreas = async (params: {
     ).data
   )
 
-// TODO: market OpenAPI에 업종 목록 endpoint가 추가되면 Orval 생성 함수로 교체한다.
-export const getMarketIndustries = async (): Promise<IndustryMajorOption[]> =>
-  industryFilterOptions
+export const getMarketIndustries = async (): Promise<IndustryMajorOption[]> => {
+  const options = toMarketIndustryOptions(
+    (
+      await fetchPublicMarketApi<ApiResponseIndustryCategoriesResponse>(
+        getGetMarketIndustriesUrl()
+      )
+    ).data
+  )
+
+  // 업종 응답이 비면 검색/필터 UI가 동작하도록 임시 옵션으로 폴백한다.
+  return options.length > 0 ? options : industryFilterOptions
+}
 
 // TODO: market OpenAPI에 추천 목록 endpoint가 추가되면 Orval 생성 함수로 교체한다.
 export const getMarketRecommendedAreas = async (): Promise<

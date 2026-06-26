@@ -2,14 +2,12 @@ import { X } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 
 type PreviewSummaryProps = {
-  dongCode: string
   dongName: string
   onClose: () => void
   sigunguName: string
 }
 
 export function PreviewSummary({
-  dongCode,
   dongName,
   onClose,
   sigunguName,
@@ -29,7 +27,7 @@ export function PreviewSummary({
         </Button>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-        {sigunguName} · 행정동 코드 {dongCode}
+        {sigunguName}
       </p>
     </div>
   )
