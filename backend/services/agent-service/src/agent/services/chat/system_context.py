@@ -67,9 +67,41 @@ def build_system_context(system_context_state: SystemContextState | None) -> str
         )
 
     if onboarding_summary is not None:
-        lines.append(
-            f'<onboarding_summary has_default_profile="{str(onboarding_summary["has_default_profile"]).lower()}" has_thread_context="{str(onboarding_summary["has_thread_context"]).lower()}" />'
-        )
+        attributes = [
+            f'has_default_profile="{str(onboarding_summary["has_default_profile"]).lower()}"',
+            f'has_thread_context="{str(onboarding_summary["has_thread_context"]).lower()}"',
+        ]
+        if onboarding_summary["result_code"] is not None:
+            attributes.append(
+                f'result_code="{escape(onboarding_summary["result_code"])}"'
+            )
+        if onboarding_summary["selected_category_code"] is not None:
+            attributes.append(
+                'selected_category_code="'
+                f'{escape(onboarding_summary["selected_category_code"])}"'
+            )
+        if onboarding_summary["source"] is not None:
+            attributes.append(f'source="{escape(onboarding_summary["source"])}"')
+        lines.append(f"<onboarding_summary {' '.join(attributes)} />")
+
+        onboarding_hints: list[str] = []
+        if onboarding_summary["has_default_profile"]:
+            onboarding_hints.append(
+                "기본 성향 프로필이 필요하면 onboarding_get_default_profile 도구를 사용한다."
+            )
+        if onboarding_summary["result_code"] is not None:
+            onboarding_hints.append(
+                "현재 연결된 성향 결과를 읽으려면 onboarding_get_survey_result 도구를 사용한다."
+            )
+            onboarding_hints.append(
+                "업종별 상권 추천이 필요하면 onboarding_get_area_recommendations 도구를 사용한다."
+            )
+        if onboarding_hints:
+            lines.append(
+                "<onboarding_usage_hint>"
+                f"{escape(' '.join(onboarding_hints))}"
+                "</onboarding_usage_hint>"
+            )
 
     lines.append("</system_context>")
     return "\n".join(lines)

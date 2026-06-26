@@ -29,6 +29,9 @@ class MemorySummary(TypedDict):
 class OnboardingSummary(TypedDict):
     has_default_profile: bool
     has_thread_context: bool
+    result_code: str | None
+    selected_category_code: str | None
+    source: str | None
 
 
 class SystemContextState(TypedDict):

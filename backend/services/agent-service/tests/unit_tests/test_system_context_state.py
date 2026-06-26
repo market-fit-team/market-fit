@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from agent.db.base import Base
@@ -155,6 +156,9 @@ async def test_prepare_system_context_state_lazy_initializes_and_overwrites_sele
     assert system_context["onboarding_summary"] == {
         "has_default_profile": True,
         "has_thread_context": True,
+        "result_code": "result-1",
+        "selected_category_code": None,
+        "source": "manual_attach",
     }
     assert result["system_context_refresh"] == {
         "memory_summary_dirty": False,
@@ -166,7 +170,7 @@ async def test_prepare_system_context_state_lazy_initializes_and_overwrites_sele
 async def test_prepare_system_context_state_refreshes_only_dirty_summary(
     session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """dirty flag가 켜진 summary만 다시 계산하고 나머지는 유지한다."""
+    """dirty flag가 꺼져 있으면 기본 프로필 여부는 유지하고 thread context만 최신화한다."""
 
     from agent.services.chat import system_context_state as module
 
@@ -194,6 +198,9 @@ async def test_prepare_system_context_state_refreshes_only_dirty_summary(
             "onboarding_summary": {
                 "has_default_profile": False,
                 "has_thread_context": False,
+                "result_code": None,
+                "selected_category_code": None,
+                "source": None,
             },
         },
         {
@@ -211,7 +218,10 @@ async def test_prepare_system_context_state_refreshes_only_dirty_summary(
     }
     assert result["system_context"]["onboarding_summary"] == {
         "has_default_profile": False,
-        "has_thread_context": False,
+        "has_thread_context": True,
+        "result_code": "result-1",
+        "selected_category_code": None,
+        "source": "manual_attach",
     }
     assert fake_onboarding_client.calls == 0
 
@@ -263,6 +273,13 @@ async def test_prepare_system_context_state_preserves_selected_resources_when_ke
 
     assert result["system_context"]["selected_documents"] == selected_documents
     assert result["system_context"]["selected_artifacts"] == selected_artifacts
+    assert result["system_context"]["onboarding_summary"] == {
+        "has_default_profile": False,
+        "has_thread_context": True,
+        "result_code": "result-1",
+        "selected_category_code": None,
+        "source": "manual_attach",
+    }
 
 
 @pytest.mark.asyncio
@@ -293,7 +310,7 @@ async def test_prepare_system_context_state_rejects_invalid_selected_ids(
 async def test_prepare_system_context_state_keeps_chat_running_when_onboarding_init_fails(
     session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """온보딩 초기화 실패는 채팅을 막지 않고 summary만 비운다."""
+    """온보딩 기본 프로필 조회 실패는 채팅을 막지 않고 thread context는 유지한다."""
 
     from agent.services.chat import system_context_state as module
 
@@ -314,7 +331,13 @@ async def test_prepare_system_context_state_keeps_chat_running_when_onboarding_i
         "has_memories": True,
         "memory_count": 1,
     }
-    assert result["system_context"]["onboarding_summary"] is None
+    assert result["system_context"]["onboarding_summary"] == {
+        "has_default_profile": False,
+        "has_thread_context": True,
+        "result_code": "result-1",
+        "selected_category_code": None,
+        "source": "manual_attach",
+    }
 
 
 @pytest.mark.asyncio
@@ -342,3 +365,60 @@ async def test_prepare_system_context_state_ignores_configurable_auth_user() -> 
         "memory_summary": None,
         "onboarding_summary": None,
     }
+
+
+@pytest.mark.asyncio
+async def test_prepare_system_context_state_reflects_frontend_onboarding_context_changes_without_dirty_flag(
+    session_factory: async_sessionmaker[AsyncSession], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """프론트 API로 바뀐 스레드 성향 컨텍스트는 dirty flag 없이도 다음 턴에 반영한다."""
+
+    from agent.services.chat import system_context_state as module
+
+    thread_id, _, _ = await _seed_workspace(session_factory)
+    fake_onboarding_client = FakeOnboardingClient(default_profile={"id": "profile-1"})
+    monkeypatch.setattr(module, "get_session_factory", lambda: session_factory)
+    monkeypatch.setattr(module, "onboarding_service_client", fake_onboarding_client)
+
+    async with session_factory() as session:
+        record = await session.scalar(
+            select(AgentThreadOnboardingContextRecord).where(
+                AgentThreadOnboardingContextRecord.result_code == "result-1"
+            )
+        )
+        assert record is not None
+        record.result_code = "result-2"
+        record.selected_category_code = "bakery"
+        record.source = "agent_update"
+        await session.commit()
+
+    result = await prepare_system_context_state_update(
+        {
+            "selected_documents": [],
+            "selected_artifacts": [],
+            "memory_summary": {"has_memories": True, "memory_count": 1},
+            "onboarding_summary": {
+                "has_default_profile": True,
+                "has_thread_context": True,
+                "result_code": "result-1",
+                "selected_category_code": None,
+                "source": "manual_attach",
+            },
+        },
+        {
+            "memory_summary_dirty": False,
+            "onboarding_summary_dirty": False,
+        },
+        config={},
+        context={"app_thread_id": thread_id},
+        server_user=FakeUser(identity="user-a", access_token="token"),
+    )
+
+    assert result["system_context"]["onboarding_summary"] == {
+        "has_default_profile": True,
+        "has_thread_context": True,
+        "result_code": "result-2",
+        "selected_category_code": "bakery",
+        "source": "agent_update",
+    }
+    assert fake_onboarding_client.calls == 0

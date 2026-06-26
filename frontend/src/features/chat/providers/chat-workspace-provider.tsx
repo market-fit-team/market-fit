@@ -8,17 +8,20 @@ import {
   useState,
 } from "react"
 import type {
+  ChatDetailDialogState,
   ChatLeftTab,
   ChatRightPanel,
 } from "@/features/chat/types/workspace"
 
 type ChatWorkspaceContextValue = {
   activeLeftTab: ChatLeftTab
+  detailDialog: ChatDetailDialogState | null
   isLeftSidebarOpen: boolean
   isSelectionLocked: boolean
   rightPanel: ChatRightPanel | null
   selectedArtifactIds: string[]
   selectedDocumentIds: string[]
+  setDetailDialog: (dialog: ChatDetailDialogState | null) => void
   setActiveLeftTab: (tab: ChatLeftTab) => void
   setIsLeftSidebarOpen: (open: boolean) => void
   setIsSelectionLocked: (locked: boolean) => void
@@ -50,6 +53,8 @@ export function ChatWorkspaceProvider({
   children,
 }: ChatWorkspaceProviderProps) {
   const [activeLeftTab, setActiveLeftTab] = useState<ChatLeftTab>("threads")
+  const [detailDialog, setDetailDialog] =
+    useState<ChatDetailDialogState | null>(null)
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true)
   const [isSelectionLocked, setIsSelectionLocked] = useState(false)
   const [rightPanel, setRightPanel] = useState<ChatRightPanel | null>({
@@ -61,11 +66,13 @@ export function ChatWorkspaceProvider({
   const value = useMemo<ChatWorkspaceContextValue>(
     () => ({
       activeLeftTab,
+      detailDialog,
       isLeftSidebarOpen,
       isSelectionLocked,
       rightPanel,
       selectedArtifactIds,
       selectedDocumentIds,
+      setDetailDialog,
       setActiveLeftTab,
       setIsLeftSidebarOpen,
       setIsSelectionLocked,
@@ -85,6 +92,7 @@ export function ChatWorkspaceProvider({
     }),
     [
       activeLeftTab,
+      detailDialog,
       isLeftSidebarOpen,
       isSelectionLocked,
       rightPanel,

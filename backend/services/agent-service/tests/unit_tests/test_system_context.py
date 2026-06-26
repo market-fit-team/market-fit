@@ -91,6 +91,9 @@ def test_build_system_context_renders_memory_and_onboarding_summaries() -> None:
             "onboarding_summary": {
                 "has_default_profile": False,
                 "has_thread_context": True,
+                "result_code": "result-1",
+                "selected_category_code": "cafe",
+                "source": "manual_attach",
             },
         }
     )
@@ -100,6 +103,10 @@ def test_build_system_context_renders_memory_and_onboarding_summaries() -> None:
     assert 'memory_count="3"' in result
     assert "<onboarding_summary" in result
     assert 'has_thread_context="true"' in result
+    assert 'result_code="result-1"' in result
+    assert 'selected_category_code="cafe"' in result
+    assert "onboarding_get_survey_result" in result
+    assert "onboarding_get_area_recommendations" in result
 
 
 def test_append_system_context_to_latest_human_message_only_updates_human_message() -> None:

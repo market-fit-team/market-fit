@@ -1,16 +1,36 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { Folder, Menu, MessageSquare, NotebookPen, X } from "lucide-react"
+import {
+  Fingerprint,
+  Folder,
+  Menu,
+  MessageSquare,
+  NotebookPen,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LibraryPanel } from "@/features/chat/components/workspace/library-panel"
 import { MemoryPanel } from "@/features/chat/components/workspace/memory-panel"
+import {
+  OnboardingPanel,
+  type OnboardingPanelItem,
+} from "@/features/chat/components/workspace/onboarding-panel"
 import { RightSidebar } from "@/features/chat/components/workspace/right-sidebar"
 import { ThreadList } from "@/features/chat/components/workspace/thread-list"
+import { WorkspaceDetailDialog } from "@/features/chat/components/workspace/workspace-detail-dialog"
+import { HttpStatusError } from "@/features/auth/lib/fetch-with-auth"
 import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
 import type { HitlDecision } from "@/features/chat/types/hitl-interrupt-payload"
+import type { ChatOnboardingResultPreview } from "@/features/chat/types/workspace"
+import {
+  getGetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGetQueryKey,
+  getOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGet,
+  useDeleteOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextDelete,
+  useSetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextPut,
+} from "@/shared/api/generated/agent/endpoints/agent-onboarding-context/agent-onboarding-context"
 import { useListDocumentsApiV1AgentDocumentsGet } from "@/shared/api/generated/agent/endpoints/agent-documents/agent-documents"
 import { useListMemoriesApiV1AgentMemoriesGet } from "@/shared/api/generated/agent/endpoints/agent-memories/agent-memories"
 import {
@@ -19,6 +39,15 @@ import {
   useDeleteThreadApiV1AgentThreadsThreadIdDelete,
   useListThreadsApiV1AgentThreadsGet,
 } from "@/shared/api/generated/agent/endpoints/agent-threads/agent-threads"
+import {
+  getGetMySurveyProfileSurveysMeProfileGetQueryKey,
+  getMySurveyProfileSurveysMeProfileGet,
+  useGetSavedSurveyResultsSurveysMeSavedResultsGet,
+} from "@/shared/api/generated/onboarding/endpoints/survey/survey"
+import type {
+  SavedSurveyResultSummary,
+  SurveyResultResponse,
+} from "@/shared/api/generated/onboarding/schemas"
 import { Button } from "@/shared/components/ui/button"
 import {
   ResizableHandle,
@@ -48,9 +77,11 @@ export function ChatWorkspaceShell({
   const queryClient = useQueryClient()
   const {
     activeLeftTab,
+    detailDialog,
     isLeftSidebarOpen,
     rightPanel,
     selectedDocumentIds,
+    setDetailDialog,
     setActiveLeftTab,
     setIsLeftSidebarOpen,
     setRightPanel,
@@ -61,10 +92,56 @@ export function ChatWorkspaceShell({
   const memoriesQuery = useListMemoriesApiV1AgentMemoriesGet()
   const createThread = useCreateThreadApiV1AgentThreadsPost()
   const deleteThread = useDeleteThreadApiV1AgentThreadsThreadIdDelete()
+  const setOnboardingContext =
+    useSetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextPut()
+  const deleteOnboardingContext =
+    useDeleteOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextDelete()
 
   const documents = documentsQuery.data?.documents ?? []
   const threads = threadsQuery.data?.threads ?? []
   const memories = memoriesQuery.data?.memories ?? []
+  const isOnboardingTabActive =
+    activeLeftTab === "onboarding" && isLeftSidebarOpen
+  const onboardingContextQuery = useQuery({
+    queryKey: currentThreadId
+      ? getGetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGetQueryKey(
+          currentThreadId
+        )
+      : ["agent-onboarding-context", "idle"],
+    enabled: currentThreadId !== null,
+    retry: false,
+    queryFn: async () => {
+      if (!currentThreadId) {
+        return null
+      }
+
+      return readOptionalResource(() =>
+        getOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGet(
+          currentThreadId
+        )
+      )
+    },
+  })
+  const defaultProfileQuery = useQuery({
+    queryKey: getGetMySurveyProfileSurveysMeProfileGetQueryKey(),
+    enabled: isOnboardingTabActive || detailDialog?.kind === "onboarding-result",
+    retry: false,
+    queryFn: () => readOptionalResource(getMySurveyProfileSurveysMeProfileGet),
+  })
+  const savedResultsQuery = useGetSavedSurveyResultsSurveysMeSavedResultsGet({
+    query: {
+      enabled: isOnboardingTabActive,
+    },
+  })
+  const currentOnboardingContext = onboardingContextQuery.data ?? null
+  const defaultProfile = defaultProfileQuery.data ?? null
+  const onboardingItems = buildOnboardingPanelItems({
+    currentResultCode: currentOnboardingContext?.result_code ?? null,
+    defaultProfile,
+    savedResults: savedResultsQuery.data?.results ?? [],
+  })
+  const isOnboardingInteractionPending =
+    setOnboardingContext.isPending || deleteOnboardingContext.isPending
   const isRightPanelOpen = rightPanel !== null
   const chatPanelDefaultSize = isLeftSidebarOpen
     ? isRightPanelOpen
@@ -78,6 +155,10 @@ export function ChatWorkspaceShell({
     "size-8 cursor-pointer rounded-md text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30"
   const activeActivityButtonClassName =
     "bg-muted text-foreground ring-1 ring-border/40 hover:bg-muted"
+
+  useEffect(() => {
+    setDetailDialog(null)
+  }, [currentThreadId, setDetailDialog])
 
   const invalidateThreads = () => {
     void queryClient.invalidateQueries({
@@ -117,6 +198,76 @@ export function ChatWorkspaceShell({
     )
   }
 
+  const openDetailDialog = (
+    nextDialog: NonNullable<typeof detailDialog>
+  ) => {
+    setDetailDialog(nextDialog)
+    if (window.innerWidth < 768) {
+      setIsLeftSidebarOpen(false)
+    }
+  }
+
+  const invalidateOnboardingContext = () => {
+    if (!currentThreadId) {
+      return
+    }
+
+    void queryClient.invalidateQueries({
+      queryKey:
+        getGetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGetQueryKey(
+          currentThreadId
+        ),
+    })
+  }
+
+  const handleToggleOnboardingContext = (
+    result: ChatOnboardingResultPreview
+  ) => {
+    if (!currentThreadId) {
+      toast("대화를 시작한 뒤 사용할 수 있습니다.")
+      return
+    }
+
+    const isAttached = currentOnboardingContext?.result_code === result.resultCode
+
+    if (isAttached) {
+      deleteOnboardingContext.mutate(
+        { threadId: currentThreadId },
+        {
+          onSuccess: () => {
+            invalidateOnboardingContext()
+            toast("성향분석 컨텍스트를 제거했습니다.")
+          },
+          onError: (error) => {
+            toast.error(resolveMutationError(error, "성향분석 컨텍스트를 제거하지 못했습니다."))
+          },
+        }
+      )
+      return
+    }
+
+    setOnboardingContext.mutate(
+      {
+        threadId: currentThreadId,
+        data: {
+          result_code: result.resultCode,
+          selected_category_code: result.selectedCategoryCode ?? null,
+          source: result.isDefault ? "default_profile" : "manual_attach",
+          summary: `${result.profileName} 결과를 현재 대화 컨텍스트에 연결했습니다.`,
+        },
+      },
+      {
+        onSuccess: () => {
+          invalidateOnboardingContext()
+          toast.success("성향분석 컨텍스트에 추가했습니다.")
+        },
+        onError: (error) => {
+          toast.error(resolveMutationError(error, "성향분석 컨텍스트를 추가하지 못했습니다."))
+        },
+      }
+    )
+  }
+
   return (
     <div className="relative flex h-[calc(100dvh-4rem)] w-full overflow-hidden bg-background text-foreground">
       <div className="relative z-0 flex w-10 shrink-0 flex-col items-center justify-between border-r border-border/30 bg-background/95 py-3">
@@ -150,6 +301,21 @@ export function ChatWorkspaceShell({
             }}
           >
             <Folder className="size-4" />
+          </ActivityButton>
+          <ActivityButton
+            className={cn(
+              activityButtonClassName,
+              activeLeftTab === "onboarding" && isLeftSidebarOpen
+                ? activeActivityButtonClassName
+                : "hover:bg-muted/70"
+            )}
+            label="성향분석"
+            onClick={() => {
+              setActiveLeftTab("onboarding")
+              setIsLeftSidebarOpen(true)
+            }}
+          >
+            <Fingerprint className="size-4" />
           </ActivityButton>
           <ActivityButton
             className={cn(
@@ -218,10 +384,30 @@ export function ChatWorkspaceShell({
                     selectedDocumentIds={selectedDocumentIds}
                     onToggleDocument={toggleDocument}
                     onOpenDocument={(document) =>
-                      setRightPanel({ kind: "library-document", document })
+                      openDetailDialog({
+                        kind: "library-document",
+                        document,
+                      })
                     }
                     onCollapsePanel={() => setIsLeftSidebarOpen(false)}
                     side="left"
+                  />
+                )}
+                {activeLeftTab === "onboarding" && (
+                  <OnboardingPanel
+                    items={onboardingItems}
+                    isLoading={
+                      defaultProfileQuery.isLoading || savedResultsQuery.isLoading
+                    }
+                    isInteractionPending={isOnboardingInteractionPending}
+                    onOpenResult={(result) =>
+                      openDetailDialog({
+                        kind: "onboarding-result",
+                        result,
+                      })
+                    }
+                    onToggleContext={handleToggleOnboardingContext}
+                    onCollapsePanel={() => setIsLeftSidebarOpen(false)}
                   />
                 )}
                 {activeLeftTab === "memory" && (
@@ -269,6 +455,16 @@ export function ChatWorkspaceShell({
           )}
         </ResizablePanelGroup>
       </div>
+
+      <WorkspaceDetailDialog
+        currentOnboardingContext={currentOnboardingContext}
+        currentThreadId={currentThreadId}
+        defaultProfile={defaultProfile}
+        dialog={detailDialog}
+        isOnboardingContextPending={isOnboardingInteractionPending}
+        onClose={() => setDetailDialog(null)}
+        onToggleOnboardingContext={handleToggleOnboardingContext}
+      />
     </div>
   )
 }
@@ -301,4 +497,77 @@ function ActivityButton({
       </Tooltip>
     </TooltipProvider>
   )
+}
+
+const readOptionalResource = async <T,>(loader: () => Promise<T>) => {
+  try {
+    return await loader()
+  } catch (error) {
+    if (error instanceof HttpStatusError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+const buildOnboardingPanelItems = ({
+  currentResultCode,
+  defaultProfile,
+  savedResults,
+}: {
+  currentResultCode: string | null
+  defaultProfile: SurveyResultResponse | null
+  savedResults: SavedSurveyResultSummary[]
+}) => {
+  const items: OnboardingPanelItem[] = []
+
+  if (defaultProfile) {
+    items.push({
+      resultCode: defaultProfile.result_code,
+      profileName: defaultProfile.profile_name,
+      isDefault: true,
+      savedLabel: "기본 프로필",
+      savedSource: "default_profile",
+      createdAt: defaultProfile.created_at,
+      isAttached: currentResultCode === defaultProfile.result_code,
+    })
+  }
+
+  for (const result of savedResults) {
+    if (result.result_code === defaultProfile?.result_code) {
+      continue
+    }
+
+    items.push({
+      resultCode: result.result_code,
+      profileName: result.profile_name,
+      isDefault: false,
+      savedLabel: result.saved_label,
+      savedSource: result.saved_source,
+      createdAt: result.saved_at,
+      isAttached: currentResultCode === result.result_code,
+    })
+  }
+
+  return items
+}
+
+const resolveMutationError = (error: unknown, fallbackMessage: string) => {
+  if (error instanceof HttpStatusError) {
+    const detail =
+      typeof error.body === "object" &&
+      error.body !== null &&
+      "detail" in error.body &&
+      typeof error.body.detail === "string"
+        ? error.body.detail
+        : null
+
+    return detail ?? fallbackMessage
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return fallbackMessage
 }

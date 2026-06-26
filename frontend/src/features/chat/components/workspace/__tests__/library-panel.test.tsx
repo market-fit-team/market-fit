@@ -17,7 +17,7 @@ const documents: DocumentResponse[] = [
 ]
 
 describe("LibraryPanel", () => {
-  it("DocumentResponse 목록을 렌더링하고 문서를 우측 패널 대상으로 전달한다.", () => {
+  it("문서 행을 클릭하면 상세 열기 핸들러를 호출한다.", () => {
     const onOpenDocument = vi.fn()
 
     render(
@@ -29,7 +29,7 @@ describe("LibraryPanel", () => {
     )
 
     const title = screen.getByText("시장 보고서")
-    fireEvent.doubleClick(title.closest("[id^='library-row-']")!)
+    fireEvent.click(title.closest("[id^='library-row-']")!)
 
     expect(onOpenDocument).toHaveBeenCalledWith(documents[0])
   })

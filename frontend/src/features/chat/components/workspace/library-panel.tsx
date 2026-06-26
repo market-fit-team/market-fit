@@ -211,7 +211,7 @@ function LibraryRow({
         onDragStart()
       }}
       onDragEnd={onDragEnd}
-      onDoubleClick={onOpen}
+      onClick={onOpen}
       className={cn(
         "group flex cursor-grab items-center gap-2 rounded-lg px-2 py-2 transition-all active:cursor-grabbing",
         isDragging ? "scale-95 opacity-40" : "hover:bg-muted/30",
@@ -260,7 +260,7 @@ function LibraryGridCard({
         onDragStart()
       }}
       onDragEnd={onDragEnd}
-      onDoubleClick={onOpen}
+      onClick={onOpen}
       className={cn(
         "group relative flex cursor-grab flex-col items-center justify-center gap-2 rounded-lg border border-border/20 p-4 transition-all active:cursor-grabbing",
         isDragging ? "scale-95 opacity-40" : "hover:bg-muted/30",
@@ -304,6 +304,8 @@ function LibraryMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
+          type="button"
+          onClick={(event) => event.stopPropagation()}
           className="shrink-0 cursor-pointer rounded-md p-1 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 hover:bg-muted/50 hover:text-foreground"
           id={`library-menu-${documentId}`}
         >

@@ -227,31 +227,69 @@ async def _build_memory_summary(owner: str | None) -> MemorySummary | None:
     }
 
 
+async def _build_thread_onboarding_summary(
+    owner: str,
+    *,
+    app_thread_id: UUID | None,
+) -> OnboardingSummary:
+    if app_thread_id is None:
+        return {
+            "has_default_profile": False,
+            "has_thread_context": False,
+            "result_code": None,
+            "selected_category_code": None,
+            "source": None,
+        }
+
+    async with get_session_factory()() as session:
+        record = await onboarding_context_repository.get(session, owner, app_thread_id)
+
+    if record is None:
+        return {
+            "has_default_profile": False,
+            "has_thread_context": False,
+            "result_code": None,
+            "selected_category_code": None,
+            "source": None,
+        }
+
+    return {
+        "has_default_profile": False,
+        "has_thread_context": True,
+        "result_code": record.result_code,
+        "selected_category_code": record.selected_category_code,
+        "source": record.source,
+    }
+
+
 async def _build_onboarding_summary(
     owner: str | None,
     *,
     access_token: str | None,
     app_thread_id: UUID | None,
+    previous_summary: OnboardingSummary | None,
+    refresh_default_profile: bool,
 ) -> OnboardingSummary | None:
-    if owner is None or access_token is None:
+    if owner is None:
         return None
 
-    has_thread_context = False
-    if app_thread_id is not None:
-        async with get_session_factory()() as session:
-            has_thread_context = (
-                await onboarding_context_repository.get(session, owner, app_thread_id)
-            ) is not None
+    summary = await _build_thread_onboarding_summary(owner, app_thread_id=app_thread_id)
+    summary["has_default_profile"] = (
+        previous_summary["has_default_profile"] if previous_summary is not None else False
+    )
 
-    try:
-        default_profile = await onboarding_service_client.get_default_profile(access_token)
-    except Exception:
+    if access_token is not None and refresh_default_profile:
+        try:
+            default_profile = await onboarding_service_client.get_default_profile(access_token)
+        except Exception:
+            if previous_summary is None and not summary["has_thread_context"]:
+                return None
+        else:
+            summary["has_default_profile"] = default_profile is not None
+    elif previous_summary is None and not summary["has_thread_context"]:
         return None
 
-    return {
-        "has_default_profile": default_profile is not None,
-        "has_thread_context": has_thread_context,
-    }
+    return summary
 
 
 async def prepare_system_context_state_update(
@@ -300,13 +338,20 @@ async def prepare_system_context_state_update(
         system_context["memory_summary"] = await _build_memory_summary(owner)
         refresh_state["memory_summary_dirty"] = False
 
-    if current_system_context is None or refresh_state["onboarding_summary_dirty"]:
-        system_context["onboarding_summary"] = await _build_onboarding_summary(
-            owner,
-            access_token=access_token,
-            app_thread_id=app_thread_id,
-        )
-        refresh_state["onboarding_summary_dirty"] = False
+    # 프론트가 thread onboarding context를 API로 직접 바꿀 수 있으므로,
+    # 성향 컨텍스트 포인터는 매 turn 다시 읽고 기본 프로필 여부만 dirty flag로 캐시한다.
+    system_context["onboarding_summary"] = await _build_onboarding_summary(
+        owner,
+        access_token=access_token,
+        app_thread_id=app_thread_id,
+        previous_summary=current_system_context["onboarding_summary"]
+        if current_system_context is not None
+        else None,
+        refresh_default_profile=(
+            current_system_context is None or refresh_state["onboarding_summary_dirty"]
+        ),
+    )
+    refresh_state["onboarding_summary_dirty"] = False
 
     return {
         "system_context": system_context,

@@ -5,7 +5,26 @@ import type {
   DocumentResponse,
 } from "@/shared/api/generated/agent/schemas"
 
-export type ChatLeftTab = "threads" | "library" | "memory"
+export type ChatLeftTab = "threads" | "library" | "onboarding" | "memory"
+
+export type ChatOnboardingResultPreview = {
+  resultCode: string
+  profileName: string
+  isDefault: boolean
+  savedLabel: string | null
+  savedSource: string | null
+  selectedCategoryCode?: string | null
+}
+
+export type ChatDetailDialogState =
+  | {
+      kind: "library-document"
+      document: DocumentResponse
+    }
+  | {
+      kind: "onboarding-result"
+      result: ChatOnboardingResultPreview
+    }
 
 export type ChatRightPanel =
   | {
