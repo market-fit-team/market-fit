@@ -43,3 +43,10 @@ market:
   boundary-import:
     enabled: ${MARKET_BOUNDARY_IMPORT_ENABLED:false}
     directory: ${MARKET_BOUNDARY_IMPORT_DIRECTORY:/app/data}
+  # 상권 프랜차이즈 추천에서 franchise-service 브랜드 API를 호출한다(도커 네트워크 서비스명).
+  franchise:
+    base-url: ${FRANCHISE_BASE_URL:http://franchise-service:8080}
+    recommend-size: ${MARKET_FRANCHISE_RECOMMEND_SIZE:10}
+    # franchise-service가 느리거나 멈춰도 리포트 응답이 무한 대기하지 않도록 타임아웃(ms)을 둔다.
+    connect-timeout-ms: ${MARKET_FRANCHISE_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${MARKET_FRANCHISE_READ_TIMEOUT_MS:3000}
