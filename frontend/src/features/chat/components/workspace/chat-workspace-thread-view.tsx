@@ -279,10 +279,7 @@ function ChatThreadWorkspace({
   }
 
   return (
-    <ChatWorkspaceShell
-      currentThreadId={appThreadId}
-      onHitlDecide={(decisions) => void resume(decisions)}
-    >
+    <ChatWorkspaceShell onHitlDecide={(decisions) => void resume(decisions)}>
       <ChatWorkspaceThreadStarter starterMessage={starterMessage} />
       <ChatView
         activeThreadTitle={activeThreadTitle}

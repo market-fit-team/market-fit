@@ -5,7 +5,7 @@ import { ChatWorkspaceShell } from "@/features/chat/components/workspace/chat-wo
 
 export function ChatWorkspaceHome() {
   return (
-    <ChatWorkspaceShell currentThreadId={null}>
+    <ChatWorkspaceShell>
       <ChatWorkspaceEmptyState />
     </ChatWorkspaceShell>
   )
