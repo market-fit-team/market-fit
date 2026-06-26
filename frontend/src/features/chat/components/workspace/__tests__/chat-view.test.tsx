@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest"
-import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages"
+import {
+  AIMessage,
+  type BaseMessage,
+  HumanMessage,
+  ToolMessage,
+} from "@langchain/core/messages"
+import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
 import { fireEvent, render, screen } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import type { ComponentProps } from "react"
 import { ChatView } from "@/features/chat/components/workspace/chat-view"
 import type {
   ArtifactResponse,
@@ -8,14 +16,15 @@ import type {
 } from "@/shared/api/generated/agent/schemas"
 
 const sendMessage = vi.fn().mockResolvedValue(undefined)
+const saveArtifactAsDocument = vi.fn()
 const streamState = vi.hoisted(() => ({
   current: {
     hitlInterrupts: [],
     isBusy: false,
     isHydrating: false,
     localNotice: null,
-    messages: [],
-    toolCalls: [],
+    messages: [] as BaseMessage[],
+    toolCalls: [] as AssembledToolCall[],
   },
 }))
 
@@ -58,14 +67,25 @@ vi.mock("@/features/chat/providers/chat-workspace-provider", () => ({
   }),
 }))
 
+vi.mock(
+  "@/shared/api/generated/agent/endpoints/agent-artifacts/agent-artifacts",
+  () => ({
+    useSaveArtifactAsDocumentApiV1AgentArtifactsArtifactIdSaveAsDocumentPost:
+      () => ({
+        mutate: saveArtifactAsDocument,
+        isPending: false,
+      }),
+  })
+)
+
 const documents: DocumentResponse[] = [
   {
     id: "doc-1",
     type: "markdown",
-    title: "문서",
+    title: "저장된 문서",
     summary: null,
-    raw_text: "본문",
-    source_artifact_id: null,
+    raw_text: "문서 본문",
+    source_artifact_id: "artifact-1",
     created_at: "2026-06-25T00:00:00Z",
     updated_at: "2026-06-25T00:00:00Z",
   },
@@ -79,14 +99,33 @@ const artifacts: ArtifactResponse[] = [
     source_message_id: null,
     source_tool_call_id: null,
     type: "markdown",
-    title: "아티팩트",
-    summary: null,
-    raw_text: "본문",
+    title: "초안 아티팩트",
+    summary: "임시 초안입니다.",
+    raw_text: "초안 본문",
     version: 1,
     created_at: "2026-06-25T00:00:00Z",
     updated_at: "2026-06-25T00:00:00Z",
   },
 ]
+
+const renderChatView = (props?: Partial<ComponentProps<typeof ChatView>>) => {
+  const queryClient = new QueryClient()
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ChatView
+        activeThreadTitle="새 대화"
+        artifacts={artifacts}
+        documents={documents}
+        isRightPanelOpen={false}
+        isExpanded={false}
+        onToggleExpand={vi.fn()}
+        onToggleRightPanel={vi.fn()}
+        {...props}
+      />
+    </QueryClientProvider>
+  )
+}
 
 describe("ChatView", () => {
   it("선택된 문서와 아티팩트 id를 메시지 전송 옵션에 포함한다.", () => {
@@ -99,17 +138,7 @@ describe("ChatView", () => {
       toolCalls: [],
     }
 
-    const { container } = render(
-      <ChatView
-        activeThreadTitle="새 대화"
-        artifacts={artifacts}
-        documents={documents}
-        isRightPanelOpen={false}
-        isExpanded={false}
-        onToggleExpand={vi.fn()}
-        onToggleRightPanel={vi.fn()}
-      />
-    )
+    const { container } = renderChatView()
 
     fireEvent.change(screen.getByPlaceholderText("메시지를 입력하세요..."), {
       target: { value: "테스트 메시지" },
@@ -122,7 +151,7 @@ describe("ChatView", () => {
     })
   })
 
-  it("assistant turn 안에 생각과 도구 호출 결과를 분리해서 렌더링한다.", () => {
+  it("도구 호출 순서에 맞춰 아티팩트 카드와 라이브러리 카드가 중간에 보인다.", () => {
     streamState.current = {
       hitlInterrupts: [],
       isBusy: false,
@@ -131,11 +160,11 @@ describe("ChatView", () => {
       messages: [
         new HumanMessage({
           id: "human-1",
-          content: "아무 아티팩트나 만들어봐",
+          content: "초안 만들고 저장해줘",
         }),
         new AIMessage({
           id: "ai-1",
-          content: "도구를 실행해볼게요.",
+          content: "초안을 먼저 만들겠습니다.",
           tool_calls: [
             {
               id: "tool-1",
@@ -146,12 +175,45 @@ describe("ChatView", () => {
         }),
         new ToolMessage({
           id: "tool-message-1",
-          content: '{"id":"artifact-1","title":"아티팩트"}',
+          content: JSON.stringify({
+            id: "artifact-1",
+            thread_id: "thread-1",
+            type: "markdown",
+            title: "초안 아티팩트",
+            summary: "임시 초안입니다.",
+            raw_text: "초안 본문",
+            version: 1,
+            source_message_id: null,
+            source_tool_call_id: "tool-1",
+          }),
           tool_call_id: "tool-1",
         }),
         new AIMessage({
           id: "ai-2",
-          content: "완료했습니다.",
+          content: "이제 라이브러리에 저장하겠습니다.",
+          tool_calls: [
+            {
+              id: "tool-2",
+              name: "artifact_save_as_document",
+              args: { artifact_id: "artifact-1" },
+            },
+          ],
+        }),
+        new ToolMessage({
+          id: "tool-message-2",
+          content: JSON.stringify({
+            id: "doc-1",
+            type: "markdown",
+            title: "저장된 문서",
+            summary: null,
+            raw_text: "문서 본문",
+            source_artifact_id: "artifact-1",
+          }),
+          tool_call_id: "tool-2",
+        }),
+        new AIMessage({
+          id: "ai-3",
+          content: "정리가 끝났습니다.",
         }),
       ],
       toolCalls: [
@@ -160,35 +222,55 @@ describe("ChatView", () => {
           callId: "tool-1",
           name: "artifact_create",
           status: "finished",
+          output: null,
+          error: undefined,
+          namespace: [],
+          input: { artifact_type: "markdown" },
           args: { artifact_type: "markdown" },
+        },
+        {
+          id: "tool-2",
+          callId: "tool-2",
+          name: "artifact_save_as_document",
+          status: "finished",
+          output: null,
+          error: undefined,
+          namespace: [],
+          input: { artifact_id: "artifact-1" },
+          args: { artifact_id: "artifact-1" },
         },
       ],
     }
 
-    render(
-      <ChatView
-        activeThreadTitle="새 대화"
-        artifacts={[
-          {
-            ...artifacts[0],
-            source_tool_call_id: "tool-1",
-          },
-        ]}
-        documents={documents}
-        isRightPanelOpen={false}
-        isExpanded={false}
-        onToggleExpand={vi.fn()}
-        onToggleRightPanel={vi.fn()}
-      />
-    )
+    renderChatView()
+
+    const firstText = screen.getByText("초안을 먼저 만들겠습니다.")
+    const artifactLabel = screen.getByText("아티팩트 생성됨")
+    const artifactTitle = screen.getByText("초안 아티팩트")
+    const secondText = screen.getByText("이제 라이브러리에 저장하겠습니다.")
+    const documentLabel = screen.getByText("라이브러리에 저장됨")
+    const documentTitle = screen.getByText("저장된 문서")
+    const finalText = screen.getByText("정리가 끝났습니다.")
+
+    expect(artifactLabel).toBeInTheDocument()
+    expect(documentLabel).toBeInTheDocument()
+    expect(screen.queryByText("생성된 결과물")).toBeNull()
 
     expect(
-      screen.getByRole("button", { name: /도구 호출 결과/i })
-    ).toBeInTheDocument()
-    expect(screen.getByText("artifact_create")).toBeInTheDocument()
-    expect(screen.getByText("결과")).toBeInTheDocument()
-    expect(screen.queryByText("생각 및 도구 호출 과정")).toBeNull()
-    expect(screen.queryByText("도움이 됨")).toBeNull()
-    expect(screen.queryByText("개선 필요")).toBeNull()
+      firstText.compareDocumentPosition(artifactTitle) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(
+      artifactTitle.compareDocumentPosition(secondText) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(
+      secondText.compareDocumentPosition(documentTitle) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(
+      documentTitle.compareDocumentPosition(finalText) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
   })
 })

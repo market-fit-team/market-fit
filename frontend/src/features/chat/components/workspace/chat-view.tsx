@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner"
 import type { AIMessage, BaseMessage } from "@langchain/core/messages"
 import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
+import { ArtifactActionButtons } from "@/features/chat/components/workspace/artifact-action-buttons"
 import { HitlInterruptCard } from "@/features/chat/components/hitl/hitl-interrupt-card"
 import { ChatModelMenu } from "@/features/chat/components/workspace/chat-model-menu"
 import { ChatSelectionChips } from "@/features/chat/components/workspace/chat-selection-chips"
@@ -34,7 +35,9 @@ import {
   getDocumentTitle,
 } from "@/features/chat/lib/display/chat-display"
 import {
+  type ChatAssistantTurnItem,
   type ChatGroupedTurn,
+  type ChatTurnToolCard,
   groupChatTurns,
 } from "@/features/chat/lib/workspace/group-chat-turns"
 import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
@@ -127,10 +130,8 @@ export function ChatView({
       groupChatTurns({
         messages,
         toolCalls,
-        artifacts,
-        documents,
       }),
-    [artifacts, documents, messages, toolCalls]
+    [messages, toolCalls]
   )
   const isWelcomeScreen = groupedTurns.turns.length === 0
 
@@ -251,6 +252,8 @@ export function ChatView({
                   <AssistantTurnBlock
                     key={turn.key}
                     turn={turn}
+                    artifacts={artifacts}
+                    documents={documents}
                     timeLabel={getAssistantTurnTimeLabel(turn)}
                     onOpenDetails={(reasoning, relatedToolCalls) =>
                       setRightPanel({
@@ -425,6 +428,8 @@ function WelcomeScreen({
 
 type AssistantTurnBlockProps = {
   turn: Extract<ChatGroupedTurn, { kind: "assistant" }>
+  artifacts: ArtifactResponse[]
+  documents: DocumentResponse[]
   timeLabel: string
   onOpenDetails: (
     reasoning: string | undefined,
@@ -436,12 +441,22 @@ type AssistantTurnBlockProps = {
 
 function AssistantTurnBlock({
   turn,
+  artifacts,
+  documents,
   timeLabel,
   onOpenDetails,
   onOpenArtifact,
   onOpenDocument,
 }: AssistantTurnBlockProps) {
   const copyText = buildAssistantTurnCopyText(turn)
+  const artifactsById = React.useMemo(
+    () => new Map(artifacts.map((artifact) => [artifact.id, artifact])),
+    [artifacts]
+  )
+  const documentsById = React.useMemo(
+    () => new Map(documents.map((document) => [document.id, document])),
+    [documents]
+  )
 
   return (
     <div
@@ -455,40 +470,26 @@ function AssistantTurnBlock({
       <div className="flex w-full max-w-full flex-col gap-2">
         {turn.reasoning && (
           <ReasoningBlock
-            reasoning={turn.reasoning ?? undefined}
-            onOpen={() =>
-              onOpenDetails(turn.reasoning ?? undefined, turn.toolCalls)
-            }
+            reasoning={turn.reasoning}
+            onOpen={() => onOpenDetails(turn.reasoning ?? undefined, turn.toolCalls)}
           />
         )}
 
-        {turn.toolResults.length > 0 && (
-          <ToolResultsBlock
-            toolResults={turn.toolResults}
-            onOpen={() =>
-              onOpenDetails(turn.reasoning ?? undefined, turn.toolCalls)
-            }
-          />
-        )}
-
-        {turn.textContent && (
-          <div className="max-w-full rounded-xl rounded-tl-sm bg-muted/30 px-3.5 py-2.5 text-sm leading-[1.7] break-words text-foreground">
-            <p className="whitespace-pre-wrap">{turn.textContent}</p>
-          </div>
-        )}
-
-        {turn.artifacts.length > 0 && (
-          <ArtifactStrip
-            artifacts={turn.artifacts}
-            onOpenArtifact={onOpenArtifact}
-          />
-        )}
-
-        {turn.documents.length > 0 && (
-          <DocumentStrip
-            documents={turn.documents}
-            onOpenDocument={onOpenDocument}
-          />
+        {turn.items.map((item) =>
+          item.kind === "text" ? (
+            <AssistantTextBlock key={item.key} text={item.text} />
+          ) : (
+            <ToolCallTimelineBlock
+              key={item.key}
+              item={item}
+              reasoning={turn.reasoning ?? undefined}
+              artifactsById={artifactsById}
+              documentsById={documentsById}
+              onOpenDetails={onOpenDetails}
+              onOpenArtifact={onOpenArtifact}
+              onOpenDocument={onOpenDocument}
+            />
+          )
         )}
 
         <TurnFooter copyText={copyText} timeLabel={timeLabel} />
@@ -516,11 +517,102 @@ function UserMessageBubble({ message }: { message: BaseMessage }) {
   )
 }
 
+function AssistantTextBlock({ text }: { text: string }) {
+  return (
+    <div className="max-w-full rounded-xl rounded-tl-sm bg-muted/30 px-3.5 py-2.5 text-sm leading-[1.7] break-words text-foreground">
+      <p className="whitespace-pre-wrap">{text}</p>
+    </div>
+  )
+}
+
+type ToolCallTimelineBlockProps = {
+  item: Extract<ChatAssistantTurnItem, { kind: "tool-call" }>
+  reasoning: string | undefined
+  artifactsById: Map<string, ArtifactResponse>
+  documentsById: Map<string, DocumentResponse>
+  onOpenDetails: (
+    reasoning: string | undefined,
+    toolCalls: AssembledToolCall[]
+  ) => void
+  onOpenArtifact: (artifact: ArtifactResponse) => void
+  onOpenDocument: (document: DocumentResponse) => void
+}
+
+function ToolCallTimelineBlock({
+  item,
+  reasoning,
+  artifactsById,
+  documentsById,
+  onOpenDetails,
+  onOpenArtifact,
+  onOpenDocument,
+}: ToolCallTimelineBlockProps) {
+  const artifactCards = item.cards.filter(
+    (card): card is Extract<ChatTurnToolCard, { kind: "artifact" }> =>
+      card.kind === "artifact"
+  )
+  const documentCards = item.cards.filter(
+    (card): card is Extract<ChatTurnToolCard, { kind: "library-document" }> =>
+      card.kind === "library-document"
+  )
+  const relatedToolCalls = item.toolCall ? [item.toolCall] : []
+
+  return (
+    <div className="space-y-2">
+      <ToolCallResultBlock
+        toolCallName={item.toolCallName}
+        toolResult={item.toolResult}
+        onOpen={() => onOpenDetails(reasoning, relatedToolCalls)}
+      />
+
+      {artifactCards.length > 0 && (
+        <div className="space-y-2">
+          <p className="px-1 text-xs font-medium text-muted-foreground">
+            {getArtifactStripLabel(item.toolCallName)}
+          </p>
+          {artifactCards.map((card) => {
+            const liveArtifact = artifactsById.get(card.artifact.id) ?? null
+
+            return (
+              <ArtifactTimelineCard
+                key={card.artifact.id}
+                artifact={card.artifact}
+                liveArtifact={liveArtifact}
+                onOpenArtifact={onOpenArtifact}
+              />
+            )
+          })}
+        </div>
+      )}
+
+      {documentCards.length > 0 && (
+        <div className="space-y-2">
+          <p className="px-1 text-xs font-medium text-muted-foreground">
+            {getDocumentStripLabel(item.toolCallName)}
+          </p>
+          {documentCards.map((card) => {
+            const liveDocument = documentsById.get(card.document.id) ?? null
+
+            return (
+              <DocumentTimelineCard
+                key={card.document.id}
+                document={card.document}
+                liveDocument={liveDocument}
+                onOpenDocument={onOpenDocument}
+              />
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ReasoningBlock({
   reasoning,
   onOpen,
 }: {
-  reasoning?: string
+  reasoning: string
   onOpen: () => void
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
@@ -562,14 +654,16 @@ function ReasoningBlock({
   )
 }
 
-function ToolResultsBlock({
-  toolResults,
+function ToolCallResultBlock({
+  toolCallName,
+  toolResult,
   onOpen,
 }: {
-  toolResults: Extract<ChatGroupedTurn, { kind: "assistant" }>["toolResults"]
+  toolCallName: string
+  toolResult: Extract<ChatAssistantTurnItem, { kind: "tool-call" }>["toolResult"]
   onOpen: () => void
 }) {
-  const [isOpen, setIsOpen] = React.useState(true)
+  const [isOpen, setIsOpen] = React.useState(false)
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -584,59 +678,56 @@ function ToolResultsBlock({
               )}
               <FlaskConical className="size-3" />
               도구 호출 결과
-              <span className="text-[10px]">{toolResults.length}건</span>
+              <span className="rounded-full border border-border/40 px-1.5 py-0 text-[10px] font-mono text-foreground">
+                {toolCallName}
+              </span>
             </button>
           </CollapsibleTrigger>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onOpen}
-            className="h-6 cursor-pointer gap-1 px-2 text-xs"
-          >
-            <PanelRight className="size-3" />
-            열기
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-muted-foreground">
+              {toolResult.status ?? "finished"}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpen}
+              className="h-6 cursor-pointer gap-1 px-2 text-xs"
+            >
+              <PanelRight className="size-3" />
+              열기
+            </Button>
+          </div>
         </div>
         <CollapsibleContent>
           <div className="space-y-2 border-t border-border/20 px-3 py-2">
-            {toolResults.map((toolResult, index) => (
-              <div
-                key={toolResult.callId ?? `${toolResult.name}-${index}`}
-                className="rounded-lg border border-border/30 bg-muted/15 p-3"
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="size-3 text-emerald-500" />
-                    <span className="font-mono text-xs font-medium text-foreground">
-                      {toolResult.name}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">
-                    {toolResult.status ?? "finished"}
-                  </span>
-                </div>
-                {toolResult.argsSummary && (
-                  <div className="mb-2 space-y-1">
-                    <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                      입력
-                    </p>
-                    <pre className="overflow-x-auto rounded-md bg-background/80 p-2 text-[11px] leading-5 whitespace-pre-wrap text-muted-foreground">
-                      {toolResult.argsSummary}
-                    </pre>
-                  </div>
-                )}
-                {toolResult.resultSummary && (
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                      결과
-                    </p>
-                    <pre className="overflow-x-auto rounded-md bg-background/80 p-2 text-[11px] leading-5 whitespace-pre-wrap text-foreground">
-                      {toolResult.resultSummary}
-                    </pre>
-                  </div>
-                )}
+            <div className="rounded-lg border border-border/30 bg-muted/15 p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <CheckCircle2 className="size-3 text-emerald-500" />
+                <span className="font-mono text-xs font-medium text-foreground">
+                  {toolResult.name}
+                </span>
               </div>
-            ))}
+              {toolResult.argsSummary && (
+                <div className="mb-2 space-y-1">
+                  <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                    입력
+                  </p>
+                  <pre className="overflow-x-auto rounded-md bg-background/80 p-2 text-[11px] leading-5 whitespace-pre-wrap text-muted-foreground">
+                    {toolResult.argsSummary}
+                  </pre>
+                </div>
+              )}
+              {toolResult.resultSummary && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                    결과
+                  </p>
+                  <pre className="overflow-x-auto rounded-md bg-background/80 p-2 text-[11px] leading-5 whitespace-pre-wrap text-foreground">
+                    {toolResult.resultSummary}
+                  </pre>
+                </div>
+              )}
+            </div>
           </div>
         </CollapsibleContent>
       </div>
@@ -678,72 +769,84 @@ function TurnFooter({
   )
 }
 
-function DocumentStrip({
-  documents,
-  onOpenDocument,
+function ArtifactTimelineCard({
+  artifact,
+  liveArtifact,
+  onOpenArtifact,
 }: {
-  documents: DocumentResponse[]
-  onOpenDocument: (document: DocumentResponse) => void
+  artifact: ArtifactResponse
+  liveArtifact: ArtifactResponse | null
+  onOpenArtifact: (artifact: ArtifactResponse) => void
 }) {
+  const displayArtifact = liveArtifact ?? artifact
+  const canInteract = liveArtifact != null
+
   return (
-    <div className="space-y-2">
-      <p className="px-1 text-xs font-medium text-muted-foreground">
-        라이브러리에 저장됨
-      </p>
-      {documents.map((document) => (
-        <button
-          key={document.id}
-          onClick={() => onOpenDocument(document)}
-          className="flex w-full cursor-pointer items-start gap-3 rounded-xl border border-border/30 bg-background/60 p-3 text-left transition-colors hover:bg-muted/20"
-        >
-          <span className="mt-0.5">{getDocumentIcon(document.type)}</span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-xs font-medium">
-              {getDocumentTitle(document)}
-            </span>
-            <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
-              {getDocumentPreview(document)}
-            </span>
+    <div className="flex items-start gap-2 rounded-xl border border-border/30 bg-muted/15 p-3">
+      <button
+        type="button"
+        onClick={() => {
+          if (liveArtifact) {
+            onOpenArtifact(liveArtifact)
+          }
+        }}
+        disabled={!canInteract}
+        className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left disabled:cursor-default"
+      >
+        <span className="mt-0.5">{getArtifactIcon(displayArtifact.type)}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-medium">
+            {getArtifactTitle(displayArtifact)}
           </span>
-        </button>
-      ))}
+          <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
+            {getArtifactPreview(displayArtifact)}
+          </span>
+        </span>
+      </button>
+      <div className="flex shrink-0 items-start gap-1">
+        <Badge variant="outline" className="h-5 text-[10px]">
+          v{displayArtifact.version}
+        </Badge>
+        <ArtifactActionButtons artifactId={displayArtifact.id} canInteract={canInteract} />
+      </div>
     </div>
   )
 }
 
-function ArtifactStrip({
-  artifacts,
-  onOpenArtifact,
+function DocumentTimelineCard({
+  document,
+  liveDocument,
+  onOpenDocument,
 }: {
-  artifacts: ArtifactResponse[]
-  onOpenArtifact: (artifact: ArtifactResponse) => void
+  document: DocumentResponse
+  liveDocument: DocumentResponse | null
+  onOpenDocument: (document: DocumentResponse) => void
 }) {
+  const displayDocument = liveDocument ?? document
+  const canInteract = liveDocument != null
+
   return (
-    <div className="space-y-2">
-      <p className="px-1 text-xs font-medium text-muted-foreground">
-        생성된 결과물
-      </p>
-      {artifacts.slice(0, 3).map((artifact) => (
-        <button
-          key={artifact.id}
-          onClick={() => onOpenArtifact(artifact)}
-          className="flex w-full cursor-pointer items-start gap-3 rounded-xl border border-border/30 bg-muted/15 p-3 text-left transition-colors hover:bg-muted/25"
-        >
-          <span className="mt-0.5">{getArtifactIcon(artifact.type)}</span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-xs font-medium">
-              {getArtifactTitle(artifact)}
-            </span>
-            <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
-              {getArtifactPreview(artifact)}
-            </span>
-          </span>
-          <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
-            v{artifact.version}
-          </Badge>
-        </button>
-      ))}
-    </div>
+    <button
+      type="button"
+      key={displayDocument.id}
+      onClick={() => {
+        if (liveDocument) {
+          onOpenDocument(liveDocument)
+        }
+      }}
+      disabled={!canInteract}
+      className="flex w-full cursor-pointer items-start gap-3 rounded-xl border border-border/30 bg-background/60 p-3 text-left transition-colors hover:bg-muted/20 disabled:cursor-default disabled:hover:bg-background/60"
+    >
+      <span className="mt-0.5">{getDocumentIcon(displayDocument.type)}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-medium">
+          {getDocumentTitle(displayDocument)}
+        </span>
+        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
+          {getDocumentPreview(displayDocument)}
+        </span>
+      </span>
+    </button>
   )
 }
 
@@ -760,41 +863,64 @@ function TypingIndicator({ label = "AI가 응답 중입니다" }: { label?: stri
   )
 }
 
+const getArtifactStripLabel = (toolCallName: string) => {
+  switch (toolCallName) {
+    case "artifact_update":
+      return "아티팩트 수정됨"
+    case "artifact_create":
+    default:
+      return "아티팩트 생성됨"
+  }
+}
+
+const getDocumentStripLabel = (toolCallName: string) => {
+  switch (toolCallName) {
+    case "artifact_save_as_document":
+      return "라이브러리에 저장됨"
+    case "document_update":
+      return "라이브러리 문서 수정됨"
+    case "document_create":
+    default:
+      return "라이브러리 문서 생성됨"
+  }
+}
+
 const buildAssistantTurnCopyText = (
   turn: Extract<ChatGroupedTurn, { kind: "assistant" }>
 ) => {
-  const sections = [
-    turn.textContent,
-    turn.reasoning ? `생각\n${turn.reasoning}` : null,
-    turn.toolResults.length > 0
-      ? turn.toolResults
-          .map((toolResult) =>
-            [
-              `도구: ${toolResult.name}`,
-              toolResult.argsSummary
-                ? `입력:\n${toolResult.argsSummary}`
-                : null,
-              toolResult.resultSummary
-                ? `결과:\n${toolResult.resultSummary}`
-                : null,
-            ]
-              .filter(Boolean)
-              .join("\n")
-          )
-          .join("\n\n")
-      : null,
-    turn.artifacts.length > 0
-      ? turn.artifacts.map((artifact) => getArtifactTitle(artifact)).join("\n")
-      : null,
-    turn.documents.length > 0
-      ? turn.documents.map((document) => getDocumentTitle(document)).join("\n")
-      : null,
-  ].filter(
-    (value): value is string =>
-      typeof value === "string" && value.trim().length > 0
-  )
+  const itemSections = turn.items
+    .map((item) => {
+      if (item.kind === "text") {
+        return item.text
+      }
 
-  return sections.join("\n\n")
+      const cardTitles = item.cards
+        .map((card) =>
+          card.kind === "artifact"
+            ? getArtifactTitle(card.artifact)
+            : getDocumentTitle(card.document)
+        )
+        .join("\n")
+
+      return [
+        `도구: ${item.toolResult.name}`,
+        item.toolResult.argsSummary ? `입력:\n${item.toolResult.argsSummary}` : null,
+        item.toolResult.resultSummary
+          ? `결과:\n${item.toolResult.resultSummary}`
+          : null,
+        cardTitles || null,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    })
+    .filter((value) => value.trim().length > 0)
+
+  return [turn.reasoning ? `생각\n${turn.reasoning}` : null, ...itemSections]
+    .filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
+    )
+    .join("\n\n")
 }
 
 const formatTurnTime = (date: Date) => {

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RightSidebar } from "@/features/chat/components/workspace/right-sidebar"
 import { ChatWorkspaceProvider } from "@/features/chat/providers/chat-workspace-provider"
 import type { ChatRightPanel } from "@/features/chat/types/workspace"
@@ -7,6 +8,17 @@ import type {
   ArtifactResponse,
   DocumentResponse,
 } from "@/shared/api/generated/agent/schemas"
+
+vi.mock(
+  "@/shared/api/generated/agent/endpoints/agent-artifacts/agent-artifacts",
+  () => ({
+    useSaveArtifactAsDocumentApiV1AgentArtifactsArtifactIdSaveAsDocumentPost:
+      () => ({
+        mutate: vi.fn(),
+        isPending: false,
+      }),
+  })
+)
 
 const chartDocument: DocumentResponse = {
   id: "doc-1",
@@ -51,18 +63,22 @@ const codeArtifact: ArtifactResponse = {
 
 describe("RightSidebar", () => {
   it("라이브러리 문서 상세에서 마크다운과 차트를 렌더링한다.", () => {
+    const queryClient = new QueryClient()
+
     render(
-      <ChatWorkspaceProvider>
-        <RightSidebar
-          panel={{
-            kind: "library-document",
-            document: chartDocument,
-          }}
-          documents={[chartDocument]}
-          onClose={vi.fn()}
-          onOpenDocument={vi.fn()}
-        />
-      </ChatWorkspaceProvider>
+      <QueryClientProvider client={queryClient}>
+        <ChatWorkspaceProvider>
+          <RightSidebar
+            panel={{
+              kind: "library-document",
+              document: chartDocument,
+            }}
+            documents={[chartDocument]}
+            onClose={vi.fn()}
+            onOpenDocument={vi.fn()}
+          />
+        </ChatWorkspaceProvider>
+      </QueryClientProvider>
     )
 
     expect(screen.getByText("유입 채널 비중")).toBeInTheDocument()
@@ -73,19 +89,24 @@ describe("RightSidebar", () => {
       kind: "artifact",
       artifact: codeArtifact,
     }
+    const queryClient = new QueryClient()
 
     render(
-      <ChatWorkspaceProvider>
-        <RightSidebar
-          panel={panel}
-          documents={[]}
-          onClose={vi.fn()}
-          onOpenDocument={vi.fn()}
-        />
-      </ChatWorkspaceProvider>
+      <QueryClientProvider client={queryClient}>
+        <ChatWorkspaceProvider>
+          <RightSidebar
+            panel={panel}
+            documents={[]}
+            onClose={vi.fn()}
+            onOpenDocument={vi.fn()}
+          />
+        </ChatWorkspaceProvider>
+      </QueryClientProvider>
     )
 
     expect(screen.getByText("const value = 1")).toBeInTheDocument()
     expect(screen.queryByText("차트 블록을 렌더링하지 못했습니다.")).toBeNull()
+    expect(screen.getByLabelText("라이브러리에 저장")).toBeInTheDocument()
+    expect(screen.getByLabelText("채팅에 추가")).toBeInTheDocument()
   })
 })

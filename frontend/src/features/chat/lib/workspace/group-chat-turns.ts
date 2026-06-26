@@ -10,6 +10,13 @@ import type {
   DocumentResponse,
 } from "@/shared/api/generated/agent/schemas"
 
+const ARTIFACT_CARD_TOOL_NAMES = new Set(["artifact_create", "artifact_update"])
+const DOCUMENT_CARD_TOOL_NAMES = new Set([
+  "artifact_save_as_document",
+  "document_create",
+  "document_update",
+])
+
 type SyntheticArtifactSource = Pick<
   ArtifactResponse,
   | "id"
@@ -36,6 +43,32 @@ export type ChatTurnToolResult = {
   resultSummary: string | null
 }
 
+export type ChatTurnToolCard =
+  | {
+      kind: "artifact"
+      artifact: ArtifactResponse
+    }
+  | {
+      kind: "library-document"
+      document: DocumentResponse
+    }
+
+export type ChatAssistantTurnItem =
+  | {
+      kind: "text"
+      key: string
+      text: string
+    }
+  | {
+      kind: "tool-call"
+      key: string
+      toolCallId: string | undefined
+      toolCallName: string
+      toolCall: AssembledToolCall | undefined
+      toolResult: ChatTurnToolResult
+      cards: ChatTurnToolCard[]
+    }
+
 export type ChatGroupedTurn =
   | {
       kind: "user"
@@ -47,12 +80,9 @@ export type ChatGroupedTurn =
       key: string
       aiMessages: AIMessage[]
       toolCalls: AssembledToolCall[]
-      toolResults: ChatTurnToolResult[]
-      textContent: string | null
       reasoning: string | null
       representativeMessageId: string | undefined
-      artifacts: ArtifactResponse[]
-      documents: DocumentResponse[]
+      items: ChatAssistantTurnItem[]
     }
 
 const getReasoningText = (message: AIMessage) => {
@@ -159,17 +189,53 @@ const toSyntheticDocument = (
   }
 }
 
+const buildToolCards = ({
+  toolCallName,
+  toolMessageText,
+}: {
+  toolCallName: string
+  toolMessageText: string | undefined
+}): ChatTurnToolCard[] => {
+  if (typeof toolMessageText !== "string") {
+    return []
+  }
+
+  const parsed = tryParseJson(toolMessageText)
+
+  if (
+    ARTIFACT_CARD_TOOL_NAMES.has(toolCallName) &&
+    isSyntheticArtifactSource(parsed)
+  ) {
+    return [
+      {
+        kind: "artifact",
+        artifact: toSyntheticArtifact(parsed),
+      },
+    ]
+  }
+
+  if (
+    DOCUMENT_CARD_TOOL_NAMES.has(toolCallName) &&
+    isSyntheticDocumentSource(parsed)
+  ) {
+    return [
+      {
+        kind: "library-document",
+        document: toSyntheticDocument(parsed),
+      },
+    ]
+  }
+
+  return []
+}
+
 const buildAssistantTurn = ({
   messages,
   toolCalls,
-  artifacts,
-  documents,
   index,
 }: {
   messages: BaseMessage[]
   toolCalls: AssembledToolCall[]
-  artifacts: ArtifactResponse[]
-  documents: DocumentResponse[]
   index: number
 }): ChatGroupedTurn | null => {
   const aiMessages = messages.filter((message): message is AIMessage =>
@@ -180,13 +246,6 @@ const buildAssistantTurn = ({
     return null
   }
 
-  const textContent =
-    aiMessages
-      .map((message) => message.text)
-      .filter((text) => typeof text === "string" && text.trim().length > 0)
-      .join("\n\n")
-      .trim() || null
-
   const reasoning =
     aiMessages
       .map(getReasoningText)
@@ -194,30 +253,11 @@ const buildAssistantTurn = ({
       .join("\n\n")
       .trim() || null
 
-  const aiMessageIds = new Set(
-    aiMessages
-      .map((message) => message.id)
-      .filter((id): id is string => typeof id === "string")
-  )
-  const rawToolCalls = aiMessages.flatMap((message) => message.tool_calls ?? [])
-  const toolResultIds = new Set(
-    messages
-      .filter((message): message is ToolMessage =>
-        ToolMessage.isInstance(message)
-      )
-      .map((message) => message.tool_call_id)
-      .filter((id): id is string => typeof id === "string")
-  )
-  const relatedToolMessages = messages.filter(
-    (message): message is ToolMessage =>
-      ToolMessage.isInstance(message) &&
-      typeof message.tool_call_id === "string" &&
-      toolResultIds.has(message.tool_call_id)
-  )
   const toolMessagesByCallId = new Map(
-    relatedToolMessages
+    messages
       .filter(
         (message): message is ToolMessage & { tool_call_id: string } =>
+          ToolMessage.isInstance(message) &&
           typeof message.tool_call_id === "string"
       )
       .map((message) => [message.tool_call_id, message] as const)
@@ -232,75 +272,62 @@ const buildAssistantTurn = ({
         (value): value is readonly [string, AssembledToolCall] => value !== null
       )
   )
-  const relatedToolCallIds = new Set(
-    rawToolCalls
-      .map((toolCall) => toolCall.id)
-      .filter((id): id is string => typeof id === "string")
-  )
-  const toolResults = rawToolCalls.map((toolCall) => {
-    const callId = toolCall.id
-    const assembledToolCall =
-      typeof callId === "string"
-        ? assembledToolCallsById.get(callId)
-        : undefined
-    const toolMessage =
-      typeof callId === "string" ? toolMessagesByCallId.get(callId) : undefined
 
-    return {
-      callId,
-      name: toolCall.name ?? "tool",
-      status: assembledToolCall?.status,
-      argsSummary: toSummaryText(toolCall.args),
-      resultSummary: toSummaryText(
-        toolMessage?.text ?? assembledToolCall?.output ?? toolMessage?.content
-      ),
-    } satisfies ChatTurnToolResult
-  })
+  const relatedToolCallIds = new Set<string>()
+  const items: ChatAssistantTurnItem[] = []
 
-  const realArtifacts = artifacts.filter((artifact) => {
-    return (
-      (artifact.source_message_id != null &&
-        aiMessageIds.has(artifact.source_message_id)) ||
-      (artifact.source_tool_call_id != null &&
-        relatedToolCallIds.has(artifact.source_tool_call_id))
-    )
-  })
-  const syntheticArtifacts = relatedToolMessages
-    .map((message) => tryParseJson(message.text))
-    .filter(isSyntheticArtifactSource)
-    .map(toSyntheticArtifact)
-  const relatedArtifacts = [...realArtifacts]
-  const relatedArtifactIds = new Set(
-    realArtifacts.map((artifact) => artifact.id)
-  )
-
-  for (const artifact of syntheticArtifacts) {
-    if (!relatedArtifactIds.has(artifact.id)) {
-      relatedArtifacts.push(artifact)
-      relatedArtifactIds.add(artifact.id)
+  messages.forEach((message, messageIndex) => {
+    if (!AIMessage.isInstance(message)) {
+      return
     }
-  }
 
-  const realDocuments = documents.filter(
-    (document) =>
-      document.source_artifact_id != null &&
-      relatedArtifactIds.has(document.source_artifact_id)
-  )
-  const syntheticDocuments = relatedToolMessages
-    .map((message) => tryParseJson(message.text))
-    .filter(isSyntheticDocumentSource)
-    .map(toSyntheticDocument)
-  const relatedDocuments = [...realDocuments]
-  const relatedDocumentIds = new Set(
-    realDocuments.map((document) => document.id)
-  )
-
-  for (const document of syntheticDocuments) {
-    if (!relatedDocumentIds.has(document.id)) {
-      relatedDocuments.push(document)
-      relatedDocumentIds.add(document.id)
+    const text = message.text?.trim()
+    if (text) {
+      items.push({
+        kind: "text",
+        key: `${message.id ?? `assistant-${index}-${messageIndex}`}-text`,
+        text,
+      })
     }
-  }
+
+    ;(message.tool_calls ?? []).forEach((toolCall, toolCallIndex) => {
+      const callId = toolCall.id
+      const toolCallName = toolCall.name ?? "tool"
+      if (typeof callId === "string") {
+        relatedToolCallIds.add(callId)
+      }
+
+      const assembledToolCall =
+        typeof callId === "string"
+          ? assembledToolCallsById.get(callId)
+          : undefined
+      const toolMessage =
+        typeof callId === "string" ? toolMessagesByCallId.get(callId) : undefined
+
+      items.push({
+        kind: "tool-call",
+        key:
+          callId ??
+          `${message.id ?? `assistant-${index}-${messageIndex}`}-${toolCallName}-${toolCallIndex}`,
+        toolCallId: callId,
+        toolCallName,
+        toolCall: assembledToolCall,
+        toolResult: {
+          callId,
+          name: toolCallName,
+          status: assembledToolCall?.status,
+          argsSummary: toSummaryText(toolCall.args),
+          resultSummary: toSummaryText(
+            toolMessage?.text ?? assembledToolCall?.output ?? toolMessage?.content
+          ),
+        },
+        cards: buildToolCards({
+          toolCallName,
+          toolMessageText: toolMessage?.text,
+        }),
+      })
+    })
+  })
 
   const representativeMessageId = aiMessages.at(-1)?.id
 
@@ -312,25 +339,18 @@ const buildAssistantTurn = ({
       const id = toolCall.callId ?? toolCall.id
       return typeof id === "string" && relatedToolCallIds.has(id)
     }),
-    toolResults,
-    textContent,
     reasoning,
     representativeMessageId,
-    artifacts: relatedArtifacts,
-    documents: relatedDocuments,
+    items,
   }
 }
 
 export const groupChatTurns = ({
   messages,
   toolCalls,
-  artifacts,
-  documents,
 }: {
   messages: BaseMessage[]
   toolCalls: AssembledToolCall[]
-  artifacts: ArtifactResponse[]
-  documents: DocumentResponse[]
 }) => {
   const turns: ChatGroupedTurn[] = []
   const assistantBuffer: BaseMessage[] = []
@@ -344,8 +364,6 @@ export const groupChatTurns = ({
     const turn = buildAssistantTurn({
       messages: assistantBuffer,
       toolCalls,
-      artifacts,
-      documents,
       index: assistantTurnIndex,
     })
 
@@ -373,19 +391,7 @@ export const groupChatTurns = ({
 
   flushAssistantBuffer()
 
-  const renderedArtifactIds = new Set(
-    turns.flatMap((turn) =>
-      turn.kind === "assistant"
-        ? turn.artifacts.map((artifact) => artifact.id)
-        : []
-    )
-  )
-  const ungroupedArtifacts = artifacts.filter(
-    (artifact) => !renderedArtifactIds.has(artifact.id)
-  )
-
   return {
     turns,
-    ungroupedArtifacts,
   }
 }

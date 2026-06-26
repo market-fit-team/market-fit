@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
 import { HitlInterruptCard } from "@/features/chat/components/hitl/hitl-interrupt-card"
+import { ArtifactActionButtons } from "@/features/chat/components/workspace/artifact-action-buttons"
 import { MarkdownContentRenderer } from "@/features/chat/components/workspace/markdown-content-renderer"
 import {
   getArtifactIcon,
@@ -203,10 +204,6 @@ function DocumentViewer({ document }: { document: DocumentResponse }) {
 }
 
 function ArtifactViewer({ artifact }: { artifact: ArtifactResponse }) {
-  const { isSelectionLocked, selectedArtifactIds, toggleArtifact } =
-    useChatWorkspace()
-  const isSelected = selectedArtifactIds.includes(artifact.id)
-
   return (
     <div className="min-w-0 space-y-4">
       <div className="space-y-1">
@@ -220,11 +217,7 @@ function ArtifactViewer({ artifact }: { artifact: ArtifactResponse }) {
           </p>
         )}
       </div>
-      <SelectionToggleButton
-        isSelected={isSelected}
-        disabled={isSelectionLocked}
-        onClick={() => toggleArtifact(artifact.id)}
-      />
+      <ArtifactActionButtons artifactId={artifact.id} canInteract size="icon-sm" />
       {isMarkdownRenderableType(artifact.type) ? (
         <div className="rounded-lg border border-border/40 bg-muted/10 p-4 text-sm leading-7">
           <MarkdownContentRenderer content={artifact.raw_text} />
