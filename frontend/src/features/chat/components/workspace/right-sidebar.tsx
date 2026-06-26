@@ -9,17 +9,16 @@ import {
   PanelRightClose,
   TerminalSquare,
 } from "lucide-react"
-import ReactMarkdown from "react-markdown"
-import rehypeSanitize from "rehype-sanitize"
-import remarkGfm from "remark-gfm"
 import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
 import { HitlInterruptCard } from "@/features/chat/components/hitl/hitl-interrupt-card"
+import { MarkdownContentRenderer } from "@/features/chat/components/workspace/markdown-content-renderer"
 import {
   getArtifactIcon,
   getArtifactTitle,
   getDocumentIcon,
   getDocumentTitle,
 } from "@/features/chat/lib/display/chat-display"
+import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
 import type { HitlDecision } from "@/features/chat/types/hitl-interrupt-payload"
 import type { ChatRightPanel } from "@/features/chat/types/workspace"
 import type {
@@ -172,6 +171,10 @@ function LibraryIndex({
 }
 
 function DocumentViewer({ document }: { document: DocumentResponse }) {
+  const { isSelectionLocked, selectedDocumentIds, toggleDocument } =
+    useChatWorkspace()
+  const isSelected = selectedDocumentIds.includes(document.id)
+
   return (
     <div className="min-w-0 space-y-4">
       <div className="space-y-1">
@@ -183,12 +186,27 @@ function DocumentViewer({ document }: { document: DocumentResponse }) {
           </p>
         )}
       </div>
-      <RawTextBlock value={document.raw_text} />
+      <SelectionToggleButton
+        isSelected={isSelected}
+        disabled={isSelectionLocked}
+        onClick={() => toggleDocument(document.id)}
+      />
+      {isMarkdownRenderableType(document.type) ? (
+        <div className="rounded-lg border border-border/40 bg-muted/10 p-4">
+          <MarkdownContentRenderer content={document.raw_text} />
+        </div>
+      ) : (
+        <RawTextBlock value={document.raw_text} />
+      )}
     </div>
   )
 }
 
 function ArtifactViewer({ artifact }: { artifact: ArtifactResponse }) {
+  const { isSelectionLocked, selectedArtifactIds, toggleArtifact } =
+    useChatWorkspace()
+  const isSelected = selectedArtifactIds.includes(artifact.id)
+
   return (
     <div className="min-w-0 space-y-4">
       <div className="space-y-1">
@@ -202,17 +220,14 @@ function ArtifactViewer({ artifact }: { artifact: ArtifactResponse }) {
           </p>
         )}
       </div>
-      {artifact.type === "markdown" ||
-      artifact.type === "commercial_report" ||
-      artifact.type === "research_report" ||
-      artifact.type === "search_report" ? (
+      <SelectionToggleButton
+        isSelected={isSelected}
+        disabled={isSelectionLocked}
+        onClick={() => toggleArtifact(artifact.id)}
+      />
+      {isMarkdownRenderableType(artifact.type) ? (
         <div className="rounded-lg border border-border/40 bg-muted/10 p-4 text-sm leading-7">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeSanitize]}
-          >
-            {artifact.raw_text}
-          </ReactMarkdown>
+          <MarkdownContentRenderer content={artifact.raw_text} />
         </div>
       ) : (
         <RawTextBlock value={artifact.raw_text} />
@@ -290,6 +305,38 @@ function RawTextBlock({ value }: { value: string }) {
         {value}
       </pre>
     </div>
+  )
+}
+
+function SelectionToggleButton({
+  disabled,
+  isSelected,
+  onClick,
+}: {
+  disabled: boolean
+  isSelected: boolean
+  onClick: () => void
+}) {
+  return (
+    <Button
+      type="button"
+      variant={isSelected ? "secondary" : "outline"}
+      size="sm"
+      disabled={disabled}
+      onClick={onClick}
+      className="h-7 cursor-pointer text-xs"
+    >
+      {isSelected ? "채팅에 추가됨" : "채팅에 추가"}
+    </Button>
+  )
+}
+
+const isMarkdownRenderableType = (type: ArtifactResponse["type"]) => {
+  return (
+    type === "markdown" ||
+    type === "commercial_report" ||
+    type === "research_report" ||
+    type === "search_report"
   )
 }
 

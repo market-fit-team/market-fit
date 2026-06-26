@@ -110,7 +110,22 @@ async def document_create(
     summary: str | None = None,
     source_artifact_id: str | None = None,
 ) -> dict[str, Any]:
-    """현재 사용자의 문서를 사용자 승인 뒤 새로 저장합니다."""
+    """현재 사용자의 문서를 사용자 승인 뒤 새로 저장합니다.
+
+    필수 인자:
+    - document_type: commercial_report | search_report | research_report | markdown | code
+    - raw_text: 저장할 본문 문자열
+
+    선택 인자:
+    - title: 문서 제목
+    - summary: 문서 요약
+    - source_artifact_id: 원본 아티팩트 ID
+
+    차트를 넣고 싶다면 raw_text 안에 아래와 같은 markdown fenced block을 넣습니다.
+    ```chart
+    {"type":"bar","xKey":"label","series":[{"key":"value","label":"값"}],"data":[{"label":"A","value":1}]}
+    ```
+    """
 
     owner, _ = require_runtime_user(runtime)
     resolved_source_artifact_id: UUID | None = None
@@ -152,7 +167,10 @@ async def document_update(
     summary: str | None = None,
     raw_text: str | None = None,
 ) -> dict[str, Any]:
-    """현재 사용자의 문서를 사용자 승인 뒤 수정합니다."""
+    """현재 사용자의 문서를 사용자 승인 뒤 수정합니다.
+
+    raw_text를 수정할 때는 document_create와 같은 형식으로 markdown과 chart fenced block을 사용할 수 있습니다.
+    """
 
     owner, _ = require_runtime_user(runtime)
     resolved_document_id = _uuid(document_id)
@@ -211,7 +229,11 @@ DOCUMENT_TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool=document_create,
         name="document_create",
-        description="사용자 승인 뒤 현재 사용자의 문서를 새로 저장합니다.",
+        description=(
+            "사용자 승인 뒤 현재 사용자의 문서를 새로 저장합니다. "
+            "document_type은 commercial_report/search_report/research_report/markdown/code 중 하나입니다. "
+            "차트는 raw_text 안의 ```chart``` JSON block으로 작성할 수 있습니다."
+        ),
         category="document",
         args_schema=document_create.args_schema,
         default_allowed=False,
@@ -220,7 +242,10 @@ DOCUMENT_TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool=document_update,
         name="document_update",
-        description="사용자 승인 뒤 현재 사용자의 문서를 수정합니다.",
+        description=(
+            "사용자 승인 뒤 현재 사용자의 문서를 수정합니다. "
+            "raw_text를 바꾸면 markdown 본문과 ```chart``` JSON block도 함께 갱신할 수 있습니다."
+        ),
         category="document",
         args_schema=document_update.args_schema,
         default_allowed=False,

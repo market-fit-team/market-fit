@@ -2,15 +2,28 @@
 
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { ChatView } from "@/features/chat/components/workspace/chat-view"
 import { ChatWorkspaceShell } from "@/features/chat/components/workspace/chat-workspace-shell"
 import { LangGraphChatStreamProvider } from "@/features/chat/hooks/langgraph-chat-stream-provider"
 import { useLangGraphChatStream } from "@/features/chat/hooks/use-langgraph-chat-stream"
 import { useWorkspaceRuntimeSettings } from "@/features/chat/hooks/workspace/use-workspace-runtime-settings"
+import {
+  areWorkspaceSelectionsEqual,
+  getWorkspaceRefreshPlan,
+  pruneWorkspaceSelections,
+  reconcileWorkspaceRightPanel,
+} from "@/features/chat/lib/workspace/reconcile-workspace-state"
 import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
 import type { ChatReasoningEffort } from "@/features/chat/types/chat-model-selection"
-import { useListArtifactsApiV1AgentArtifactsGet } from "@/shared/api/generated/agent/endpoints/agent-artifacts/agent-artifacts"
-import { useListDocumentsApiV1AgentDocumentsGet } from "@/shared/api/generated/agent/endpoints/agent-documents/agent-documents"
+import {
+  getListArtifactsApiV1AgentArtifactsGetQueryKey,
+  useListArtifactsApiV1AgentArtifactsGet,
+} from "@/shared/api/generated/agent/endpoints/agent-artifacts/agent-artifacts"
+import {
+  getListDocumentsApiV1AgentDocumentsGetQueryKey,
+  useListDocumentsApiV1AgentDocumentsGet,
+} from "@/shared/api/generated/agent/endpoints/agent-documents/agent-documents"
 import { useListThreadsApiV1AgentThreadsGet } from "@/shared/api/generated/agent/endpoints/agent-threads/agent-threads"
 import {
   useListLlmModelsApiV1LlmModelsGet,
@@ -154,16 +167,106 @@ function ChatThreadWorkspace({
   appThreadId: string
   starterMessage?: string | null
 }) {
-  const { resume } = useLangGraphChatStream()
-  const { isLeftSidebarOpen, rightPanel, setIsLeftSidebarOpen, setRightPanel } =
-    useChatWorkspace()
+  const queryClient = useQueryClient()
+  const { resume, toolCalls } = useLangGraphChatStream()
+  const {
+    isLeftSidebarOpen,
+    replaceSelections,
+    resetSelections,
+    rightPanel,
+    selectedArtifactIds,
+    selectedDocumentIds,
+    setIsLeftSidebarOpen,
+    setRightPanel,
+  } = useChatWorkspace()
   const documentsQuery = useListDocumentsApiV1AgentDocumentsGet()
   const artifactsQuery = useListArtifactsApiV1AgentArtifactsGet({
     thread_id: appThreadId,
   })
-  const documents = documentsQuery.data?.documents ?? []
-  const artifacts = artifactsQuery.data?.artifacts ?? []
+  const documents = documentsQuery.data?.documents
+  const artifacts = artifactsQuery.data?.artifacts
   const isExpanded = !isLeftSidebarOpen && !rightPanel
+  const previousThreadIdRef = useRef<string | null>(null)
+  const processedMutationToolCallIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (previousThreadIdRef.current === appThreadId) {
+      return
+    }
+
+    previousThreadIdRef.current = appThreadId
+    processedMutationToolCallIdsRef.current = new Set()
+    resetSelections()
+
+    if (rightPanel != null && rightPanel.kind !== "library") {
+      setRightPanel(null)
+    }
+  }, [appThreadId, resetSelections, rightPanel, setRightPanel])
+
+  useEffect(() => {
+    const nextSelections = pruneWorkspaceSelections({
+      documentIds: selectedDocumentIds,
+      artifactIds: selectedArtifactIds,
+      documents: documents ?? [],
+      artifacts: artifacts ?? [],
+    })
+
+    if (
+      !areWorkspaceSelectionsEqual(nextSelections, {
+        documentIds: selectedDocumentIds,
+        artifactIds: selectedArtifactIds,
+      })
+    ) {
+      replaceSelections(nextSelections)
+    }
+  }, [
+    artifacts,
+    documents,
+    replaceSelections,
+    selectedArtifactIds,
+    selectedDocumentIds,
+  ])
+
+  useEffect(() => {
+    const nextPanel = reconcileWorkspaceRightPanel({
+      panel: rightPanel,
+      documents: documents ?? [],
+      artifacts: artifacts ?? [],
+    })
+
+    if (nextPanel !== rightPanel) {
+      setRightPanel(nextPanel)
+    }
+  }, [artifacts, documents, rightPanel, setRightPanel])
+
+  useEffect(() => {
+    const refreshPlan = getWorkspaceRefreshPlan({
+      toolCalls,
+      processedCallIds: processedMutationToolCallIdsRef.current,
+    })
+
+    if (refreshPlan.processedCallIds.length === 0) {
+      return
+    }
+
+    for (const callId of refreshPlan.processedCallIds) {
+      processedMutationToolCallIdsRef.current.add(callId)
+    }
+
+    if (refreshPlan.invalidateArtifacts) {
+      void queryClient.invalidateQueries({
+        queryKey: getListArtifactsApiV1AgentArtifactsGetQueryKey({
+          thread_id: appThreadId,
+        }),
+      })
+    }
+
+    if (refreshPlan.invalidateDocuments) {
+      void queryClient.invalidateQueries({
+        queryKey: getListDocumentsApiV1AgentDocumentsGetQueryKey(),
+      })
+    }
+  }, [appThreadId, queryClient, toolCalls])
 
   const handleToggleExpand = () => {
     if (isExpanded) {
@@ -184,8 +287,8 @@ function ChatThreadWorkspace({
       <ChatView
         activeThreadTitle={activeThreadTitle}
         appThreadId={appThreadId}
-        artifacts={artifacts}
-        documents={documents}
+        artifacts={artifacts ?? []}
+        documents={documents ?? []}
         isRightPanelOpen={Boolean(rightPanel)}
         isExpanded={isExpanded}
         onToggleExpand={handleToggleExpand}

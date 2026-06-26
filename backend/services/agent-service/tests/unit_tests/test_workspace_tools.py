@@ -72,3 +72,29 @@ def test_chat_tool_error_handler_returns_model_visible_message() -> None:
         "도구 실행 실패: 본문은 비어 있을 수 없습니다."
     )
     assert "RuntimeError" in _handle_chat_tool_error(RuntimeError("boom"))
+
+
+def test_workspace_tool_descriptions_explain_chart_block_usage() -> None:
+    """생성 도구 설명에는 타입 목록과 chart block 사용법이 포함되어야 한다."""
+
+    artifact_create = CHAT_TOOL_SPECS_BY_NAME["artifact_create"].tool
+    document_create = CHAT_TOOL_SPECS_BY_NAME["document_create"].tool
+
+    assert "artifact_type" in artifact_create.description
+    assert "commercial_report" in artifact_create.description
+    assert "```chart" in artifact_create.description
+    assert "document_type" in document_create.description
+    assert "research_report" in document_create.description
+    assert "```chart" in document_create.description
+
+
+def test_workspace_create_tool_args_keep_existing_contract_keys() -> None:
+    """차트 설명 보강과 무관하게 생성 도구 입력 계약은 기존 키 이름을 유지해야 한다."""
+
+    artifact_args = CHAT_TOOL_SPECS_BY_NAME["artifact_create"].tool.args
+    document_args = CHAT_TOOL_SPECS_BY_NAME["document_create"].tool.args
+
+    assert "artifact_type" in artifact_args
+    assert "type" not in artifact_args
+    assert "document_type" in document_args
+    assert "type" not in document_args

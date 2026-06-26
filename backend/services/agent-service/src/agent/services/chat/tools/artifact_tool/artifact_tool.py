@@ -89,7 +89,21 @@ async def artifact_create(
     title: str | None = None,
     summary: str | None = None,
 ) -> dict[str, Any]:
-    """대화에서 만든 결과를 사용자 승인 뒤 아티팩트로 저장합니다."""
+    """대화에서 만든 결과를 사용자 승인 뒤 아티팩트로 저장합니다.
+
+    필수 인자:
+    - artifact_type: commercial_report | search_report | research_report | markdown | code
+    - raw_text: 저장할 본문 문자열
+
+    선택 인자:
+    - title: 아티팩트 제목
+    - summary: 아티팩트 요약
+
+    차트를 넣고 싶다면 raw_text 안에 아래와 같은 markdown fenced block을 넣습니다.
+    ```chart
+    {"type":"bar","xKey":"label","series":[{"key":"value","label":"값"}],"data":[{"label":"A","value":1}]}
+    ```
+    """
 
     owner, _ = require_runtime_user(runtime)
     app_thread_id = require_app_thread_id(runtime)
@@ -127,7 +141,10 @@ async def artifact_update(
     summary: str | None = None,
     raw_text: str | None = None,
 ) -> dict[str, Any]:
-    """저장된 아티팩트 본문을 사용자 승인 뒤 새 버전으로 갱신합니다."""
+    """저장된 아티팩트 본문을 사용자 승인 뒤 새 버전으로 갱신합니다.
+
+    raw_text를 수정할 때는 artifact_create와 같은 형식으로 markdown과 chart fenced block을 사용할 수 있습니다.
+    """
 
     owner, _ = require_runtime_user(runtime)
     async with get_session_factory()() as session:
@@ -203,7 +220,11 @@ ARTIFACT_TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool=artifact_create,
         name="artifact_create",
-        description="사용자 승인 뒤 대화 결과를 아티팩트로 저장합니다.",
+        description=(
+            "사용자 승인 뒤 대화 결과를 아티팩트로 저장합니다. "
+            "artifact_type은 commercial_report/search_report/research_report/markdown/code 중 하나입니다. "
+            "차트는 raw_text 안의 ```chart``` JSON block으로 작성할 수 있습니다."
+        ),
         category="document",
         args_schema=artifact_create.args_schema,
         default_allowed=False,
@@ -212,7 +233,10 @@ ARTIFACT_TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool=artifact_update,
         name="artifact_update",
-        description="사용자 승인 뒤 저장된 아티팩트의 버전을 갱신합니다.",
+        description=(
+            "사용자 승인 뒤 저장된 아티팩트를 수정합니다. "
+            "raw_text를 바꾸면 markdown 본문과 ```chart``` JSON block도 함께 갱신할 수 있습니다."
+        ),
         category="document",
         args_schema=artifact_update.args_schema,
         default_allowed=False,

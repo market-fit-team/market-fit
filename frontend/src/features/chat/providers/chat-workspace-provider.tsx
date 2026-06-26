@@ -23,6 +23,10 @@ type ChatWorkspaceContextValue = {
   setIsLeftSidebarOpen: (open: boolean) => void
   setIsSelectionLocked: (locked: boolean) => void
   setRightPanel: (panel: ChatRightPanel | null) => void
+  replaceSelections: (next: {
+    documentIds: string[]
+    artifactIds: string[]
+  }) => void
   toggleArtifact: (artifactId: string) => void
   toggleDocument: (documentId: string) => void
   resetSelections: () => void
@@ -66,6 +70,10 @@ export function ChatWorkspaceProvider({
       setIsLeftSidebarOpen,
       setIsSelectionLocked,
       setRightPanel,
+      replaceSelections: ({ documentIds, artifactIds }) => {
+        setSelectedDocumentIds(documentIds)
+        setSelectedArtifactIds(artifactIds)
+      },
       toggleArtifact: (artifactId) =>
         setSelectedArtifactIds((current) => toggleId(current, artifactId)),
       toggleDocument: (documentId) =>
