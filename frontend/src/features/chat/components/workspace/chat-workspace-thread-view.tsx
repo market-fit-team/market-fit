@@ -286,7 +286,6 @@ function ChatThreadWorkspace({
       <ChatWorkspaceThreadStarter starterMessage={starterMessage} />
       <ChatView
         activeThreadTitle={activeThreadTitle}
-        appThreadId={appThreadId}
         artifacts={artifacts ?? []}
         documents={documents ?? []}
         isRightPanelOpen={Boolean(rightPanel)}

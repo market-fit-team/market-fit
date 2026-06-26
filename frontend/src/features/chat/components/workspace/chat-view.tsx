@@ -9,21 +9,16 @@ import {
   ChevronRight,
   Copy,
   FileCode2,
+  FlaskConical,
+  Lightbulb,
   Maximize,
   Minimize,
   PanelRight,
   Sparkles,
   TerminalSquare,
-  ThumbsDown,
-  ThumbsUp,
 } from "lucide-react"
 import { toast } from "sonner"
-import {
-  AIMessage,
-  type BaseMessage,
-  HumanMessage,
-  ToolMessage,
-} from "@langchain/core/messages"
+import type { AIMessage, BaseMessage } from "@langchain/core/messages"
 import type { AssembledToolCall } from "@langchain/langgraph-sdk/stream"
 import { HitlInterruptCard } from "@/features/chat/components/hitl/hitl-interrupt-card"
 import { ChatModelMenu } from "@/features/chat/components/workspace/chat-model-menu"
@@ -34,9 +29,15 @@ import {
   getArtifactIcon,
   getArtifactPreview,
   getArtifactTitle,
+  getDocumentIcon,
+  getDocumentPreview,
+  getDocumentTitle,
 } from "@/features/chat/lib/display/chat-display"
+import {
+  type ChatGroupedTurn,
+  groupChatTurns,
+} from "@/features/chat/lib/workspace/group-chat-turns"
 import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
-import { useUpsertMessageFeedbackApiV1AgentMessagesMessageIdFeedbackPost } from "@/shared/api/generated/agent/endpoints/agent-feedback/agent-feedback"
 import type {
   ArtifactResponse,
   DocumentResponse,
@@ -59,7 +60,6 @@ import { cn } from "@/shared/lib/utils"
 
 type ChatViewProps = {
   activeThreadTitle: string
-  appThreadId: string
   artifacts: ArtifactResponse[]
   documents: DocumentResponse[]
   isRightPanelOpen: boolean
@@ -93,7 +93,6 @@ const promptSuggestions = [
 
 export function ChatView({
   activeThreadTitle,
-  appThreadId,
   artifacts,
   documents,
   isRightPanelOpen,
@@ -102,9 +101,6 @@ export function ChatView({
   onToggleRightPanel,
 }: ChatViewProps) {
   const [input, setInput] = React.useState("")
-  const [feedbackByMessageId, setFeedbackByMessageId] = React.useState<
-    Record<string, "like" | "dislike" | undefined>
-  >({})
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const {
     hitlInterrupts,
@@ -124,12 +120,19 @@ export function ChatView({
     setIsSelectionLocked,
     setRightPanel,
   } = useChatWorkspace()
-  const feedbackMutation =
-    useUpsertMessageFeedbackApiV1AgentMessagesMessageIdFeedbackPost()
   const { viewportRef, onScroll, scrollToBottom } = useAutoScroll()
   const disabled = isBusy || isHydrating || hitlInterrupts.length > 0
-  const isWelcomeScreen =
-    messages.filter((message) => !ToolMessage.isInstance(message)).length === 0
+  const groupedTurns = React.useMemo(
+    () =>
+      groupChatTurns({
+        messages,
+        toolCalls,
+        artifacts,
+        documents,
+      }),
+    [artifacts, documents, messages, toolCalls]
+  )
+  const isWelcomeScreen = groupedTurns.turns.length === 0
 
   React.useEffect(() => {
     setIsSelectionLocked(disabled)
@@ -138,7 +141,12 @@ export function ChatView({
 
   React.useEffect(() => {
     scrollToBottom(true)
-  }, [messages.length, hitlInterrupts.length, localNotice, scrollToBottom])
+  }, [
+    groupedTurns.turns.length,
+    hitlInterrupts.length,
+    localNotice,
+    scrollToBottom,
+  ])
 
   const handleSubmit = () => {
     const trimmed = input.trim()
@@ -161,27 +169,6 @@ export function ChatView({
     const element = event.target
     element.style.height = "auto"
     element.style.height = `${Math.min(element.scrollHeight, 160)}px`
-  }
-
-  const handleFeedback = (
-    messageId: string | undefined,
-    rating: "like" | "dislike"
-  ) => {
-    if (!messageId) {
-      return
-    }
-
-    setFeedbackByMessageId((current) => ({
-      ...current,
-      [messageId]: current[messageId] === rating ? undefined : rating,
-    }))
-    feedbackMutation.mutate({
-      messageId,
-      data: {
-        thread_id: appThreadId,
-        rating,
-      },
-    })
   }
 
   return (
@@ -257,34 +244,30 @@ export function ChatView({
             />
           ) : (
             <div className="space-y-6">
-              {messages.map((message, index) => (
-                <MessageBubble
-                  key={message.id ?? `${message._getType()}-${index}`}
-                  message={message}
-                  messages={messages}
-                  toolCalls={toolCalls}
-                  feedback={
-                    message.id ? feedbackByMessageId[message.id] : undefined
-                  }
-                  onFeedback={handleFeedback}
-                  onOpenThinking={(reasoning, relatedToolCalls) =>
-                    setRightPanel({
-                      kind: "thinking",
-                      title: "사고 과정 및 도구 호출",
-                      reasoning,
-                      toolCalls: relatedToolCalls,
-                    })
-                  }
-                />
-              ))}
-
-              {artifacts.length > 0 && (
-                <ArtifactStrip
-                  artifacts={artifacts}
-                  onOpenArtifact={(artifact) =>
-                    setRightPanel({ kind: "artifact", artifact })
-                  }
-                />
+              {groupedTurns.turns.map((turn) =>
+                turn.kind === "user" ? (
+                  <UserMessageBubble key={turn.key} message={turn.message} />
+                ) : (
+                  <AssistantTurnBlock
+                    key={turn.key}
+                    turn={turn}
+                    timeLabel={getAssistantTurnTimeLabel(turn)}
+                    onOpenDetails={(reasoning, relatedToolCalls) =>
+                      setRightPanel({
+                        kind: "thinking",
+                        title: "생각 / 도구 호출 결과",
+                        reasoning,
+                        toolCalls: relatedToolCalls,
+                      })
+                    }
+                    onOpenArtifact={(artifact) =>
+                      setRightPanel({ kind: "artifact", artifact })
+                    }
+                    onOpenDocument={(document) =>
+                      setRightPanel({ kind: "library-document", document })
+                    }
+                  />
+                )
               )}
 
               {localNotice && (
@@ -440,127 +423,104 @@ function WelcomeScreen({
   )
 }
 
-type MessageBubbleProps = {
-  message: BaseMessage
-  messages: BaseMessage[]
-  toolCalls: AssembledToolCall[]
-  feedback?: "like" | "dislike"
-  onFeedback: (
-    messageId: string | undefined,
-    rating: "like" | "dislike"
-  ) => void
-  onOpenThinking: (
+type AssistantTurnBlockProps = {
+  turn: Extract<ChatGroupedTurn, { kind: "assistant" }>
+  timeLabel: string
+  onOpenDetails: (
     reasoning: string | undefined,
     toolCalls: AssembledToolCall[]
   ) => void
+  onOpenArtifact: (artifact: ArtifactResponse) => void
+  onOpenDocument: (document: DocumentResponse) => void
 }
 
-function MessageBubble({
-  message,
-  messages,
-  toolCalls,
-  feedback,
-  onFeedback,
-  onOpenThinking,
-}: MessageBubbleProps) {
-  if (ToolMessage.isInstance(message)) {
-    return null
-  }
-
-  const isUser = HumanMessage.isInstance(message)
-  const textContent = message.text
-  const reasoning = getReasoningText(message)
-  const relatedToolCalls = getRelatedToolCalls(message, messages, toolCalls)
-  const hasThinking = Boolean(reasoning) || relatedToolCalls.length > 0
+function AssistantTurnBlock({
+  turn,
+  timeLabel,
+  onOpenDetails,
+  onOpenArtifact,
+  onOpenDocument,
+}: AssistantTurnBlockProps) {
+  const copyText = buildAssistantTurnCopyText(turn)
 
   return (
     <div
-      className={cn("flex min-w-0", isUser ? "justify-end" : "justify-start")}
-      id={message.id ? `message-${message.id}` : undefined}
+      className="flex min-w-0 justify-start"
+      id={
+        turn.representativeMessageId
+          ? `message-${turn.representativeMessageId}`
+          : undefined
+      }
     >
-      <div
-        className={cn(
-          "flex min-w-0 flex-col gap-1.5",
-          isUser
-            ? "w-fit max-w-[85%] items-end"
-            : "w-full max-w-full items-start"
-        )}
-      >
-        {!isUser && hasThinking && (
-          <ThinkingBlock
-            reasoning={reasoning}
-            toolCalls={relatedToolCalls}
-            onOpen={() => onOpenThinking(reasoning, relatedToolCalls)}
+      <div className="flex w-full max-w-full flex-col gap-2">
+        {turn.reasoning && (
+          <ReasoningBlock
+            reasoning={turn.reasoning ?? undefined}
+            onOpen={() =>
+              onOpenDetails(turn.reasoning ?? undefined, turn.toolCalls)
+            }
           />
         )}
 
-        {textContent && (
-          <div
-            className={cn(
-              "max-w-full rounded-xl px-3.5 py-2.5 text-sm leading-[1.7] break-words",
-              isUser
-                ? "rounded-tr-sm bg-foreground text-background"
-                : "rounded-tl-sm bg-muted/30 text-foreground"
-            )}
-          >
-            <p className="whitespace-pre-wrap">{textContent}</p>
+        {turn.toolResults.length > 0 && (
+          <ToolResultsBlock
+            toolResults={turn.toolResults}
+            onOpen={() =>
+              onOpenDetails(turn.reasoning ?? undefined, turn.toolCalls)
+            }
+          />
+        )}
+
+        {turn.textContent && (
+          <div className="max-w-full rounded-xl rounded-tl-sm bg-muted/30 px-3.5 py-2.5 text-sm leading-[1.7] break-words text-foreground">
+            <p className="whitespace-pre-wrap">{turn.textContent}</p>
           </div>
         )}
 
-        <div
-          className={cn(
-            "flex items-center gap-2 px-1",
-            isUser ? "flex-row-reverse" : "flex-row"
-          )}
-        >
-          {!isUser && (
-            <div className="flex items-center gap-0.5">
-              <FeedbackButton
-                active={feedback === "like"}
-                label="도움이 됨"
-                onClick={() => onFeedback(message.id, "like")}
-              >
-                <ThumbsUp className="size-2.5" />
-              </FeedbackButton>
-              <FeedbackButton
-                active={feedback === "dislike"}
-                destructive
-                label="개선 필요"
-                onClick={() => onFeedback(message.id, "dislike")}
-              >
-                <ThumbsDown className="size-2.5" />
-              </FeedbackButton>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => {
-                        void navigator.clipboard.writeText(textContent)
-                        toast.success("메시지가 복사되었습니다.")
-                      }}
-                      className="cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      <Copy className="size-2.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>복사</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          )}
+        {turn.artifacts.length > 0 && (
+          <ArtifactStrip
+            artifacts={turn.artifacts}
+            onOpenArtifact={onOpenArtifact}
+          />
+        )}
+
+        {turn.documents.length > 0 && (
+          <DocumentStrip
+            documents={turn.documents}
+            onOpenDocument={onOpenDocument}
+          />
+        )}
+
+        <TurnFooter copyText={copyText} timeLabel={timeLabel} />
+      </div>
+    </div>
+  )
+}
+
+function UserMessageBubble({ message }: { message: BaseMessage }) {
+  if (!message.text) {
+    return null
+  }
+
+  return (
+    <div
+      className="flex min-w-0 justify-end"
+      id={message.id ? `message-${message.id}` : undefined}
+    >
+      <div className="flex w-fit max-w-[85%] flex-col items-end gap-1.5">
+        <div className="max-w-full rounded-xl rounded-tr-sm bg-foreground px-3.5 py-2.5 text-sm leading-[1.7] break-words text-background">
+          <p className="whitespace-pre-wrap">{message.text}</p>
         </div>
       </div>
     </div>
   )
 }
 
-function ThinkingBlock({
+function ReasoningBlock({
   reasoning,
-  toolCalls,
   onOpen,
 }: {
   reasoning?: string
-  toolCalls: AssembledToolCall[]
   onOpen: () => void
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
@@ -576,12 +536,8 @@ function ThinkingBlock({
               ) : (
                 <ChevronRight className="size-3" />
               )}
-              사고 과정 및 도구 호출
-              <span className="text-[10px]">
-                {toolCalls.length > 0
-                  ? `${toolCalls.length} 단계`
-                  : "reasoning"}
-              </span>
+              <Lightbulb className="size-3" />
+              생각
             </button>
           </CollapsibleTrigger>
           <Button
@@ -596,25 +552,9 @@ function ThinkingBlock({
         </div>
         <CollapsibleContent>
           <div className="border-t border-border/20 px-3 py-2">
-            {reasoning && (
-              <pre className="mb-2 line-clamp-4 text-xs leading-5 whitespace-pre-wrap text-muted-foreground">
-                {reasoning}
-              </pre>
-            )}
-            <div className="space-y-1">
-              {toolCalls.map((toolCall, index) => (
-                <div
-                  key={toolCall.callId ?? toolCall.id ?? index}
-                  className="flex items-center gap-2 text-xs text-muted-foreground"
-                >
-                  <CheckCircle2 className="size-3 text-emerald-500" />
-                  <span className="truncate font-mono">
-                    {toolCall.name ?? "tool"}
-                  </span>
-                  <span className="shrink-0">{toolCall.status}</span>
-                </div>
-              ))}
-            </div>
+            <pre className="text-xs leading-5 whitespace-pre-wrap text-muted-foreground">
+              {reasoning}
+            </pre>
           </div>
         </CollapsibleContent>
       </div>
@@ -622,38 +562,152 @@ function ThinkingBlock({
   )
 }
 
-function FeedbackButton({
-  active,
-  children,
-  destructive,
-  label,
-  onClick,
+function ToolResultsBlock({
+  toolResults,
+  onOpen,
 }: {
-  active?: boolean
-  children: React.ReactNode
-  destructive?: boolean
-  label: string
-  onClick: () => void
+  toolResults: Extract<ChatGroupedTurn, { kind: "assistant" }>["toolResults"]
+  onOpen: () => void
+}) {
+  const [isOpen, setIsOpen] = React.useState(true)
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="w-full max-w-full rounded-lg border border-border/30 bg-background/70">
+        <div className="flex items-center justify-between gap-2 px-3 py-2">
+          <CollapsibleTrigger asChild>
+            <button className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground">
+              {isOpen ? (
+                <ChevronDown className="size-3" />
+              ) : (
+                <ChevronRight className="size-3" />
+              )}
+              <FlaskConical className="size-3" />
+              도구 호출 결과
+              <span className="text-[10px]">{toolResults.length}건</span>
+            </button>
+          </CollapsibleTrigger>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpen}
+            className="h-6 cursor-pointer gap-1 px-2 text-xs"
+          >
+            <PanelRight className="size-3" />
+            열기
+          </Button>
+        </div>
+        <CollapsibleContent>
+          <div className="space-y-2 border-t border-border/20 px-3 py-2">
+            {toolResults.map((toolResult, index) => (
+              <div
+                key={toolResult.callId ?? `${toolResult.name}-${index}`}
+                className="rounded-lg border border-border/30 bg-muted/15 p-3"
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="size-3 text-emerald-500" />
+                    <span className="font-mono text-xs font-medium text-foreground">
+                      {toolResult.name}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {toolResult.status ?? "finished"}
+                  </span>
+                </div>
+                {toolResult.argsSummary && (
+                  <div className="mb-2 space-y-1">
+                    <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                      입력
+                    </p>
+                    <pre className="overflow-x-auto rounded-md bg-background/80 p-2 text-[11px] leading-5 whitespace-pre-wrap text-muted-foreground">
+                      {toolResult.argsSummary}
+                    </pre>
+                  </div>
+                )}
+                {toolResult.resultSummary && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
+                      결과
+                    </p>
+                    <pre className="overflow-x-auto rounded-md bg-background/80 p-2 text-[11px] leading-5 whitespace-pre-wrap text-foreground">
+                      {toolResult.resultSummary}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  )
+}
+
+function TurnFooter({
+  copyText,
+  timeLabel,
+}: {
+  copyText: string
+  timeLabel: string
 }) {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={onClick}
-            className={cn(
-              "cursor-pointer rounded-md p-1 transition-colors",
-              active && !destructive && "bg-foreground/[0.05] text-foreground",
-              active && destructive && "bg-destructive/[0.05] text-destructive",
-              !active && "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {children}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className="flex items-center justify-between gap-2 px-1">
+      <span className="text-xs text-muted-foreground">{timeLabel}</span>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => {
+                if (!copyText.trim()) {
+                  return
+                }
+                void navigator.clipboard.writeText(copyText)
+                toast.success("응답이 복사되었습니다.")
+              }}
+              className="cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!copyText.trim()}
+            >
+              <Copy className="size-2.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>복사</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  )
+}
+
+function DocumentStrip({
+  documents,
+  onOpenDocument,
+}: {
+  documents: DocumentResponse[]
+  onOpenDocument: (document: DocumentResponse) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="px-1 text-xs font-medium text-muted-foreground">
+        라이브러리에 저장됨
+      </p>
+      {documents.map((document) => (
+        <button
+          key={document.id}
+          onClick={() => onOpenDocument(document)}
+          className="flex w-full cursor-pointer items-start gap-3 rounded-xl border border-border/30 bg-background/60 p-3 text-left transition-colors hover:bg-muted/20"
+        >
+          <span className="mt-0.5">{getDocumentIcon(document.type)}</span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-xs font-medium">
+              {getDocumentTitle(document)}
+            </span>
+            <span className="mt-1 line-clamp-2 block text-xs leading-5 text-muted-foreground">
+              {getDocumentPreview(document)}
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -666,6 +720,9 @@ function ArtifactStrip({
 }) {
   return (
     <div className="space-y-2">
+      <p className="px-1 text-xs font-medium text-muted-foreground">
+        생성된 결과물
+      </p>
       {artifacts.slice(0, 3).map((artifact) => (
         <button
           key={artifact.id}
@@ -703,44 +760,93 @@ function TypingIndicator({ label = "AI가 응답 중입니다" }: { label?: stri
   )
 }
 
-const getReasoningText = (message: BaseMessage) => {
-  if (!AIMessage.isInstance(message)) {
-    return undefined
-  }
+const buildAssistantTurnCopyText = (
+  turn: Extract<ChatGroupedTurn, { kind: "assistant" }>
+) => {
+  const sections = [
+    turn.textContent,
+    turn.reasoning ? `생각\n${turn.reasoning}` : null,
+    turn.toolResults.length > 0
+      ? turn.toolResults
+          .map((toolResult) =>
+            [
+              `도구: ${toolResult.name}`,
+              toolResult.argsSummary
+                ? `입력:\n${toolResult.argsSummary}`
+                : null,
+              toolResult.resultSummary
+                ? `결과:\n${toolResult.resultSummary}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join("\n")
+          )
+          .join("\n\n")
+      : null,
+    turn.artifacts.length > 0
+      ? turn.artifacts.map((artifact) => getArtifactTitle(artifact)).join("\n")
+      : null,
+    turn.documents.length > 0
+      ? turn.documents.map((document) => getDocumentTitle(document)).join("\n")
+      : null,
+  ].filter(
+    (value): value is string =>
+      typeof value === "string" && value.trim().length > 0
+  )
 
-  const reasoning = message.contentBlocks
-    .flatMap((block) => (block.type === "reasoning" ? [block.reasoning] : []))
-    .join("")
-
-  return reasoning || undefined
+  return sections.join("\n\n")
 }
 
-const getRelatedToolCalls = (
-  message: BaseMessage,
-  messages: BaseMessage[],
-  toolCalls: AssembledToolCall[]
-) => {
-  if (!AIMessage.isInstance(message)) {
-    return []
+const formatTurnTime = (date: Date) => {
+  return new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date)
+}
+
+const getTimestampValue = (message: AIMessage) => {
+  const candidates = [
+    message.response_metadata?.timestamp,
+    message.response_metadata?.created_at,
+    message.response_metadata?.createdAt,
+    message.additional_kwargs?.timestamp,
+    message.additional_kwargs?.created_at,
+    message.additional_kwargs?.createdAt,
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate == null) {
+      continue
+    }
+
+    const date =
+      typeof candidate === "number"
+        ? new Date(candidate)
+        : new Date(String(candidate))
+
+    if (!Number.isNaN(date.getTime())) {
+      return date
+    }
   }
 
-  const callIds = new Set(
-    (message.tool_calls ?? [])
-      .map((call) => call.id)
-      .filter((id): id is string => typeof id === "string")
-  )
+  return null
+}
 
-  const resultIds = new Set(
-    messages
-      .filter((candidate): candidate is ToolMessage =>
-        ToolMessage.isInstance(candidate)
-      )
-      .map((toolMessage) => toolMessage.tool_call_id)
-      .filter((id): id is string => callIds.has(id))
-  )
+const getAssistantTurnTimeLabel = (
+  turn: Extract<ChatGroupedTurn, { kind: "assistant" }>
+) => {
+  for (let index = turn.aiMessages.length - 1; index >= 0; index -= 1) {
+    const message = turn.aiMessages[index]
+    if (!message) {
+      continue
+    }
 
-  return toolCalls.filter((toolCall) => {
-    const id = toolCall.callId ?? toolCall.id
-    return typeof id === "string" && (callIds.has(id) || resultIds.has(id))
-  })
+    const timestamp = getTimestampValue(message)
+    if (timestamp) {
+      return formatTurnTime(timestamp)
+    }
+  }
+
+  return formatTurnTime(new Date())
 }
