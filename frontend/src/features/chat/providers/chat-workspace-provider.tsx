@@ -5,7 +5,6 @@ import { createStore, useStore } from "zustand"
 import type {
   ChatDetailDialogState,
   ChatLeftTab,
-  ChatRightPanel,
 } from "@/features/chat/types/workspace"
 
 type ChatWorkspaceState = {
@@ -13,7 +12,6 @@ type ChatWorkspaceState = {
   detailDialog: ChatDetailDialogState | null
   isLeftSidebarOpen: boolean
   isSelectionLocked: boolean
-  rightPanel: ChatRightPanel | null
   selectedArtifactIds: string[]
   selectedDocumentIds: string[]
 }
@@ -23,7 +21,6 @@ type ChatWorkspaceActions = {
   setActiveLeftTab: (tab: ChatLeftTab) => void
   setIsLeftSidebarOpen: (open: boolean) => void
   setIsSelectionLocked: (locked: boolean) => void
-  setRightPanel: (panel: ChatRightPanel | null) => void
   replaceSelections: (next: {
     documentIds: string[]
     artifactIds: string[]
@@ -47,16 +44,12 @@ const createChatWorkspaceStore = () =>
     detailDialog: null,
     isLeftSidebarOpen: true,
     isSelectionLocked: false,
-    rightPanel: {
-      kind: "library",
-    },
     selectedDocumentIds: [],
     selectedArtifactIds: [],
     setDetailDialog: (detailDialog) => set({ detailDialog }),
     setActiveLeftTab: (activeLeftTab) => set({ activeLeftTab }),
     setIsLeftSidebarOpen: (isLeftSidebarOpen) => set({ isLeftSidebarOpen }),
     setIsSelectionLocked: (isSelectionLocked) => set({ isSelectionLocked }),
-    setRightPanel: (rightPanel) => set({ rightPanel }),
     replaceSelections: ({ documentIds, artifactIds }) =>
       set({
         selectedDocumentIds: documentIds,

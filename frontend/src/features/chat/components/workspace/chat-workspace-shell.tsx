@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react"
 import { RightSidebar } from "@/features/chat/components/workspace/right-sidebar"
-import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
 import type { HitlDecision } from "@/features/chat/types/hitl-interrupt-payload"
 import type { ChatRightPanel } from "@/features/chat/types/workspace"
 import { useListDocumentsApiV1AgentDocumentsGet } from "@/shared/api/generated/agent/endpoints/agent-documents/agent-documents"
@@ -26,12 +25,8 @@ export function ChatWorkspaceShell({
   onSetPanel,
 }: ChatWorkspaceShellProps) {
   const documentsQuery = useListDocumentsApiV1AgentDocumentsGet()
-  const workspaceRightPanel = useChatWorkspace((state) => state.rightPanel)
-  const setWorkspaceRightPanel = useChatWorkspace(
-    (state) => state.setRightPanel
-  )
-  const rightPanel = panel ?? workspaceRightPanel
-  const setRightPanel = onSetPanel ?? setWorkspaceRightPanel
+  const rightPanel = panel ?? null
+  const setRightPanel = onSetPanel ?? (() => undefined)
   const documents = documentsQuery.data?.documents ?? []
   const isRightPanelOpen = rightPanel !== null
 

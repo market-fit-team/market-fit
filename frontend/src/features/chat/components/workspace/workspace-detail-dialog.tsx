@@ -79,7 +79,7 @@ export function WorkspaceDetailDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="max-h-[88dvh] max-w-[min(960px,calc(100vw-2rem))] gap-0 overflow-hidden p-0"
+        className="max-h-[90dvh] w-[min(1200px,calc(100vw-2rem))] max-w-none gap-0 overflow-hidden p-0 sm:w-[min(1200px,calc(100vw-3rem))]"
         showCloseButton
       >
         {dialog?.kind === "library-document" ? (

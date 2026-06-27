@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -18,6 +18,7 @@ import {
 } from "@/features/chat/lib/workspace/reconcile-workspace-state"
 import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
 import type { ChatReasoningEffort } from "@/features/chat/types/chat-model-selection"
+import type { ChatRightPanel } from "@/features/chat/types/workspace"
 import {
   getListArtifactsApiV1AgentArtifactsGetQueryKey,
   useListArtifactsApiV1AgentArtifactsGet,
@@ -179,7 +180,6 @@ function ChatThreadWorkspace({
   const isLeftSidebarOpen = useChatWorkspace((state) => state.isLeftSidebarOpen)
   const replaceSelections = useChatWorkspace((state) => state.replaceSelections)
   const resetSelections = useChatWorkspace((state) => state.resetSelections)
-  const rightPanel = useChatWorkspace((state) => state.rightPanel)
   const selectedArtifactIds = useChatWorkspace(
     (state) => state.selectedArtifactIds
   )
@@ -189,7 +189,7 @@ function ChatThreadWorkspace({
   const setIsLeftSidebarOpen = useChatWorkspace(
     (state) => state.setIsLeftSidebarOpen
   )
-  const setRightPanel = useChatWorkspace((state) => state.setRightPanel)
+  const [rightPanel, setRightPanel] = useState<ChatRightPanel | null>(null)
   const documentsQuery = useListDocumentsApiV1AgentDocumentsGet()
   const artifactsQuery = useListArtifactsApiV1AgentArtifactsGet({
     thread_id: appThreadId,
@@ -229,11 +229,8 @@ function ChatThreadWorkspace({
     previousThreadIdRef.current = appThreadId
     processedMutationToolCallIdsRef.current = new Set()
     resetSelections()
-
-    if (rightPanel != null && rightPanel.kind !== "library") {
-      setRightPanel(null)
-    }
-  }, [appThreadId, resetSelections, rightPanel, setRightPanel])
+    setRightPanel(null)
+  }, [appThreadId, resetSelections])
 
   useEffect(() => {
     const nextSelections = pruneWorkspaceSelections({
@@ -339,6 +336,7 @@ function ChatThreadWorkspace({
         isRightPanelOpen={Boolean(resolvedRightPanel)}
         isExpanded={isExpanded}
         onRemoveOnboardingContext={handleRemoveOnboardingContext}
+        onSetRightPanel={setRightPanel}
         onToggleExpand={handleToggleExpand}
         onToggleRightPanel={() => setRightPanel({ kind: "library" })}
       />

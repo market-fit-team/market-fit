@@ -45,6 +45,7 @@ import {
   groupChatTurns,
 } from "@/features/chat/lib/workspace/group-chat-turns"
 import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
+import type { ChatRightPanel } from "@/features/chat/types/workspace"
 import type {
   ArtifactResponse,
   DocumentResponse,
@@ -74,6 +75,7 @@ type ChatViewProps = {
   isRightPanelOpen: boolean
   isExpanded: boolean
   onRemoveOnboardingContext?: () => void
+  onSetRightPanel: (panel: ChatRightPanel) => void
   onToggleExpand: () => void
   onToggleRightPanel: () => void
 }
@@ -110,6 +112,7 @@ export function ChatView({
   isRightPanelOpen,
   isExpanded,
   onRemoveOnboardingContext,
+  onSetRightPanel,
   onToggleExpand,
   onToggleRightPanel,
 }: ChatViewProps) {
@@ -137,7 +140,6 @@ export function ChatView({
   const setIsSelectionLocked = useChatWorkspace(
     (state) => state.setIsSelectionLocked
   )
-  const setRightPanel = useChatWorkspace((state) => state.setRightPanel)
   const { viewportRef, onScroll, scrollToBottom } = useAutoScroll()
   const disabled = isBusy || isHydrating || hitlInterrupts.length > 0
   const groupedTurns = React.useMemo(
@@ -270,7 +272,7 @@ export function ChatView({
                     documents={documents}
                     timeLabel={getAssistantTurnTimeLabel(turn)}
                     onOpenDetails={(reasoning, relatedToolCalls) =>
-                      setRightPanel({
+                      onSetRightPanel({
                         kind: "thinking",
                         title: "생각 / 도구 호출 결과",
                         reasoning,
@@ -278,16 +280,16 @@ export function ChatView({
                       })
                     }
                     onOpenArtifact={(artifact) =>
-                      setRightPanel({ kind: "artifact", artifact })
+                      onSetRightPanel({ kind: "artifact", artifact })
                     }
                     onOpenDocument={(document) =>
-                      setRightPanel({ kind: "library-document", document })
+                      onSetRightPanel({ kind: "library-document", document })
                     }
                     onOpenWebSearch={(result) =>
-                      setRightPanel({ kind: "web-search", result })
+                      onSetRightPanel({ kind: "web-search", result })
                     }
                     onOpenWebFetch={(result) =>
-                      setRightPanel({ kind: "web-fetch", result })
+                      onSetRightPanel({ kind: "web-fetch", result })
                     }
                   />
                 )
@@ -305,7 +307,7 @@ export function ChatView({
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      setRightPanel({
+                      onSetRightPanel({
                         kind: "hitl",
                         interrupts: hitlInterrupts,
                       })

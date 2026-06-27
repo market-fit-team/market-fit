@@ -145,6 +145,7 @@ const renderChatView = (props?: Partial<ComponentProps<typeof ChatView>>) => {
         documents={documents}
         isRightPanelOpen={false}
         isExpanded={false}
+        onSetRightPanel={workspaceState.current.setRightPanel}
         onToggleExpand={vi.fn()}
         onToggleRightPanel={vi.fn()}
         {...props}
