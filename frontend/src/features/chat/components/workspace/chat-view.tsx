@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock3,
   Copy,
   FlaskConical,
   Globe,
@@ -14,6 +15,7 @@ import {
   PanelRight,
   Search,
   Sparkles,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import type { AIMessage, BaseMessage } from "@langchain/core/messages"
@@ -95,8 +97,11 @@ export function ChatView({
     messages,
     models,
     modelSelection,
+    queueLimit,
+    queuedMessages,
+    removeQueuedMessage,
     resume,
-    sendMessage,
+    submitMessage,
     toolPolicy,
     toolCalls,
   } = useLangGraphChatStream()
@@ -111,6 +116,10 @@ export function ChatView({
   )
   const { viewportRef, onScroll, scrollToBottom } = useAutoScroll()
   const disabled = isBusy || isHydrating || hitlInterrupts.length > 0
+  const isSendDisabled =
+    isHydrating ||
+    hitlInterrupts.length > 0 ||
+    queuedMessages.length >= queueLimit
   const groupedTurns = React.useMemo(
     () =>
       groupChatTurns({
@@ -134,7 +143,7 @@ export function ChatView({
   ])
 
   const handleSubmit = async (message: string) => {
-    await sendMessage(message, {
+    return submitMessage(message, {
       selectedArtifactIds,
       selectedDocumentIds,
     })
@@ -277,12 +286,18 @@ export function ChatView({
       </ScrollArea>
 
       <div className="shrink-0 border-t border-border/15 bg-background px-6 py-4">
+        <QueuedMessageList
+          queuedMessages={queuedMessages}
+          queueLimit={queueLimit}
+          onRemoveQueuedMessage={removeQueuedMessage}
+        />
         <ChatWorkspaceComposer
           artifacts={artifacts}
           documents={documents}
           draft={draft}
           disabled={disabled}
           inputDisabled={false}
+          sendDisabled={isSendDisabled}
           hasOnboardingContext={hasOnboardingContext}
           isOnboardingContextRemoving={isOnboardingContextRemoving}
           models={models}
@@ -292,6 +307,65 @@ export function ChatView({
           onSubmit={handleSubmit}
           onRemoveOnboardingContext={onRemoveOnboardingContext}
         />
+      </div>
+    </div>
+  )
+}
+
+function QueuedMessageList({
+  queuedMessages,
+  queueLimit,
+  onRemoveQueuedMessage,
+}: {
+  queuedMessages: Array<{
+    id: string
+    content: string
+    status: "pending" | "failed"
+  }>
+  queueLimit: number
+  onRemoveQueuedMessage: (id: string) => void
+}) {
+  if (queuedMessages.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="mx-auto mb-3 flex max-w-2xl flex-col gap-1.5">
+      <div className="flex items-center justify-between px-1">
+        <span className="text-[11px] text-muted-foreground">
+          대기 메시지
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          {queuedMessages.length}/{queueLimit}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {queuedMessages.map((queuedMessage) => (
+          <div
+            key={queuedMessage.id}
+            className={cn(
+              "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs",
+              queuedMessage.status === "failed"
+                ? "border-destructive/30 bg-destructive/5 text-destructive"
+                : "border-border/40 bg-muted/30 text-muted-foreground"
+            )}
+          >
+            <Clock3 className="size-3 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">
+              {queuedMessage.content}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="size-5 shrink-0"
+              onClick={() => onRemoveQueuedMessage(queuedMessage.id)}
+            >
+              <X className="size-3" />
+              <span className="sr-only">대기 메시지 제거</span>
+            </Button>
+          </div>
+        ))}
       </div>
     </div>
   )

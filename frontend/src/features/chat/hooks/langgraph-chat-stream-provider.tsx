@@ -13,9 +13,11 @@ import {
   HttpStatusError,
 } from "@/features/auth/lib/fetch-with-auth"
 import {
+  CHAT_MESSAGE_QUEUE_LIMIT,
   type ChatTurnOptions,
   LangGraphChatStreamContext,
   type LangGraphChatStreamContextValue,
+  type QueuedChatMessage,
 } from "@/features/chat/hooks/langgraph-chat-stream-context"
 import { buildSubmitContext } from "@/features/chat/lib/langgraph/build-submit-config"
 import { buildSubmitInput } from "@/features/chat/lib/langgraph/build-submit-input"
@@ -49,6 +51,10 @@ type LangGraphChatStreamProviderProps = {
 type VerifiedInterruptSnapshot = {
   key: string
   ids: Set<string>
+}
+
+const createQueuedChatMessageId = () => {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 const extractActiveInterruptIds = (state: unknown) => {
@@ -203,6 +209,9 @@ export function LangGraphChatStreamProvider({
   const [localErrorNotice, setLocalErrorNotice] = useState<string | null>(null)
   const [isResumePending, setIsResumePending] = useState(false)
   const isResumePendingRef = useRef(false)
+  const [queuedMessages, setQueuedMessages] = useState<QueuedChatMessage[]>([])
+  const queuedMessagesRef = useRef<QueuedChatMessage[]>([])
+  const isQueueDrainingRef = useRef(false)
 
   const apiUrl = useMemo(() => buildAgentApiUrl(), [])
   const langGraphClient = useMemo(() => createLangGraphClient(apiUrl), [apiUrl])
@@ -265,6 +274,91 @@ export function LangGraphChatStreamProvider({
     [modelSelection, stream, toolPolicy, workspaceThread?.appThreadId]
   )
 
+  const removeQueuedMessage = useCallback((id: string) => {
+    const nextQueuedMessages = queuedMessagesRef.current.filter(
+      (item) => item.id !== id
+    )
+    queuedMessagesRef.current = nextQueuedMessages
+    setQueuedMessages(nextQueuedMessages)
+  }, [])
+
+  const markQueuedMessageFailed = useCallback((id: string) => {
+    const nextQueuedMessages = queuedMessagesRef.current.map((item) =>
+      item.id === id ? { ...item, status: "failed" as const } : item
+    )
+    queuedMessagesRef.current = nextQueuedMessages
+    setQueuedMessages(nextQueuedMessages)
+  }, [])
+
+  const drainQueuedMessages = useCallback(async () => {
+    if (
+      isQueueDrainingRef.current ||
+      stream.isLoading ||
+      isResumePendingRef.current ||
+      stream.isThreadLoading ||
+      hitlInterrupts.length > 0
+    ) {
+      return
+    }
+
+    const nextQueuedMessage = queuedMessagesRef.current[0]
+    if (!nextQueuedMessage || nextQueuedMessage.status !== "pending") {
+      return
+    }
+
+    isQueueDrainingRef.current = true
+    try {
+      await sendMessage(nextQueuedMessage.content, nextQueuedMessage.options)
+      removeQueuedMessage(nextQueuedMessage.id)
+    } catch {
+      markQueuedMessageFailed(nextQueuedMessage.id)
+    } finally {
+      isQueueDrainingRef.current = false
+    }
+  }, [
+    hitlInterrupts.length,
+    markQueuedMessageFailed,
+    removeQueuedMessage,
+    sendMessage,
+    stream.isLoading,
+    stream.isThreadLoading,
+  ])
+
+  const submitMessage = useCallback(
+    async (content: string, options: ChatTurnOptions = {}) => {
+      const trimmed = content.trim()
+      if (!trimmed) {
+        return false
+      }
+
+      if (queuedMessagesRef.current.length >= CHAT_MESSAGE_QUEUE_LIMIT) {
+        setLocalErrorNotice(
+          "오류: 메시지 큐가 가득 찼습니다. 대기 메시지를 정리한 뒤 다시 시도해 주세요."
+        )
+        return false
+      }
+
+      const nextQueuedMessage: QueuedChatMessage = {
+        id: createQueuedChatMessageId(),
+        content: trimmed,
+        options,
+        status: "pending",
+      }
+      const nextQueuedMessages = [
+        ...queuedMessagesRef.current,
+        nextQueuedMessage,
+      ]
+
+      queuedMessagesRef.current = nextQueuedMessages
+      setQueuedMessages(nextQueuedMessages)
+      setLocalErrorNotice(null)
+
+      await drainQueuedMessages()
+      return true
+    },
+    [drainQueuedMessages]
+  )
+
   const resume = useCallback(
     async (
       decisions: Parameters<LangGraphChatStreamContextValue["resume"]>[0]
@@ -309,8 +403,21 @@ export function LangGraphChatStreamProvider({
       await stream.stop({ cancel: true })
     }
     setThreadId(null)
+    queuedMessagesRef.current = []
+    setQueuedMessages([])
     toolPolicy.resetToDefault()
   }, [stream, toolPolicy])
+
+  useEffect(() => {
+    void drainQueuedMessages()
+  }, [
+    drainQueuedMessages,
+    hitlInterrupts.length,
+    isResumePending,
+    queuedMessages,
+    stream.isLoading,
+    stream.isThreadLoading,
+  ])
 
   const value = useMemo<LangGraphChatStreamContextValue>(() => {
     return {
@@ -327,7 +434,11 @@ export function LangGraphChatStreamProvider({
       isHydrating: stream.isThreadLoading,
       hasPendingInterrupt: hitlInterrupts.length > 0,
       streamStatus: stream.isLoading || isResumePending ? "streaming" : "idle",
+      queueLimit: CHAT_MESSAGE_QUEUE_LIMIT,
+      queuedMessages,
+      submitMessage,
       sendMessage,
+      removeQueuedMessage,
       resume,
       resetChat,
     }
@@ -345,7 +456,10 @@ export function LangGraphChatStreamProvider({
     stream.isThreadLoading,
     isResumePending,
     localNotice,
+    queuedMessages,
+    submitMessage,
     sendMessage,
+    removeQueuedMessage,
     resume,
     resetChat,
   ])

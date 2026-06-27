@@ -24,13 +24,14 @@ type ChatWorkspaceComposerProps = {
   draft: string
   disabled?: boolean
   inputDisabled?: boolean
+  sendDisabled?: boolean
   hasOnboardingContext?: boolean
   isOnboardingContextRemoving?: boolean
   models: ChatModelOption[]
   modelSelection: ChatModelSelectionControls
   toolPolicy: ToolPolicyControls
   onChangeDraft: (value: string) => void
-  onSubmit: (message: string) => Promise<void> | void
+  onSubmit: (message: string) => Promise<boolean | void> | boolean | void
   onRemoveOnboardingContext?: () => void
   placeholder?: string
 }
@@ -41,6 +42,7 @@ export function ChatWorkspaceComposer({
   draft,
   disabled = false,
   inputDisabled = false,
+  sendDisabled = false,
   hasOnboardingContext = false,
   isOnboardingContextRemoving = false,
   models,
@@ -68,11 +70,15 @@ export function ChatWorkspaceComposer({
 
   const handleSubmit = async () => {
     const trimmed = draft.trim()
-    if (!trimmed || disabled) {
+    if (!trimmed || sendDisabled) {
       return
     }
 
-    await onSubmit(trimmed)
+    const result = await onSubmit(trimmed)
+    if (result === false) {
+      return
+    }
+
     onChangeDraft("")
 
     if (textareaRef.current) {
@@ -123,7 +129,8 @@ export function ChatWorkspaceComposer({
               event.key === "Enter" &&
               !event.shiftKey &&
               !event.ctrlKey &&
-              !event.metaKey
+              !event.metaKey &&
+              !sendDisabled
             ) {
               event.preventDefault()
               void handleSubmit()
@@ -152,12 +159,12 @@ export function ChatWorkspaceComposer({
             />
             <Button
               size="icon-xs"
-              variant={draft.trim() && !disabled ? "default" : "ghost"}
+              variant={draft.trim() && !sendDisabled ? "default" : "ghost"}
               onClick={() => void handleSubmit()}
-              disabled={!draft.trim() || disabled}
+              disabled={!draft.trim() || sendDisabled}
               className={cn(
                 "cursor-pointer transition-all",
-                draft.trim() && !disabled
+                draft.trim() && !sendDisabled
                   ? "bg-foreground text-background hover:bg-foreground/80"
                   : "text-muted-foreground"
               )}

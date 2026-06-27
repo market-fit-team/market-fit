@@ -62,7 +62,7 @@ function ChatWorkspaceThreadStarter({
   threadId: string
 }) {
   const router = useRouter()
-  const { isBusy, isHydrating, sendMessage } = useLangGraphChatStream()
+  const { isBusy, isHydrating, submitMessage } = useLangGraphChatStream()
   const hasSubmittedRef = useRef(false)
 
   useEffect(() => {
@@ -78,22 +78,18 @@ function ChatWorkspaceThreadStarter({
     }
 
     hasSubmittedRef.current = true
-    void sendMessage(trimmedStarterMessage, starterSelections)
-      .then(() => {
+    void submitMessage(trimmedStarterMessage, starterSelections)
+      .then((isSubmitted) => {
+        if (!isSubmitted) {
+          hasSubmittedRef.current = false
+          return
+        }
         router.replace(`/chat/${threadId}`)
       })
       .catch(() => {
         hasSubmittedRef.current = false
       })
-  }, [
-    isBusy,
-    isHydrating,
-    router,
-    sendMessage,
-    starterMessage,
-    starterSelections,
-    threadId,
-  ])
+  }, [isBusy, isHydrating, router, starterMessage, starterSelections, submitMessage, threadId])
 
   return null
 }

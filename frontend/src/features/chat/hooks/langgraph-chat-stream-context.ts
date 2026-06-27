@@ -34,6 +34,15 @@ export type ChatTurnOptions = {
   selectedArtifactIds?: string[]
 }
 
+export type QueuedChatMessage = {
+  id: string
+  content: string
+  options: ChatTurnOptions
+  status: "pending" | "failed"
+}
+
+export const CHAT_MESSAGE_QUEUE_LIMIT = 3
+
 export type LangGraphChatStreamContextValue = {
   tools: LlmToolDefinition[]
   models: ChatModelOption[]
@@ -48,7 +57,11 @@ export type LangGraphChatStreamContextValue = {
   isHydrating: boolean
   hasPendingInterrupt: boolean
   streamStatus: LlmChatStreamStatus
+  queueLimit: number
+  queuedMessages: QueuedChatMessage[]
+  submitMessage: (content: string, options?: ChatTurnOptions) => Promise<boolean>
   sendMessage: (content: string, options?: ChatTurnOptions) => Promise<void>
+  removeQueuedMessage: (id: string) => void
   resume: (decisions: HitlDecision[]) => Promise<void>
   resetChat: () => Promise<void>
 }

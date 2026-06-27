@@ -18,6 +18,8 @@ import type {
 } from "@/shared/api/generated/agent/schemas"
 
 const sendMessage = vi.fn().mockResolvedValue(undefined)
+const submitMessage = vi.fn().mockResolvedValue(true)
+const removeQueuedMessage = vi.fn()
 const saveArtifactAsDocument = vi.fn()
 const selectPreset = vi.fn()
 const streamState = vi.hoisted(() => ({
@@ -27,6 +29,11 @@ const streamState = vi.hoisted(() => ({
     isHydrating: false,
     localNotice: null,
     messages: [] as BaseMessage[],
+    queuedMessages: [] as Array<{
+      id: string
+      content: string
+      status: "pending" | "failed"
+    }>,
     toolCalls: [] as AssembledToolCall[],
   },
 }))
@@ -72,7 +79,11 @@ vi.mock("@/features/chat/hooks/use-langgraph-chat-stream", () => ({
       selectModel: vi.fn(),
       selectReasoningEffort: vi.fn(),
     },
+    queueLimit: 3,
+    queuedMessages: streamState.current.queuedMessages,
+    removeQueuedMessage,
     resume: vi.fn(),
+    submitMessage,
     sendMessage,
     toolPolicy: {
       allowedToolNames: new Set(["artifact_get"]),
@@ -166,6 +177,7 @@ describe("ChatView", () => {
       isHydrating: false,
       localNotice: null,
       messages: [],
+      queuedMessages: [],
       toolCalls: [],
     }
 
@@ -176,7 +188,7 @@ describe("ChatView", () => {
     })
     fireEvent.click(container.querySelector("#chat-send-btn")!)
 
-    expect(sendMessage).toHaveBeenCalledWith("테스트 메시지", {
+    expect(submitMessage).toHaveBeenCalledWith("테스트 메시지", {
       selectedArtifactIds: ["artifact-1"],
       selectedDocumentIds: ["doc-1"],
     })
@@ -189,6 +201,7 @@ describe("ChatView", () => {
       isHydrating: false,
       localNotice: null,
       messages: [],
+      queuedMessages: [],
       toolCalls: [],
     }
 
@@ -204,6 +217,7 @@ describe("ChatView", () => {
       isHydrating: false,
       localNotice: null,
       messages: [],
+      queuedMessages: [],
       toolCalls: [],
     }
 
@@ -217,7 +231,7 @@ describe("ChatView", () => {
       key: "Enter",
     })
 
-    expect(sendMessage).toHaveBeenCalledWith("엔터 전송", {
+    expect(submitMessage).toHaveBeenCalledWith("엔터 전송", {
       selectedArtifactIds: ["artifact-1"],
       selectedDocumentIds: ["doc-1"],
     })
@@ -230,6 +244,7 @@ describe("ChatView", () => {
       isHydrating: false,
       localNotice: null,
       messages: [],
+      queuedMessages: [],
       toolCalls: [],
     }
 
@@ -249,16 +264,17 @@ describe("ChatView", () => {
       metaKey: true,
     })
 
-    expect(sendMessage).not.toHaveBeenCalled()
+    expect(submitMessage).not.toHaveBeenCalled()
   })
 
-  it("응답 중에도 입력은 가능하지만 전송은 막는다.", () => {
+  it("응답 중에도 입력과 큐 적재 전송은 가능하다.", () => {
     streamState.current = {
       hitlInterrupts: [],
       isBusy: true,
       isHydrating: false,
       localNotice: null,
       messages: [],
+      queuedMessages: [],
       toolCalls: [],
     }
 
@@ -275,8 +291,70 @@ describe("ChatView", () => {
     })
 
     expect((textarea as HTMLTextAreaElement).value).toBe("응답 중에도 초안 작성")
-    expect(sendButton).toBeDisabled()
-    expect(sendMessage).not.toHaveBeenCalled()
+    expect(sendButton).not.toBeDisabled()
+    expect(submitMessage).toHaveBeenCalledWith("응답 중에도 초안 작성", {
+      selectedArtifactIds: ["artifact-1"],
+      selectedDocumentIds: ["doc-1"],
+    })
+  })
+
+  it("메시지 큐가 가득 차면 전송 버튼을 막고 대기 목록을 보여준다.", () => {
+    streamState.current = {
+      hitlInterrupts: [],
+      isBusy: true,
+      isHydrating: false,
+      localNotice: null,
+      messages: [],
+      queuedMessages: [
+        {
+          id: "queue-1",
+          content: "첫 번째 대기 메시지",
+          status: "pending",
+        },
+        {
+          id: "queue-2",
+          content: "두 번째 대기 메시지",
+          status: "pending",
+        },
+        {
+          id: "queue-3",
+          content: "세 번째 대기 메시지",
+          status: "failed",
+        },
+      ],
+      toolCalls: [],
+    }
+
+    const { container } = renderChatView()
+
+    expect(screen.getByText("대기 메시지")).toBeInTheDocument()
+    expect(screen.getByText("3/3")).toBeInTheDocument()
+    expect(screen.getByText("첫 번째 대기 메시지")).toBeInTheDocument()
+    expect(container.querySelector("#chat-send-btn")).toBeDisabled()
+  })
+
+  it("대기 메시지 제거 버튼으로 큐 항목을 지울 수 있다.", () => {
+    streamState.current = {
+      hitlInterrupts: [],
+      isBusy: true,
+      isHydrating: false,
+      localNotice: null,
+      messages: [],
+      queuedMessages: [
+        {
+          id: "queue-1",
+          content: "제거할 메시지",
+          status: "pending",
+        },
+      ],
+      toolCalls: [],
+    }
+
+    renderChatView()
+
+    fireEvent.click(screen.getByRole("button", { name: "대기 메시지 제거" }))
+
+    expect(removeQueuedMessage).toHaveBeenCalledWith("queue-1")
   })
 
   it("창업 성향이 포함되면 컴포저 칩을 보여주고 제거 버튼을 누를 수 있다.", () => {
@@ -286,6 +364,7 @@ describe("ChatView", () => {
       isHydrating: false,
       localNotice: null,
       messages: [],
+      queuedMessages: [],
       toolCalls: [],
     }
     const onRemoveOnboardingContext = vi.fn()
@@ -309,6 +388,7 @@ describe("ChatView", () => {
       isHydrating: false,
       localNotice: null,
       messages: [],
+      queuedMessages: [],
       toolCalls: [],
     }
     const user = userEvent.setup()
@@ -386,6 +466,7 @@ describe("ChatView", () => {
           content: "정리가 끝났습니다.",
         }),
       ],
+      queuedMessages: [],
       toolCalls: [
         {
           id: "tool-1",
@@ -487,6 +568,7 @@ describe("ChatView", () => {
           tool_call_id: "tool-search",
         }),
       ],
+      queuedMessages: [],
       toolCalls: [
         {
           id: "tool-search",
