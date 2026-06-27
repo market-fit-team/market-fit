@@ -122,7 +122,7 @@ export function OnboardingPanel({
                         variant="outline"
                         className="h-5 rounded-md px-1.5 text-[10px]"
                       >
-                        대화 컨텍스트
+                        채팅에 추가됨
                       </Badge>
                     )}
                   </div>
@@ -153,7 +153,7 @@ export function OnboardingPanel({
 
       <div className="shrink-0 border-t border-border/15 px-4 py-2.5">
         <p className="text-xs leading-relaxed text-muted-foreground">
-          결과를 열어 상세를 보고 현재 대화 컨텍스트로 연결할 수 있습니다
+          결과를 열어 상세를 보고 현재 채팅에 추가할 수 있습니다
         </p>
       </div>
     </div>
@@ -195,7 +195,7 @@ function OnboardingMenu({
           className="cursor-pointer"
         >
           <MessageSquarePlus className="size-3.5" />
-          <span>{isAttached ? "컨텍스트에서 제거" : "컨텍스트에 추가"}</span>
+          <span>{isAttached ? "채팅에서 제거" : "채팅에 추가"}</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={(event) => {

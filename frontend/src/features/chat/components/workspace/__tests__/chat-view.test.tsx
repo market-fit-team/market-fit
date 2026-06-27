@@ -158,6 +158,30 @@ describe("ChatView", () => {
     })
   })
 
+  it("창업 성향이 포함되면 컴포저 칩을 보여주고 제거 버튼을 누를 수 있다.", () => {
+    streamState.current = {
+      hitlInterrupts: [],
+      isBusy: false,
+      isHydrating: false,
+      localNotice: null,
+      messages: [],
+      toolCalls: [],
+    }
+    const onRemoveOnboardingContext = vi.fn()
+
+    renderChatView({
+      hasOnboardingContext: true,
+      onRemoveOnboardingContext,
+    })
+
+    expect(screen.getByText("포함된 창업 성향")).toBeInTheDocument()
+    expect(screen.getByText(/3개 참조/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "창업 성향 포함 해제" }))
+
+    expect(onRemoveOnboardingContext).toHaveBeenCalledTimes(1)
+  })
+
   it("도구 호출 순서에 맞춰 아티팩트 카드와 라이브러리 카드가 중간에 보인다.", () => {
     streamState.current = {
       hitlInterrupts: [],

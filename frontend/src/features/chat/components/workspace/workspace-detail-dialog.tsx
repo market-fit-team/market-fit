@@ -206,7 +206,7 @@ function OnboardingResultDialogBody({
               )}
               {isAttached && (
                 <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                  현재 대화 컨텍스트
+                  성향·채팅에 추가됨
                 </Badge>
               )}
             </div>
@@ -236,11 +236,11 @@ function OnboardingResultDialogBody({
             }}
             className="h-8 cursor-pointer text-xs"
           >
-            {isAttached ? "컨텍스트에서 제거" : "컨텍스트에 추가"}
+            {isAttached ? "채팅에서 제거" : "채팅에 추가"}
           </Button>
           {!canAttach && (
             <p className="text-[11px] text-muted-foreground">
-              대화를 시작한 뒤 현재 대화에 연결할 수 있습니다
+              대화를 시작한 뒤 채팅에 추가할 수 있습니다
             </p>
           )}
         </div>

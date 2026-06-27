@@ -222,13 +222,13 @@ export function ChatWorkspaceFrame({
         {
           onSuccess: () => {
             invalidateOnboardingContext()
-            toast("성향분석 컨텍스트를 제거했습니다.")
+            toast("성향분석을 채팅에서 제거했습니다.")
           },
           onError: (error) => {
             toast.error(
               resolveMutationError(
                 error,
-                "성향분석 컨텍스트를 제거하지 못했습니다."
+                "성향분석을 채팅에서 제거하지 못했습니다."
               )
             )
           },
@@ -244,19 +244,19 @@ export function ChatWorkspaceFrame({
           result_code: result.resultCode,
           selected_category_code: result.selectedCategoryCode ?? null,
           source: result.isDefault ? "default_profile" : "manual_attach",
-          summary: `${result.profileName} 결과를 현재 대화 컨텍스트에 연결했습니다.`,
+          summary: `${result.profileName} 결과를 현재 채팅 성향 정보로 연결했습니다.`,
         },
       },
       {
         onSuccess: () => {
           invalidateOnboardingContext()
-          toast.success("성향분석 컨텍스트에 추가했습니다.")
+          toast.success("성향분석을 채팅에 추가했습니다.")
         },
         onError: (error) => {
           toast.error(
             resolveMutationError(
               error,
-              "성향분석 컨텍스트를 추가하지 못했습니다."
+              "성향분석을 채팅에 추가하지 못했습니다."
             )
           )
         },

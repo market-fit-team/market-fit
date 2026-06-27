@@ -18,6 +18,7 @@ import {
   Search,
   Sparkles,
   TerminalSquare,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import type { AIMessage, BaseMessage } from "@langchain/core/messages"
@@ -67,8 +68,11 @@ type ChatViewProps = {
   activeThreadTitle: string
   artifacts: ArtifactResponse[]
   documents: DocumentResponse[]
+  hasOnboardingContext?: boolean
+  isOnboardingContextRemoving?: boolean
   isRightPanelOpen: boolean
   isExpanded: boolean
+  onRemoveOnboardingContext?: () => void
   onToggleExpand: () => void
   onToggleRightPanel: () => void
 }
@@ -100,8 +104,11 @@ export function ChatView({
   activeThreadTitle,
   artifacts,
   documents,
+  hasOnboardingContext = false,
+  isOnboardingContextRemoving = false,
   isRightPanelOpen,
   isExpanded,
+  onRemoveOnboardingContext,
   onToggleExpand,
   onToggleRightPanel,
 }: ChatViewProps) {
@@ -136,6 +143,10 @@ export function ChatView({
     [messages, toolCalls]
   )
   const isWelcomeScreen = groupedTurns.turns.length === 0
+  const selectedReferenceCount =
+    selectedDocumentIds.length +
+    selectedArtifactIds.length +
+    (hasOnboardingContext ? 1 : 0)
 
   React.useEffect(() => {
     setIsSelectionLocked(disabled)
@@ -326,6 +337,26 @@ export function ChatView({
             )}
           >
             <div className="px-3 pt-2.5">
+              {hasOnboardingContext && (
+                <div className="mb-1.5 flex flex-wrap gap-1.5">
+                  <Badge
+                    variant="secondary"
+                    className="gap-1 rounded-md px-2 py-0.5 text-xs"
+                  >
+                    포함된 창업 성향
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="size-4 rounded-full"
+                      disabled={disabled || isOnboardingContextRemoving}
+                      onClick={() => onRemoveOnboardingContext?.()}
+                    >
+                      <X className="size-2.5" />
+                      <span className="sr-only">창업 성향 포함 해제</span>
+                    </Button>
+                  </Badge>
+                </div>
+              )}
               <ChatSelectionChips artifacts={artifacts} documents={documents} />
             </div>
             <textarea
@@ -356,11 +387,8 @@ export function ChatView({
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">
                   {input.length > 0 ? `${input.length}자` : ""}
-                  {selectedDocumentIds.length + selectedArtifactIds.length >
-                    0 &&
-                    ` · ${
-                      selectedDocumentIds.length + selectedArtifactIds.length
-                    }개 참조`}
+                  {selectedReferenceCount > 0 &&
+                    ` · ${selectedReferenceCount}개 참조`}
                 </span>
                 <Button
                   size="icon-xs"

@@ -2,9 +2,11 @@
 
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { ChatView } from "@/features/chat/components/workspace/chat-view"
 import { ChatWorkspaceShell } from "@/features/chat/components/workspace/chat-workspace-shell"
+import { HttpStatusError } from "@/features/auth/lib/fetch-with-auth"
 import { LangGraphChatStreamProvider } from "@/features/chat/hooks/langgraph-chat-stream-provider"
 import { useLangGraphChatStream } from "@/features/chat/hooks/use-langgraph-chat-stream"
 import { useWorkspaceRuntimeSettings } from "@/features/chat/hooks/workspace/use-workspace-runtime-settings"
@@ -16,6 +18,11 @@ import {
 } from "@/features/chat/lib/workspace/reconcile-workspace-state"
 import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
 import type { ChatReasoningEffort } from "@/features/chat/types/chat-model-selection"
+import {
+  getGetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGetQueryKey,
+  getOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGet,
+  useDeleteOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextDelete,
+} from "@/shared/api/generated/agent/endpoints/agent-onboarding-context/agent-onboarding-context"
 import {
   getListArtifactsApiV1AgentArtifactsGetQueryKey,
   useListArtifactsApiV1AgentArtifactsGet,
@@ -183,8 +190,24 @@ function ChatThreadWorkspace({
   const artifactsQuery = useListArtifactsApiV1AgentArtifactsGet({
     thread_id: appThreadId,
   })
+  const deleteOnboardingContext =
+    useDeleteOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextDelete()
+  const onboardingContextQuery = useQuery({
+    queryKey:
+      getGetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGetQueryKey(
+        appThreadId
+      ),
+    retry: false,
+    queryFn: async () =>
+      readOptionalResource(() =>
+        getOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGet(
+          appThreadId
+        )
+      ),
+  })
   const documents = documentsQuery.data?.documents
   const artifacts = artifactsQuery.data?.artifacts
+  const hasOnboardingContext = onboardingContextQuery.data !== null
   const isExpanded = !isLeftSidebarOpen && !rightPanel
   const previousThreadIdRef = useRef<string | null>(null)
   const processedMutationToolCallIdsRef = useRef<Set<string>>(new Set())
@@ -278,6 +301,31 @@ function ChatThreadWorkspace({
     }
   }
 
+  const handleRemoveOnboardingContext = () => {
+    deleteOnboardingContext.mutate(
+      { threadId: appThreadId },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({
+            queryKey:
+              getGetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextGetQueryKey(
+                appThreadId
+              ),
+          })
+          toast("성향분석을 채팅에서 제거했습니다.")
+        },
+        onError: (error) => {
+          toast.error(
+            resolveWorkspaceMutationError(
+              error,
+              "성향분석을 채팅에서 제거하지 못했습니다."
+            )
+          )
+        },
+      }
+    )
+  }
+
   return (
     <ChatWorkspaceShell onHitlDecide={(decisions) => void resume(decisions)}>
       <ChatWorkspaceThreadStarter starterMessage={starterMessage} />
@@ -285,11 +333,48 @@ function ChatThreadWorkspace({
         activeThreadTitle={activeThreadTitle}
         artifacts={artifacts ?? []}
         documents={documents ?? []}
+        hasOnboardingContext={hasOnboardingContext}
+        isOnboardingContextRemoving={deleteOnboardingContext.isPending}
         isRightPanelOpen={Boolean(rightPanel)}
         isExpanded={isExpanded}
+        onRemoveOnboardingContext={handleRemoveOnboardingContext}
         onToggleExpand={handleToggleExpand}
         onToggleRightPanel={() => setRightPanel({ kind: "library" })}
       />
     </ChatWorkspaceShell>
   )
+}
+
+const readOptionalResource = async <T,>(loader: () => Promise<T>) => {
+  try {
+    return await loader()
+  } catch (error) {
+    if (error instanceof HttpStatusError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+const resolveWorkspaceMutationError = (
+  error: unknown,
+  fallbackMessage: string
+) => {
+  if (error instanceof HttpStatusError) {
+    const detail =
+      typeof error.body === "object" &&
+      error.body !== null &&
+      "detail" in error.body &&
+      typeof error.body.detail === "string"
+        ? error.body.detail
+        : null
+
+    return detail ?? fallbackMessage
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return fallbackMessage
 }
