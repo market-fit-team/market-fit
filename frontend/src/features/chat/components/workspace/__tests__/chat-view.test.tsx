@@ -252,6 +252,33 @@ describe("ChatView", () => {
     expect(sendMessage).not.toHaveBeenCalled()
   })
 
+  it("응답 중에도 입력은 가능하지만 전송은 막는다.", () => {
+    streamState.current = {
+      hitlInterrupts: [],
+      isBusy: true,
+      isHydrating: false,
+      localNotice: null,
+      messages: [],
+      toolCalls: [],
+    }
+
+    const { container } = renderChatView()
+    const textarea = screen.getByPlaceholderText("메시지를 입력하세요...")
+    const sendButton = container.querySelector("#chat-send-btn")
+
+    expect(textarea).not.toBeDisabled()
+    fireEvent.change(textarea, {
+      target: { value: "응답 중에도 초안 작성" },
+    })
+    fireEvent.keyDown(textarea, {
+      key: "Enter",
+    })
+
+    expect((textarea as HTMLTextAreaElement).value).toBe("응답 중에도 초안 작성")
+    expect(sendButton).toBeDisabled()
+    expect(sendMessage).not.toHaveBeenCalled()
+  })
+
   it("창업 성향이 포함되면 컴포저 칩을 보여주고 제거 버튼을 누를 수 있다.", () => {
     streamState.current = {
       hitlInterrupts: [],
