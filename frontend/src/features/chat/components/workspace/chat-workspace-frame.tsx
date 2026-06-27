@@ -36,7 +36,6 @@ import {
 } from "@/shared/api/generated/agent/endpoints/agent-onboarding-context/agent-onboarding-context"
 import {
   getListThreadsApiV1AgentThreadsGetQueryKey,
-  useCreateThreadApiV1AgentThreadsPost,
   useDeleteThreadApiV1AgentThreadsThreadIdDelete,
   useListThreadsApiV1AgentThreadsGet,
 } from "@/shared/api/generated/agent/endpoints/agent-threads/agent-threads"
@@ -87,7 +86,6 @@ export function ChatWorkspaceFrame({ children }: ChatWorkspaceFrameProps) {
   const threadsQuery = useListThreadsApiV1AgentThreadsGet()
   const documentsQuery = useListDocumentsApiV1AgentDocumentsGet()
   const memoriesQuery = useListMemoriesApiV1AgentMemoriesGet()
-  const createThread = useCreateThreadApiV1AgentThreadsPost()
   const deleteThread = useDeleteThreadApiV1AgentThreadsThreadIdDelete()
   const setOnboardingContext =
     useSetOnboardingContextApiV1AgentThreadsThreadIdOnboardingContextPut()
@@ -155,20 +153,7 @@ export function ChatWorkspaceFrame({ children }: ChatWorkspaceFrameProps) {
   }
 
   const handleCreateThread = () => {
-    createThread.mutate(
-      {
-        data: {
-          title: "새 대화",
-        },
-      },
-      {
-        onSuccess: (thread) => {
-          invalidateThreads()
-          router.push(`/chat/${thread.id}`)
-          toast.success("새 대화가 시작되었습니다.")
-        },
-      }
-    )
+    router.push("/chat")
   }
 
   const handleDeleteThread = (threadId: string) => {

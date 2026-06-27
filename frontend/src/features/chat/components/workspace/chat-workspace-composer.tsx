@@ -23,6 +23,7 @@ type ChatWorkspaceComposerProps = {
   documents: DocumentResponse[]
   draft: string
   disabled?: boolean
+  inputDisabled?: boolean
   hasOnboardingContext?: boolean
   isOnboardingContextRemoving?: boolean
   models: ChatModelOption[]
@@ -39,6 +40,7 @@ export function ChatWorkspaceComposer({
   documents,
   draft,
   disabled = false,
+  inputDisabled = false,
   hasOnboardingContext = false,
   isOnboardingContextRemoving = false,
   models,
@@ -129,7 +131,7 @@ export function ChatWorkspaceComposer({
           }}
           placeholder={placeholder}
           rows={1}
-          disabled={disabled}
+          disabled={inputDisabled}
           className="w-full resize-none bg-transparent px-4 pt-3 pb-10 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
           id="chat-input-textarea"
         />

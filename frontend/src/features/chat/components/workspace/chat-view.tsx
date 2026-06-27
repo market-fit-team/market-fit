@@ -282,6 +282,7 @@ export function ChatView({
           documents={documents}
           draft={draft}
           disabled={disabled}
+          inputDisabled={false}
           hasOnboardingContext={hasOnboardingContext}
           isOnboardingContextRemoving={isOnboardingContextRemoving}
           models={models}
