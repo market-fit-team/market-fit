@@ -187,7 +187,6 @@ describe("ChatView", () => {
     })
 
     expect(screen.getByText("포함된 창업 성향")).toBeInTheDocument()
-    expect(screen.getByText(/3개 참조/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: "창업 성향 포함 해제" }))
 

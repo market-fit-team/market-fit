@@ -145,11 +145,6 @@ export function ChatView({
     [messages, toolCalls]
   )
   const isWelcomeScreen = groupedTurns.turns.length === 0
-  const selectedReferenceCount =
-    selectedDocumentIds.length +
-    selectedArtifactIds.length +
-    (hasOnboardingContext ? 1 : 0)
-
   React.useEffect(() => {
     setIsSelectionLocked(disabled)
     return () => setIsSelectionLocked(false)
@@ -374,31 +369,24 @@ export function ChatView({
               placeholder="메시지를 입력하세요..."
               rows={1}
               disabled={disabled}
-              className="w-full resize-none bg-transparent px-4 pt-3 pb-16 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full resize-none bg-transparent px-4 pt-3 pb-10 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
               id="chat-input-textarea"
             />
-            <div className="absolute right-2 bottom-2 left-2 flex flex-col gap-2">
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <ChatModelMenu
-                  models={models}
-                  selectedModel={modelSelection.selectedModel}
-                  selectedReasoningEffort={modelSelection.reasoningEffort}
-                  onSelectModel={modelSelection.selectModel}
-                  onSelectReasoningEffort={modelSelection.selectReasoningEffort}
-                  disabled={disabled}
-                />
+            <div className="absolute right-2 bottom-2 left-2 flex items-center justify-between gap-2">
+              <ChatModelMenu
+                models={models}
+                selectedModel={modelSelection.selectedModel}
+                selectedReasoningEffort={modelSelection.reasoningEffort}
+                onSelectModel={modelSelection.selectModel}
+                onSelectReasoningEffort={modelSelection.selectReasoningEffort}
+                disabled={disabled}
+              />
+              <div className="flex items-center gap-1.5">
                 <ChatToolPermissionMenu
                   selectedPreset={toolPolicy.selectedPreset}
                   onSelectPreset={toolPolicy.selectPreset}
                   disabled={disabled}
                 />
-              </div>
-              <div className="flex items-center justify-end gap-1.5">
-                <span className="text-xs text-muted-foreground">
-                  {input.length > 0 ? `${input.length}자` : ""}
-                  {selectedReferenceCount > 0 &&
-                    ` · ${selectedReferenceCount}개 참조`}
-                </span>
                 <Button
                   size="icon-xs"
                   variant={input.trim() && !disabled ? "default" : "ghost"}
