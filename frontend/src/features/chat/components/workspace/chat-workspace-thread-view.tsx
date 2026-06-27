@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { HttpStatusError } from "@/features/auth/lib/fetch-with-auth"
@@ -41,10 +42,48 @@ import { Skeleton } from "@/shared/components/ui/skeleton"
 
 type ChatWorkspaceThreadViewProps = {
   threadId: string
+  starterMessage?: string | null
+}
+
+function ChatWorkspaceThreadStarter({
+  starterMessage,
+  threadId,
+}: {
+  starterMessage?: string | null
+  threadId: string
+}) {
+  const router = useRouter()
+  const { isBusy, isHydrating, sendMessage } = useLangGraphChatStream()
+  const hasSubmittedRef = useRef(false)
+
+  useEffect(() => {
+    const trimmedStarterMessage = starterMessage?.trim()
+
+    if (
+      !trimmedStarterMessage ||
+      hasSubmittedRef.current ||
+      isBusy ||
+      isHydrating
+    ) {
+      return
+    }
+
+    hasSubmittedRef.current = true
+    void sendMessage(trimmedStarterMessage)
+      .then(() => {
+        router.replace(`/chat/${threadId}`)
+      })
+      .catch(() => {
+        hasSubmittedRef.current = false
+      })
+  }, [isBusy, isHydrating, router, sendMessage, starterMessage, threadId])
+
+  return null
 }
 
 export function ChatWorkspaceThreadView({
   threadId,
+  starterMessage,
 }: ChatWorkspaceThreadViewProps) {
   const toolsQuery = useListLlmToolsApiV1LlmToolsGet({
     query: {
@@ -130,6 +169,7 @@ export function ChatWorkspaceThreadView({
       <ChatThreadWorkspace
         activeThreadTitle={thread.title}
         appThreadId={thread.id}
+        starterMessage={starterMessage}
       />
     </LangGraphChatStreamProvider>
   )
@@ -138,9 +178,11 @@ export function ChatWorkspaceThreadView({
 function ChatThreadWorkspace({
   activeThreadTitle,
   appThreadId,
+  starterMessage,
 }: {
   activeThreadTitle: string
   appThreadId: string
+  starterMessage?: string | null
 }) {
   const queryClient = useQueryClient()
   const { resume, toolCalls } = useLangGraphChatStream()
@@ -293,6 +335,10 @@ function ChatThreadWorkspace({
       onSetPanel={setRightPanel}
       onHitlDecide={(decisions) => void resume(decisions)}
     >
+      <ChatWorkspaceThreadStarter
+        starterMessage={starterMessage}
+        threadId={appThreadId}
+      />
       <ChatView
         activeThreadTitle={activeThreadTitle}
         artifacts={artifacts ?? []}
@@ -305,6 +351,7 @@ function ChatThreadWorkspace({
         onSetRightPanel={setRightPanel}
         onToggleExpand={handleToggleExpand}
         onToggleRightPanel={() => setRightPanel({ kind: "library" })}
+        showWelcomeScreen={false}
       />
     </ChatWorkspaceShell>
   )

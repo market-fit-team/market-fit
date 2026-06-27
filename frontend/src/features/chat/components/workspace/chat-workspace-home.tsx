@@ -8,12 +8,11 @@ import { HttpStatusError } from "@/features/auth/lib/fetch-with-auth"
 import { ChatWorkspaceEmptyState } from "@/features/chat/components/workspace/chat-workspace-empty-state"
 import { ChatWorkspaceShell } from "@/features/chat/components/workspace/chat-workspace-shell"
 import { useLocalWorkspaceRuntimeSettings } from "@/features/chat/hooks/workspace/use-local-workspace-runtime-settings"
-import { submitWorkspaceThreadMessage } from "@/features/chat/lib/langgraph/chat-runtime-client"
-import { useChatWorkspace } from "@/features/chat/providers/chat-workspace-provider"
 import type { ChatReasoningEffort } from "@/features/chat/types/chat-model-selection"
 import { useListDocumentsApiV1AgentDocumentsGet } from "@/shared/api/generated/agent/endpoints/agent-documents/agent-documents"
 import {
   getListThreadsApiV1AgentThreadsGetQueryKey,
+  updateThreadSettingsApiV1AgentThreadsThreadIdSettingsPut,
   useCreateThreadApiV1AgentThreadsPost,
 } from "@/shared/api/generated/agent/endpoints/agent-threads/agent-threads"
 import {
@@ -26,12 +25,6 @@ import { Skeleton } from "@/shared/components/ui/skeleton"
 export function ChatWorkspaceHome() {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const selectedArtifactIds = useChatWorkspace(
-    (state) => state.selectedArtifactIds
-  )
-  const selectedDocumentIds = useChatWorkspace(
-    (state) => state.selectedDocumentIds
-  )
   const [draft, setDraft] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const createThread = useCreateThreadApiV1AgentThreadsPost()
@@ -104,19 +97,24 @@ export function ChatWorkspaceHome() {
         },
       })
 
-      await submitWorkspaceThreadMessage({
-        appThreadId: thread.id,
-        content: message,
-        langgraphThreadId: thread.langgraph_thread_id,
-        modelSelection: runtimeControls.modelSelection,
-        selectedArtifactIds,
-        selectedDocumentIds,
-        toolPolicy: runtimeControls.toolPolicy,
-      })
+      try {
+        await updateThreadSettingsApiV1AgentThreadsThreadIdSettingsPut(
+          thread.id,
+          {
+            model: runtimeControls.modelSelection.model,
+            reasoning_effort: runtimeControls.modelSelection.reasoningEffort,
+            allowed_tools: runtimeControls.toolPolicy.allowedTools,
+            interrupt_on: runtimeControls.toolPolicy.interruptOn,
+          }
+        )
+      } catch (error) {
+        toast.error(resolveThreadSettingsError(error))
+      }
+
       await queryClient.invalidateQueries({
         queryKey: getListThreadsApiV1AgentThreadsGetQueryKey(),
       })
-      router.push(`/chat/${thread.id}`)
+      router.push(`/chat/${thread.id}?starter=${encodeURIComponent(message)}`)
     } catch (error) {
       toast.error(resolveStartThreadError(error))
       throw error
@@ -151,12 +149,32 @@ const resolveStartThreadError = (error: unknown) => {
         ? error.body.detail
         : null
 
-    return detail ?? "첫 메시지를 전송하지 못했습니다."
+    return detail ?? "새 대화를 시작하지 못했습니다."
   }
 
   if (error instanceof Error && error.message) {
     return error.message
   }
 
-  return "첫 메시지를 전송하지 못했습니다."
+  return "새 대화를 시작하지 못했습니다."
+}
+
+const resolveThreadSettingsError = (error: unknown) => {
+  if (error instanceof HttpStatusError) {
+    const detail =
+      typeof error.body === "object" &&
+      error.body !== null &&
+      "detail" in error.body &&
+      typeof error.body.detail === "string"
+        ? error.body.detail
+        : null
+
+    return detail ?? "실행 설정을 저장하지 못했습니다. 기본 설정으로 시작합니다."
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return "실행 설정을 저장하지 못했습니다. 기본 설정으로 시작합니다."
 }

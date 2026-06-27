@@ -72,6 +72,7 @@ type ChatViewProps = {
   onSetRightPanel: (panel: ChatRightPanel) => void
   onToggleExpand: () => void
   onToggleRightPanel: () => void
+  showWelcomeScreen?: boolean
 }
 
 export function ChatView({
@@ -86,6 +87,7 @@ export function ChatView({
   onSetRightPanel,
   onToggleExpand,
   onToggleRightPanel,
+  showWelcomeScreen = false,
 }: ChatViewProps) {
   const [draft, setDraft] = React.useState("")
   const {
@@ -120,7 +122,7 @@ export function ChatView({
       }),
     [messages, toolCalls]
   )
-  const isWelcomeScreen = groupedTurns.turns.length === 0
+  const isWelcomeScreen = showWelcomeScreen && groupedTurns.turns.length === 0
   React.useEffect(() => {
     setIsSelectionLocked(disabled)
     return () => setIsSelectionLocked(false)
