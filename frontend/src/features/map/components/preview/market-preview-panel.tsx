@@ -1,7 +1,7 @@
 import { FileText } from "lucide-react"
+import { MarketPreviewSkeleton } from "@/features/map/components/preview/market-preview-skeleton"
 import { PreviewSummary } from "@/features/map/components/preview/preview-summary"
 import { PreviewTabs } from "@/features/map/components/preview/preview-tabs"
-import { MarketPreviewSkeleton } from "@/features/map/components/preview/market-preview-skeleton"
 import type { MarketPreviewData } from "@/features/map/types/map"
 import { Button } from "@/shared/components/ui/button"
 import { Card, CardContent } from "@/shared/components/ui/card"
@@ -39,8 +39,7 @@ export function MarketPreviewPanel({
               <MarketPreviewSkeleton />
             ) : isError ? (
               <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-4 text-xs leading-relaxed text-destructive">
-                상권 미리보기를 불러오지 못했습니다. 잠시 후 다시 시도해
-                주세요.
+                상권 미리보기를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
               </p>
             ) : !preview ? (
               <p className="rounded-lg border border-dashed border-border px-3 py-4 text-xs leading-relaxed text-muted-foreground">

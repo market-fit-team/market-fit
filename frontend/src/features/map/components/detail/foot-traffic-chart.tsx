@@ -1,6 +1,9 @@
 import { Activity } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
-import type { FootTrafficData, HourlyFootTraffic } from "@/features/map/types/map"
+import type {
+  FootTrafficData,
+  HourlyFootTraffic,
+} from "@/features/map/types/map"
 import {
   Card,
   CardContent,
@@ -68,9 +71,7 @@ function FootTrafficSummaryPanel({
           </dd>
         </div>
         <div>
-          <dt className="text-[10px] text-muted-foreground">
-            20·30대 비중
-          </dt>
+          <dt className="text-[10px] text-muted-foreground">20·30대 비중</dt>
           <dd className="mt-0.5 text-sm font-semibold text-foreground">
             {youngAdultRatio}
           </dd>

@@ -18,8 +18,8 @@ const getHasSearchCondition = ({
 }) =>
   Boolean(
     keyword.trim() ||
-      selectedMajorCategory !== "all" ||
-      selectedMinorCategory !== "all"
+    selectedMajorCategory !== "all" ||
+    selectedMinorCategory !== "all"
   )
 
 export function useMarketAreaResults() {

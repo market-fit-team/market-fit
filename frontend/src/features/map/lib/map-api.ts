@@ -10,10 +10,7 @@ import {
   toMarketPreviewData,
 } from "@/features/map/lib/map-api-mappers"
 import { fetchPublicMarketApi } from "@/features/map/lib/map-public-fetch"
-import type {
-  DongCode,
-  MarketRecommendedArea,
-} from "@/features/map/types/map"
+import type { DongCode, MarketRecommendedArea } from "@/features/map/types/map"
 import { getGetAdminAreasUrl } from "@/shared/api/generated/market/endpoints/admin-areas/admin-areas"
 import { getGetMarketIndustriesUrl } from "@/shared/api/generated/market/endpoints/market-industry/market-industry"
 import {

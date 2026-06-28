@@ -14,9 +14,7 @@ export const industryFilterOptions = [
   {
     code: "CS100000",
     name: "외식업",
-    minors: [
-      { code: "CS100003", name: "일식음식점" },
-    ],
+    minors: [{ code: "CS100003", name: "일식음식점" }],
   },
 ] satisfies IndustryMajorOption[]
 

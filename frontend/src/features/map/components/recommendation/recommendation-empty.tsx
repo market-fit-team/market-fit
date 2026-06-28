@@ -42,8 +42,8 @@ export function RecommendationEmpty({
       ) : shouldShowLoginCta ? (
         <>
           <p className="leading-relaxed text-muted-foreground">
-            로그인하면 성향 분석 결과를 바탕으로 어울리는 행정동 상권을
-            추천받을 수 있습니다.
+            로그인하면 성향 분석 결과를 바탕으로 어울리는 행정동 상권을 추천받을
+            수 있습니다.
           </p>
           <Button asChild variant="outline" size="sm">
             <Link href={loginHref}>로그인하기</Link>

@@ -30,9 +30,7 @@ type GeneratedMarketReport = NonNullable<
   ApiResponseMarketReportResponse["data"]
 >
 
-type GeneratedSearchAreas = NonNullable<
-  ApiResponseAreaSearchResponse["data"]
->
+type GeneratedSearchAreas = NonNullable<ApiResponseAreaSearchResponse["data"]>
 
 type GeneratedAreaProperties = NonNullable<
   NonNullable<GeneratedAdminAreas["sigungu"]>[number]["properties"]
@@ -76,9 +74,7 @@ const toLngLatCoordinate = (coordinate: number[]) => {
   }
 
   const looksLikeLatLng =
-    Math.abs(first) <= 90 &&
-    Math.abs(second) > 90 &&
-    Math.abs(second) <= 180
+    Math.abs(first) <= 90 && Math.abs(second) > 90 && Math.abs(second) <= 180
 
   return looksLikeLatLng ? [second, first, ...rest] : coordinate
 }
@@ -250,9 +246,9 @@ export const toMarketPreviewData = (
 })
 
 const toIndustryCompetitionRank = (
-  item: NonNullable<GeneratedMarketReport["stores"]>["lowClosureRateTop3"] extends
-    | (infer Ranking)[]
-    | undefined
+  item: NonNullable<
+    GeneratedMarketReport["stores"]
+  >["lowClosureRateTop3"] extends (infer Ranking)[] | undefined
     ? Ranking
     : never
 ): IndustryCompetitionRank => ({
@@ -316,7 +312,9 @@ export const toDetailReportData = (
     ),
     footTraffic: payload.floatingPopulation
       ? {
-          peakTimeSlot: toOptionalString(payload.floatingPopulation.peakTimeSlot),
+          peakTimeSlot: toOptionalString(
+            payload.floatingPopulation.peakTimeSlot
+          ),
           peakWeekday: toOptionalString(payload.floatingPopulation.peakWeekday),
           points: (payload.floatingPopulation.timeSlots ?? []).map((slot) => ({
             hour: toStringValue(slot.timeSlot).split("-")[0] ?? "",
@@ -337,8 +335,7 @@ export const toDetailReportData = (
               )?.count ?? 0
             const female =
               genderAgeGroups.find(
-                (item) =>
-                  item.ageGroup === ageGroup && item.gender === "female"
+                (item) => item.ageGroup === ageGroup && item.gender === "female"
               )?.count ?? 0
 
             return {
