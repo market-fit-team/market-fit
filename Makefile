@@ -1,8 +1,15 @@
-.PHONY: dev infra status api-catalog api-gen frontend down clean
+.PHONY: dev mac-dev infra mac-infra status api-catalog api-gen frontend down clean
+
+COMPOSE := docker compose
+MAC_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.mac.yml
 
 infra:
 	@echo "Docker Compose 인프라를 시작합니다..."
-	@docker compose up -d --build
+	@$(COMPOSE) up -d --build
+
+mac-infra:
+	@echo "Apple Silicon용 AMD64 오버라이드로 Docker Compose 인프라를 시작합니다..."
+	@$(MAC_COMPOSE) up -d --build
 
 status:
 	@echo "authentik, traefik의 현재 상태를 확인합니다..."
@@ -29,8 +36,10 @@ frontend:
 
 dev: infra status frontend
 
+mac-dev: mac-infra status frontend
+
 down:
-	@docker compose down
+	@$(COMPOSE) down
 
 clean:
-	@docker compose down --remove-orphans -v
+	@$(COMPOSE) down --remove-orphans -v

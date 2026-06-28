@@ -1,0 +1,24 @@
+services:
+  backend-db:
+    # Apple Silicon에서는 공식 PostGIS 이미지가 amd64만 제공되어 에뮬레이션이 필요하다.
+    platform: linux/amd64
+    # mac-dev에서는 실행 권한 이슈가 있는 기존 .sh 대신 SQL 초기화 파일만 주입한다.
+    volumes: !override
+      - backend_postgres_data:/var/lib/postgresql/data
+      - ./backend/postgres/init-service-databases.mac.sql:/docker-entrypoint-initdb.d/20-init-service-databases.sql:ro
+
+  market-service:
+    # DB가 healthy 되기 전에 먼저 뜨면 Flyway 연결 실패가 날 수 있어 mac-dev에서만 대기시킨다.
+    depends_on:
+      backend-db:
+        condition: service_healthy
+    # 초기 연결 실패 시 자동으로 다시 붙도록 한다.
+    restart: on-failure
+
+  franchise-service:
+    # franchise-service는 DB 초기 기동 타이밍에 더 민감해서 healthcheck 이후에 시작시킨다.
+    depends_on:
+      backend-db:
+        condition: service_healthy
+    # 한번 실패하고 종료되면 404가 남기 때문에 mac-dev에서는 재시작을 허용한다.
+    restart: on-failure
