@@ -169,7 +169,10 @@ ONBOARDING_TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool=onboarding_get_default_profile,
         name="onboarding_get_default_profile",
-        description="현재 사용자의 기본 창업 성향 프로필을 조회합니다.",
+        description=(
+            "창업 성향, 취향, 온보딩 프로필을 사용자가 직접 묻거나 관련 맥락이 있을 때만 "
+            "현재 사용자의 기본 창업 성향 프로필을 조회합니다."
+        ),
         category="rag",
         args_schema=onboarding_get_default_profile.args_schema,
         default_allowed=True,
@@ -178,7 +181,10 @@ ONBOARDING_TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool=onboarding_get_survey_result,
         name="onboarding_get_survey_result",
-        description="결과 코드에 해당하는 창업 성향과 업종 추천을 조회합니다.",
+        description=(
+            "성향 분석 결과나 온보딩 설문 결과를 사용자가 직접 묻거나 관련 맥락이 있을 때만 "
+            "결과 코드에 해당하는 창업 성향과 업종 추천을 조회합니다."
+        ),
         category="rag",
         args_schema=onboarding_get_survey_result.args_schema,
         default_allowed=True,
@@ -187,7 +193,10 @@ ONBOARDING_TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(
         tool=onboarding_get_area_recommendations,
         name="onboarding_get_area_recommendations",
-        description="성향 결과와 업종에 맞는 상권 추천을 조회합니다.",
+        description=(
+            "성향 결과 기반 지역 추천을 사용자가 요청하거나 관련 맥락이 있을 때만 "
+            "성향 결과와 업종에 맞는 상권 추천을 조회합니다."
+        ),
         category="rag",
         args_schema=onboarding_get_area_recommendations.args_schema,
         default_allowed=True,

@@ -492,8 +492,10 @@ WEB_TOOL_SPECS: tuple[ToolSpec, ...] = (
         tool=web_search,
         name="web_search",
         description=(
-            "SearXNG 기반 메타서치로 공개 웹 검색 결과를 조회합니다. "
-            "제목, URL, 요약, 검색 엔진 정보가 담긴 상위 결과를 반환하며 limit은 최대 10개입니다."
+            "최신 웹 검색 도구입니다. 질문에 요즘, 최신, 최근, 현재, 분위기, 트렌드, "
+            "상권 변화, 임대료, 정책이 있으면 우선 사용합니다. 지역+업종+기간 검색어를 "
+            "권장하며, 결과가 있으면 제목과 URL을 근거로 활용하고 결과가 비면 한계를 "
+            "짧게 설명해야 합니다."
         ),
         category="web",
         args_schema=web_search.args_schema,
@@ -504,9 +506,10 @@ WEB_TOOL_SPECS: tuple[ToolSpec, ...] = (
         tool=web_fetch,
         name="web_fetch",
         description=(
-            "공개 웹 문서를 안전하게 가져와 텍스트 또는 HTML로 정규화합니다. "
-            "기본 format=text는 읽기 쉬운 본문 텍스트를 반환하고 format=html은 원본 HTML을 반환합니다. "
-            "http/https만 허용하고 localhost·사설망·credentials 포함 URL은 거부합니다."
+            "검색 결과의 특정 URL 원문이 더 필요할 때만 사용합니다. 공개 웹 문서를 "
+            "안전하게 가져와 텍스트 또는 HTML로 정규화하며, 기본 format=text는 읽기 쉬운 "
+            "본문 텍스트를 반환합니다. 원문 접근이 실패하면 실패를 과장하지 말고 확인 한계를 "
+            "짧게 설명해야 합니다."
         ),
         category="web",
         args_schema=web_fetch.args_schema,

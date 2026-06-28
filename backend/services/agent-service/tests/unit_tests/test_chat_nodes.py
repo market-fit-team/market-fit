@@ -2,6 +2,8 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 
 from agent.services.chat.nodes import (
+    CHAT_SYSTEM_PROMPT,
+    DEFAULT_CHAT_TOOL_DESCRIPTIONS,
     _should_bind_tools,
     _system_prompt_for_harness,
     _tools_for_harness,
@@ -49,6 +51,14 @@ def test_harness_overrides_system_prompt() -> None:
     assert _system_prompt_for_harness(overrides) == "평가용 시스템 프롬프트"
 
 
+def test_chat_model_uses_round_03_prompt_by_default() -> None:
+    """기본 시스템 프롬프트는 round-03 계약을 따른다."""
+
+    assert "근거/출처" in CHAT_SYSTEM_PROMPT
+    assert "빈 답변으로 끝내지 않습니다." in CHAT_SYSTEM_PROMPT
+    assert _system_prompt_for_harness({}) == CHAT_SYSTEM_PROMPT
+
+
 def test_harness_overrides_tool_description_without_mutating_original() -> None:
     """하네스 eval은 전역 tool 객체를 바꾸지 않고 bind용 설명만 교체한다."""
 
@@ -65,3 +75,18 @@ def test_harness_overrides_tool_description_without_mutating_original() -> None:
 
     assert harness_tools[0].description == "평가용 설명."
     assert sample_tool.description == "원래 설명."
+
+
+def test_chat_model_uses_default_tool_description_when_no_override() -> None:
+    """기본 도구 설명도 실제 서비스 계약으로 바인딩한다."""
+
+    @tool
+    def web_search(query: str) -> str:
+        """원래 설명."""
+
+        return query
+
+    harness_tools = _tools_for_harness([web_search], {})
+
+    assert harness_tools[0].description == DEFAULT_CHAT_TOOL_DESCRIPTIONS["web_search"]
+    assert web_search.description == "원래 설명."

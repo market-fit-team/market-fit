@@ -230,9 +230,10 @@ DOCUMENT_TOOL_SPECS: tuple[ToolSpec, ...] = (
         tool=document_create,
         name="document_create",
         description=(
-            "사용자 승인 뒤 현재 사용자의 문서를 새로 저장합니다. "
-            "document_type은 commercial_report/search_report/research_report/markdown/code 중 하나입니다. "
-            "차트는 raw_text 안의 ```chart``` JSON block으로 작성할 수 있습니다."
+            "사용자가 여러 채팅에서 다시 볼 장기 보관 자료를 명시적으로 만들어 달라고 "
+            "했을 때만 사용자 승인 뒤 현재 사용자의 문서를 새로 저장합니다. 사용자에게는 "
+            "상권 분석 보고서, 검색 결과 정리, 간단 노트처럼 설명하고, raw_text에는 "
+            "마크다운과 ```chart``` JSON block만 넣습니다."
         ),
         category="document",
         args_schema=document_create.args_schema,
