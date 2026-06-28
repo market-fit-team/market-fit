@@ -3,6 +3,8 @@ import pytest
 from agent.services.chat.tools import ChatToolError
 from agent.services.chat.tools.web_tool.web_tool import (
     WEB_TOOL_SPECS,
+    _PeerCheckedAsyncNetworkStream,
+    _PublicIPEnforcingNetworkBackend,
     _ensure_public_hostname,
     _normalize_body_content,
     _normalize_search_payload,
@@ -49,6 +51,107 @@ async def test_public_hostname_check_blocks_private_addresses(
 
     with pytest.raises(ChatToolError, match="공개 인터넷"):
         await _ensure_public_hostname("internal.example")
+
+
+class _FakeAsyncNetworkStream:
+    def __init__(self, server_addr: tuple[str, int]) -> None:
+        self._server_addr = server_addr
+
+    async def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        return b""
+
+    async def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        return None
+
+    async def aclose(self) -> None:
+        return None
+
+    async def start_tls(
+        self,
+        ssl_context: object,
+        server_hostname: str | None = None,
+        timeout: float | None = None,
+    ) -> "_FakeAsyncNetworkStream":
+        return self
+
+    def get_extra_info(self, info: str) -> object | None:
+        if info == "server_addr":
+            return self._server_addr
+        return None
+
+
+class _FakeAsyncNetworkBackend:
+    def __init__(self, stream: _FakeAsyncNetworkStream) -> None:
+        self._stream = stream
+        self.calls: list[tuple[str, int]] = []
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: object | None = None,
+    ) -> _FakeAsyncNetworkStream:
+        self.calls.append((host, port))
+        return self._stream
+
+    async def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: object | None = None,
+    ) -> _FakeAsyncNetworkStream:
+        raise AssertionError("유닉스 소켓은 호출되면 안 됩니다.")
+
+    async def sleep(self, seconds: float) -> None:
+        return None
+
+
+@pytest.mark.anyio
+async def test_public_ip_backend_connects_to_resolved_public_ip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """안전 backend는 검증한 공개 IP로 직접 연결한다."""
+
+    async def fake_resolve_ip_addresses(_: str) -> list[str]:
+        return ["93.184.216.34"]
+
+    monkeypatch.setattr(
+        "agent.services.chat.tools.web_tool.web_tool._resolve_ip_addresses",
+        fake_resolve_ip_addresses,
+    )
+
+    fake_stream = _FakeAsyncNetworkStream(("93.184.216.34", 443))
+    fake_backend = _FakeAsyncNetworkBackend(fake_stream)
+    backend = _PublicIPEnforcingNetworkBackend(fake_backend)
+
+    stream = await backend.connect_tcp("example.com", 443)
+
+    assert isinstance(stream, _PeerCheckedAsyncNetworkStream)
+    assert fake_backend.calls == [("93.184.216.34", 443)]
+
+
+@pytest.mark.anyio
+async def test_public_ip_backend_rejects_private_peer_after_connect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """실제 연결된 peer IP가 사설 주소면 재바인딩 우회로 보고 막는다."""
+
+    async def fake_resolve_ip_addresses(_: str) -> list[str]:
+        return ["93.184.216.34"]
+
+    monkeypatch.setattr(
+        "agent.services.chat.tools.web_tool.web_tool._resolve_ip_addresses",
+        fake_resolve_ip_addresses,
+    )
+
+    fake_stream = _FakeAsyncNetworkStream(("127.0.0.1", 443))
+    fake_backend = _FakeAsyncNetworkBackend(fake_stream)
+    backend = _PublicIPEnforcingNetworkBackend(fake_backend)
+
+    with pytest.raises(ChatToolError, match="공개 인터넷"):
+        await backend.connect_tcp("example.com", 443)
 
 
 def test_normalize_search_payload_limits_results_and_fields() -> None:

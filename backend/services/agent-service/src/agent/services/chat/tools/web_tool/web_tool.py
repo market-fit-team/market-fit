@@ -6,10 +6,14 @@ import re
 import socket
 from html.parser import HTMLParser
 from ipaddress import ip_address
+from types import TracebackType
 from typing import Any, Literal
 from urllib.parse import urljoin, urlparse
 
+import httpcore
 import httpx
+from httpx._config import DEFAULT_LIMITS, create_ssl_context
+from httpx._transports.default import AsyncResponseStream, map_httpcore_exceptions
 from langchain_core.tools import tool
 
 from agent.core.config import settings
@@ -166,6 +170,15 @@ def _normalize_content_type(value: str | None) -> str:
     return value.split(";", 1)[0].strip().casefold()
 
 
+def _ensure_public_ip_address(raw_address: str) -> None:
+    try:
+        parsed = ip_address(raw_address)
+    except ValueError as exc:
+        raise ChatToolError("호스트가 올바른 IP 주소로 해석되지 않았습니다.") from exc
+    if not parsed.is_global:
+        raise ChatToolError("공개 인터넷에서 접근 가능한 호스트만 허용됩니다.")
+
+
 def _require_searxng_settings() -> tuple[str, str]:
     search_url = settings.searxng_search_url.strip()
     api_key = (settings.searxng_api_key or "").strip()
@@ -302,8 +315,159 @@ async def _ensure_public_hostname(hostname: str) -> None:
     if normalized == "localhost" or normalized.endswith(".localhost"):
         raise ChatToolError("localhost 주소는 허용되지 않습니다.")
     addresses = await _resolve_ip_addresses(normalized)
-    if any(not ip_address(address).is_global for address in addresses):
-        raise ChatToolError("공개 인터넷에서 접근 가능한 호스트만 허용됩니다.")
+    for address in addresses:
+        _ensure_public_ip_address(address)
+
+
+class _PeerCheckedAsyncNetworkStream(httpcore.AsyncNetworkStream):
+    """연결된 peer IP가 여전히 공개 주소인지 다시 확인한다."""
+
+    def __init__(self, stream: httpcore.AsyncNetworkStream) -> None:
+        self._stream = stream
+
+    async def read(self, max_bytes: int, timeout: float | None = None) -> bytes:
+        return await self._stream.read(max_bytes, timeout)
+
+    async def write(self, buffer: bytes, timeout: float | None = None) -> None:
+        await self._stream.write(buffer, timeout)
+
+    async def aclose(self) -> None:
+        await self._stream.aclose()
+
+    async def start_tls(
+        self,
+        ssl_context: Any,
+        server_hostname: str | None = None,
+        timeout: float | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        tls_stream = await self._stream.start_tls(
+            ssl_context=ssl_context,
+            server_hostname=server_hostname,
+            timeout=timeout,
+        )
+        checked_stream = _PeerCheckedAsyncNetworkStream(tls_stream)
+        checked_stream.ensure_public_peer()
+        return checked_stream
+
+    def get_extra_info(self, info: str) -> Any:
+        return self._stream.get_extra_info(info)
+
+    def ensure_public_peer(self) -> None:
+        server_addr = self._stream.get_extra_info("server_addr")
+        if not isinstance(server_addr, tuple) or not server_addr:
+            raise ChatToolError("연결된 원격 호스트 주소를 확인할 수 없습니다.")
+        peer_ip = server_addr[0]
+        if not isinstance(peer_ip, str):
+            raise ChatToolError("연결된 원격 호스트 주소 형식이 올바르지 않습니다.")
+        _ensure_public_ip_address(peer_ip)
+
+
+class _PublicIPEnforcingNetworkBackend(httpcore.AsyncNetworkBackend):
+    """해석된 공개 IP로 직접 연결해 DNS rebinding 우회를 막는다."""
+
+    def __init__(self, backend: httpcore.AsyncNetworkBackend | None = None) -> None:
+        self._backend = backend or httpcore.AnyIOBackend()
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: Any = None,
+    ) -> httpcore.AsyncNetworkStream:
+        normalized = host.rstrip(".").casefold()
+        await _ensure_public_hostname(normalized)
+        addresses = await _resolve_ip_addresses(normalized)
+        last_error: Exception | None = None
+        for address in addresses:
+            _ensure_public_ip_address(address)
+            try:
+                stream = await self._backend.connect_tcp(
+                    host=address,
+                    port=port,
+                    timeout=timeout,
+                    local_address=local_address,
+                    socket_options=socket_options,
+                )
+            except Exception as exc:
+                last_error = exc
+                continue
+
+            checked_stream = _PeerCheckedAsyncNetworkStream(stream)
+            checked_stream.ensure_public_peer()
+            return checked_stream
+
+        if last_error is not None:
+            raise last_error
+        raise ChatToolError("호스트를 해석할 수 없습니다.")
+
+    async def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: Any = None,
+    ) -> httpcore.AsyncNetworkStream:
+        raise ChatToolError("유닉스 소켓 연결은 허용되지 않습니다.")
+
+    async def sleep(self, seconds: float) -> None:
+        await self._backend.sleep(seconds)
+
+
+class _SafeAsyncHTTPTransport(httpx.AsyncBaseTransport):
+    """공개 IP 검증을 통과한 연결만 허용하는 transport다."""
+
+    def __init__(self) -> None:
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=create_ssl_context(verify=True, cert=None, trust_env=False),
+            max_connections=DEFAULT_LIMITS.max_connections,
+            max_keepalive_connections=DEFAULT_LIMITS.max_keepalive_connections,
+            keepalive_expiry=DEFAULT_LIMITS.keepalive_expiry,
+            http1=True,
+            http2=False,
+            retries=0,
+            network_backend=_PublicIPEnforcingNetworkBackend(),
+        )
+
+    async def __aenter__(self) -> "_SafeAsyncHTTPTransport":
+        await self._pool.__aenter__()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        with map_httpcore_exceptions():
+            await self._pool.__aexit__(exc_type, exc_value, traceback)
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        assert isinstance(request.stream, httpx.AsyncByteStream)
+        req = httpcore.Request(
+            method=request.method,
+            url=httpcore.URL(
+                scheme=request.url.raw_scheme,
+                host=request.url.raw_host,
+                port=request.url.port,
+                target=request.url.raw_path,
+            ),
+            headers=request.headers.raw,
+            content=request.stream,
+            extensions=request.extensions,
+        )
+        with map_httpcore_exceptions():
+            resp = await self._pool.handle_async_request(req)
+
+        return httpx.Response(
+            status_code=resp.status,
+            headers=resp.headers,
+            stream=AsyncResponseStream(resp.stream),
+            extensions=resp.extensions,
+        )
+
+    async def aclose(self) -> None:
+        await self._pool.aclose()
 
 
 def _accept_header(format: Literal["text", "html"]) -> str:
@@ -391,6 +555,7 @@ async def _fetch_web_document(
             follow_redirects=False,
             headers=_BROWSERISH_HEADERS,
             trust_env=False,
+            transport=_SafeAsyncHTTPTransport(),
         ) as client:
             for _ in range(_MAX_REDIRECTS + 1):
                 parsed = urlparse(current_url)
