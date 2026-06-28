@@ -88,6 +88,20 @@ def test_durable_aggregate_upsert_overwrites_dates(tmp_path: Path, monkeypatch) 
     assert by_date["20260103"] == 112.0  # 추가
 
 
+def test_durable_aggregate_prunes_beyond_retention(tmp_path: Path, monkeypatch) -> None:
+    """정제본 보관 한도(2년) 초과 날짜는 저장 시 버려진다."""
+    monkeypatch.setattr(T, "_COMMERCIAL_FILE", tmp_path / "commercial.csv.gz")
+    monkeypatch.setattr(T, "_NIGHT_FILE", tmp_path / "night.csv.gz")
+
+    csv = tmp_path / "m.csv"
+    _write_month_csv(csv, ("20230101", "20260101"), hour="12", total="28")  # 3년 차이
+    T.upsert_from_csv(csv)
+
+    dates = set(T.load_commercial_dailies("db")["combined"]["date"].dt.strftime("%Y%m%d"))
+    assert "20260101" in dates  # 최신 유지
+    assert "20230101" not in dates  # 2년 초과 → 삭제
+
+
 def test_db_mode_skips_runtime_compute_without_snapshot(monkeypatch) -> None:
     """db 모드에서 스냅샷이 없고 런타임 계산이 꺼져 있으면 원천 계산을 안 하는지 확인한다."""
     from app.core.config import settings

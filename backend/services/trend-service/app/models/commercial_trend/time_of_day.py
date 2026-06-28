@@ -30,6 +30,8 @@ _COMMERCIAL_FILE = ARTIFACTS_DIR / "segment_commercial_dailies.csv.gz"
 _NIGHT_FILE = ARTIFACTS_DIR / "segment_night_dailies.csv.gz"
 # 집계 정의(시간대/세그먼트) 버전. 정의를 바꾸면 올려서 정제본을 원시에서 재생성한다.
 AGGREGATE_VERSION = 1
+# 정제본 보관 기간[일]. 학습은 2년 워크포워드로 검증했으니 그보다 오래된 건 안 쓴다 → 무한 증가 방지.
+RETAIN_DAYS = 365 * 2
 
 _VALUE_POSITIONS = sorted({pos for positions in SEGMENT_POSITIONS.values() for pos in positions})
 _USECOLS = sorted({0, 1, 2, *_VALUE_POSITIONS})
@@ -81,8 +83,18 @@ def _latest_date(dailies: dict[str, pd.DataFrame]) -> str | None:
     return max(dates).date().isoformat() if dates else None
 
 
+def _prune_old(dailies: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """최신일 기준 RETAIN_DAYS 이전 데이터를 버린다(정제본이 무한히 커지지 않게)."""
+    iso = _latest_date(dailies)
+    if iso is None:
+        return dailies
+    cutoff = pd.Timestamp(iso) - pd.Timedelta(days=RETAIN_DAYS)
+    return {segment: frame[frame["date"] >= cutoff].reset_index(drop=True) for segment, frame in dailies.items()}
+
+
 def _write_durable(path, dailies: dict[str, pd.DataFrame]) -> None:
     """정제본을 임시 파일에 쓰고 원자적으로 교체(중간에 죽어도 안 깨지게) + 메타 갱신."""
+    dailies = _prune_old(dailies)  # 보관 한도(2년) 초과분은 저장 전에 버린다
     snapshot = pd.concat(
         [frame.assign(segment=segment) for segment, frame in dailies.items()], ignore_index=True
     )[["segment", "area_code", "date", "population"]]
