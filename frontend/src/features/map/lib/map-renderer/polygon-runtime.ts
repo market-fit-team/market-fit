@@ -20,7 +20,6 @@ import {
   DONG_SELECTED_LAYER_ID,
   DONG_SOURCE_ID,
   GU_BOUNDARY_SOURCE_ID,
-  SEARCH_RESULT_MARKER_LAYER_ID,
   SEARCH_RESULT_SOURCE_ID,
   excludeSearchResultCodes,
   getLayerFilterByCode,
@@ -383,29 +382,6 @@ export const bindDongPolygonEvents = ({
     selectDong(code)
     focusMapOnDong(code)
   })
-
-  map.on("mousemove", SEARCH_RESULT_MARKER_LAYER_ID, () => {
-    map.getCanvas().style.cursor = "pointer"
-  })
-
-  map.on("mouseleave", SEARCH_RESULT_MARKER_LAYER_ID, () => {
-    map.getCanvas().style.cursor = ""
-  })
-
-  map.on(
-    "click",
-    SEARCH_RESULT_MARKER_LAYER_ID,
-    (event: MapLayerMouseEvent) => {
-      const code = getEventDongCode(event)
-
-      if (!code) {
-        return
-      }
-
-      selectDong(code)
-      focusMapOnDong(code)
-    }
-  )
 }
 
 type SyncDongPolygonLayersInput = DongPolygonLayerState & {
@@ -441,7 +417,7 @@ export const syncDongPolygonLayers = ({
     map.setFilter(layerId, selectedFilter)
   })
 
-  // 라벨은 검색 결과 마커(📍+이름)와 겹치지 않도록 검색 결과 dongCode를 제외한다.
+  // 동 라벨은 검색 결과 핀의 이름 라벨과 겹치지 않도록 검색 결과 dongCode를 제외한다.
   map.setFilter(
     DONG_RECOMMENDED_LABEL_LAYER_ID,
     excludeSearchResultCodes(recommendedFilter, searchResultCodes)

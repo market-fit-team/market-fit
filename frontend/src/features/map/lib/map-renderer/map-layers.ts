@@ -26,7 +26,6 @@ export const DONG_RECOMMENDED_LABEL_LAYER_ID = "seoul-dongs-recommended-label"
 export const DONG_HOVER_LABEL_LAYER_ID = "seoul-dongs-hover-label"
 export const DONG_SELECTED_LABEL_LAYER_ID = "seoul-dongs-selected-label"
 export const GU_BOUNDARY_LAYER_ID = "seoul-gu-boundary"
-export const SEARCH_RESULT_MARKER_LAYER_ID = "market-search-result-markers"
 export const SEARCH_RESULT_LABEL_LAYER_ID = "market-search-result-labels"
 
 // 빈 filter는 hover/selected 초기 상태에 사용
@@ -48,7 +47,7 @@ export const getLayerFilterByCodes = (codes: DongCode[]) =>
       ] satisfies FilterSpecification)
     : EMPTY_FILTER
 
-// 검색 결과 마커(📍+이름)와 라벨이 중복되지 않도록 해당 dongCode를 라벨에서 제외
+// 검색 결과 핀 마커의 이름 라벨과 동 라벨이 중복되지 않도록 해당 dongCode를 동 라벨에서 제외
 export const excludeSearchResultCodes = (
   baseFilter: FilterSpecification,
   searchResultCodes: DongCode[]
@@ -221,23 +220,7 @@ export const guBoundaryLayer: LineLayerSpecification = {
   type: "line",
 }
 
-export const searchResultMarkerLayer: SymbolLayerSpecification = {
-  id: SEARCH_RESULT_MARKER_LAYER_ID,
-  layout: {
-    "text-allow-overlap": true,
-    "text-anchor": "bottom",
-    "text-field": "📍",
-    "text-size": 26,
-  },
-  paint: {
-    "text-color": mapPalette.searchMarkerFill,
-    "text-halo-color": "#ffffff",
-    "text-halo-width": 1.5,
-  },
-  source: SEARCH_RESULT_SOURCE_ID,
-  type: "symbol",
-}
-
+// 검색 결과 핀은 maplibregl.Marker(기본 마커) DOM 요소로 그리며, 이 라벨은 핀 아래 동 이름만 표시한다.
 export const searchResultLabelLayer: SymbolLayerSpecification = {
   id: SEARCH_RESULT_LABEL_LAYER_ID,
   layout: {
@@ -269,6 +252,5 @@ export const polygonLayers = [
   dongLabelLayers.hover,
   dongLabelLayers.selected,
   guBoundaryLayer,
-  searchResultMarkerLayer,
   searchResultLabelLayer,
 ] as const

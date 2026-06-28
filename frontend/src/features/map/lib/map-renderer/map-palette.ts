@@ -6,7 +6,6 @@ export const mapPalette = {
   hoverFill: "#60A5FA",
   recommendedBoundary: "#6D28D9",
   recommendedFill: "#8B5CF6",
-  searchMarkerFill: "#0F172A",
   text: "#0F172A",
   visibleBoundary: "#94a3b8",
   visibleFill: "#F8FAFC",

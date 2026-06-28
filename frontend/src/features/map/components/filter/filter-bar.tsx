@@ -56,72 +56,79 @@ export function FilterBar({
   selectedMinorCategory,
 }: FilterBarProps) {
   return (
-    <Card
+    <div
       ref={filterRef}
-      className="overflow-hidden border bg-card py-0 shadow-sm"
+      className="relative"
       onPointerDown={onFilterPointerDown}
     >
-      <CardContent className="flex flex-wrap items-center gap-2 overflow-visible px-3 py-2.5 text-xs">
-        <div className="min-w-64 flex-1">
-          <InputGroup className="bg-background">
-            <InputGroupAddon>
-              <Search />
-            </InputGroupAddon>
-            <InputGroupInput
-              ref={searchInputRef}
-              defaultValue={appliedSearchKeyword}
-              onFocus={onSearchFocus}
-              onKeyDown={onSearchKeyDown}
-              placeholder="구·행정동·상권·프랜차이즈 검색"
-              aria-label="지역 및 상권 검색"
-            />
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                type="button"
-                size="icon-xs"
-                aria-label="검색어 지우기"
-                className="group-has-[input:placeholder-shown]/input-group:hidden"
-                onClick={onClearSearchKeyword}
-              >
-                <X />
-              </InputGroupButton>
-              <InputGroupButton
-                type="button"
-                size="xs"
-                aria-label="검색 실행"
-                onClick={onExecuteTextSearch}
-              >
-                검색
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
+      <Card className="overflow-hidden border bg-card py-0 shadow-sm">
+        <CardContent className="flex flex-wrap items-center gap-2 overflow-visible px-3 py-2.5 text-xs">
+          <div className="min-w-64 flex-1">
+            <InputGroup className="bg-background">
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              <InputGroupInput
+                ref={searchInputRef}
+                defaultValue={appliedSearchKeyword}
+                onFocus={onSearchFocus}
+                onKeyDown={onSearchKeyDown}
+                placeholder="구·행정동·상권·프랜차이즈 검색"
+                aria-label="지역 및 상권 검색"
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  type="button"
+                  size="icon-xs"
+                  aria-label="검색어 지우기"
+                  className="group-has-[input:placeholder-shown]/input-group:hidden"
+                  onClick={onClearSearchKeyword}
+                >
+                  <X />
+                </InputGroupButton>
+                <InputGroupButton
+                  type="button"
+                  size="xs"
+                  aria-label="검색 실행"
+                  onClick={onExecuteTextSearch}
+                >
+                  검색
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+          </div>
+
+          <IndustryPicker
+            industryOptions={industryOptions}
+            isError={isIndustryOptionsError}
+            isLoading={isIndustryOptionsLoading}
+            onSelectIndustry={onSelectIndustry}
+            selectedMajorCategory={selectedMajorCategory}
+            selectedMinorCategory={selectedMinorCategory}
+          />
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
+            <span>
+              {hasSearchCondition ? `${resultCount}개 지역` : "조건 없음"}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={onResetFilters}
+            >
+              조건 초기화
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 검색 결과 드롭다운은 카드 아래에 떠서(absolute) 카드 높이에 영향을 주지 않는다. */}
+      {resultDropdown ? (
+        <div className="absolute top-full right-0 left-0 z-20 mt-1.5">
+          {resultDropdown}
         </div>
-
-        <IndustryPicker
-          industryOptions={industryOptions}
-          isError={isIndustryOptionsError}
-          isLoading={isIndustryOptionsLoading}
-          onSelectIndustry={onSelectIndustry}
-          selectedMajorCategory={selectedMajorCategory}
-          selectedMinorCategory={selectedMinorCategory}
-        />
-
-        <div className="ml-auto flex shrink-0 items-center gap-2 text-muted-foreground">
-          <span>
-            {hasSearchCondition ? `${resultCount}개 지역` : "조건 없음"}
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={onResetFilters}
-          >
-            조건 초기화
-          </Button>
-        </div>
-      </CardContent>
-
-      {resultDropdown}
-    </Card>
+      ) : null}
+    </div>
   )
 }

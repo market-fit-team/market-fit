@@ -21,7 +21,7 @@ export function SearchResultDropdown({
   onSelectArea,
 }: SearchResultDropdownProps) {
   return (
-    <div className="border-t bg-popover text-popover-foreground">
+    <div className="overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg">
       <div className="flex items-center justify-between gap-2 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
         <span>검색 결과 {areas.length > 0 ? `${areas.length}개` : ""}</span>
         <Button
@@ -59,7 +59,7 @@ export function SearchResultDropdown({
       ) : null}
 
       {!isLoading && !isError && areas.length > 0 ? (
-        <div className="grid max-h-72 grid-cols-1 gap-1 overflow-y-auto p-1.5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid max-h-56 grid-cols-1 gap-1 overflow-y-auto p-1.5 md:grid-cols-2 xl:grid-cols-3">
           {areas.map((area) => (
             <Button
               key={area.dongCode}
