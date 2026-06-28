@@ -152,8 +152,16 @@ def build_panels(data_mode: str = "db") -> dict[str, tuple[pd.DataFrame, pd.Data
 
 
 def enough_history(weekly: pd.DataFrame, segment: str) -> bool:
-    """학습/추론에 필요한 최소 주 수(트레일링 윈도우 + 전방 지평 + 1)를 만족하는지."""
+    """학습에 필요한 최소 주 수(트레일링 윈도우 + 전방 라벨 지평 + 1)를 만족하는지."""
     return len(weekly) >= TREND_WEEKS[segment] + FORWARD_WEEKS + 1
+
+
+def enough_history_for_predict(weekly: pd.DataFrame, segment: str) -> bool:
+    """예측에 필요한 최소 주 수. 추론은 전방 라벨이 필요 없어 트레일링 윈도우만 본다.
+
+    덕분에 콜드스타트 요구가 (윈도우+전방+1)에서 (윈도우+1)로 줄어, 최근 데이터만으로도 예측이 뜬다.
+    """
+    return len(weekly) >= TREND_WEEKS[segment] + 1
 
 
 def build_segment_samples(

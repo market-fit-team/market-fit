@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     serve_banner_snapshot_from_db: bool = True
     # DB 스냅샷이 없을 때 API 요청 중 원천 CSV로 즉석 계산할지 여부. 운영에서는 false를 유지한다.
     allow_runtime_banner_compute: bool = False
+    # 서울 열린데이터 Open API 키(증분 fetch용). 비어 있으면 fetch를 비활성화한다.
+    seoul_api_key: str = ""
 
     model_config = SettingsConfigDict(env_prefix="TREND_SERVICE_")
 

@@ -519,9 +519,11 @@ services:
       TREND_SERVICE_DATABASE_URL: "postgresql+psycopg://trend:trend@trend-db:5432/trend"
       TREND_SERVICE_AUTO_INGEST_SAMPLE_ON_EMPTY: "false"
       TREND_SERVICE_ALLOW_RUNTIME_BANNER_COMPUTE: "false"
+      TREND_SERVICE_SEOUL_API_KEY: "${TREND_SERVICE_SEOUL_API_KEY:-}"
     expose:
       - "8000"
     volumes:
+      - ./backend/services/trend-service/.raw:/app/.raw
       - ./backend/services/trend-service/.artifacts:/app/.artifacts
     depends_on:
       trend-db:

@@ -28,7 +28,7 @@ def _write_living_csv(directory: Path, total: str = "28") -> None:
     (directory / "LOCAL_PEOPLE_DONG_TEST.csv").write_text("\n".join(lines), encoding="utf-8")
 
 
-def test_세그먼트_남여합_전체일치(tmp_path: Path, monkeypatch) -> None:
+def test_segment_male_female_sum_equals_total(tmp_path: Path, monkeypatch) -> None:
     """원본 컬럼 위치 합산이 회귀하지 않도록 잠근다: 남성+여성 = 전체."""
     _write_living_csv(tmp_path)
     monkeypatch.setattr(F, "RAW_DIR", tmp_path)
@@ -43,7 +43,8 @@ def test_세그먼트_남여합_전체일치(tmp_path: Path, monkeypatch) -> Non
     assert (male + female - total).abs().max() == 0.0
 
 
-def test_원천_csv_최신기준일(tmp_path: Path, monkeypatch) -> None:
+def test_latest_source_stat_date(tmp_path: Path, monkeypatch) -> None:
+    """원천 CSV들에서 가장 최신 기준일을 올바로 읽는지 확인한다."""
     _write_living_csv(tmp_path)
     monkeypatch.setattr(F, "RAW_DIR", tmp_path)
 
@@ -52,21 +53,43 @@ def test_원천_csv_최신기준일(tmp_path: Path, monkeypatch) -> None:
     assert latest.isoformat() == "2026-04-02"
 
 
-def test_시간대_스냅샷_원천변경시_재생성(tmp_path: Path, monkeypatch) -> None:
-    _write_living_csv(tmp_path, total="28")
-    cache_path = tmp_path / "time_cache.csv.gz"
-    monkeypatch.setattr(F, "RAW_DIR", tmp_path)
-
-    first = T._load_or_build(cache_path, {"00"}, "db")
-    assert first["combined"]["population"].unique().tolist() == [28.0]
-
-    _write_living_csv(tmp_path, total="112")
-    second = T._load_or_build(cache_path, {"00"}, "db")
-
-    assert second["combined"]["population"].unique().tolist() == [112.0]
+def _write_month_csv(path: Path, dates: tuple[str, ...], hour: str, total: str) -> None:
+    """지정 일자·시간대·총합으로 합성 월 CSV를 만든다(헤더 1행 + 데이터, 줄 끝 구분자 포함)."""
+    male = ["1"] * 14
+    female = ["1"] * 14
+    lines = [",".join(_HEADER)]
+    for area in ("1111", "2222"):
+        for d in dates:
+            lines.append(",".join([d, hour, area, total, *male, *female]) + ",")
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def test_db모드_스냅샷없으면_런타임계산하지_않음(monkeypatch) -> None:
+def test_durable_aggregate_upsert_overwrites_dates(tmp_path: Path, monkeypatch) -> None:
+    """정제본 upsert: 같은 (동,일)은 새 값으로 덮어쓰고 새 날짜는 추가, 옛 날짜는 유지한다."""
+    monkeypatch.setattr(T, "_COMMERCIAL_FILE", tmp_path / "commercial.csv.gz")
+    monkeypatch.setattr(T, "_NIGHT_FILE", tmp_path / "night.csv.gz")
+
+    # 1차 적재: 1/1·1/2, 상업시간대(12시), 총합 28
+    first_csv = tmp_path / "m1.csv"
+    _write_month_csv(first_csv, ("20260101", "20260102"), hour="12", total="28")
+    T.upsert_from_csv(first_csv)
+    comm = T.load_commercial_dailies("db")  # 정제본 read(원시 불필요)
+    assert comm["combined"]["population"].unique().tolist() == [28.0]
+
+    # 2차 적재: 1/2(112로 덮어씀) + 1/3(추가)
+    second_csv = tmp_path / "m2.csv"
+    _write_month_csv(second_csv, ("20260102", "20260103"), hour="12", total="112")
+    T.upsert_from_csv(second_csv)
+
+    merged = T.load_commercial_dailies("db")["combined"]
+    by_date = merged.groupby(merged["date"].dt.strftime("%Y%m%d"))["population"].first()
+    assert by_date["20260101"] == 28.0  # 유지
+    assert by_date["20260102"] == 112.0  # 덮어씀
+    assert by_date["20260103"] == 112.0  # 추가
+
+
+def test_db_mode_skips_runtime_compute_without_snapshot(monkeypatch) -> None:
+    """db 모드에서 스냅샷이 없고 런타임 계산이 꺼져 있으면 원천 계산을 안 하는지 확인한다."""
     from app.core.config import settings
 
     def fail_compute(_: str):

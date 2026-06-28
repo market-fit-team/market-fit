@@ -14,7 +14,7 @@ from app.models.commercial_trend.forecast_features import (
     FORECAST_FEATURES,
     TREND_WEEKS,
     build_panels,
-    enough_history,
+    enough_history_for_predict,
     latest_segment_features,
 )
 from app.models.commercial_trend.paths import forecast_meta_file, forecast_model_file
@@ -60,7 +60,7 @@ def _forecast_one(segment: str, weekly, ratio) -> list[dict[str, object]]:
     """한 세그먼트: 저장된 부스터로 최신 주 후보를 점수화해 내림차순 랭킹을 만든다."""
     import lightgbm as lgb
 
-    if not enough_history(weekly, segment):
+    if not enough_history_for_predict(weekly, segment):
         return []
     latest = latest_segment_features(weekly, TREND_WEEKS[segment], ratio)
     if latest is None:

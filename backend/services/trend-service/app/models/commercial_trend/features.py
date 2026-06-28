@@ -49,14 +49,6 @@ def _living_files(data_dir: Path) -> list[Path]:
     return [legacy] if legacy.exists() else []
 
 
-def _source_signature(files: list[Path]) -> list[dict[str, object]]:
-    """스냅샷 유효성 판단용 원천 파일 서명."""
-    return [
-        {"name": path.name, "size": path.stat().st_size, "mtime_ns": path.stat().st_mtime_ns}
-        for path in files
-    ]
-
-
 def load_hdong_names(data_mode: str = "sample") -> dict[str, str]:
     """행정동 코드 -> 이름 매핑. data_mode에 따라 CSV 또는 DB에서 읽는다."""
     if data_mode == "db":
