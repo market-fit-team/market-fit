@@ -59,7 +59,10 @@ export type LangGraphChatStreamContextValue = {
   streamStatus: LlmChatStreamStatus
   queueLimit: number
   queuedMessages: QueuedChatMessage[]
-  submitMessage: (content: string, options?: ChatTurnOptions) => Promise<boolean>
+  submitMessage: (
+    content: string,
+    options?: ChatTurnOptions
+  ) => Promise<boolean>
   sendMessage: (content: string, options?: ChatTurnOptions) => Promise<void>
   removeQueuedMessage: (id: string) => void
   resume: (decisions: HitlDecision[]) => Promise<void>

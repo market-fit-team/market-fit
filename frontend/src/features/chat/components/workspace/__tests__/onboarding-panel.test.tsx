@@ -40,7 +40,9 @@ describe("OnboardingPanel", () => {
 
     const rows = container.querySelectorAll("[id^='onboarding-row-']")
     expect(rows).toHaveLength(2)
-    expect(within(rows[0] as HTMLElement).getByText("기본값")).toBeInTheDocument()
+    expect(
+      within(rows[0] as HTMLElement).getByText("기본값")
+    ).toBeInTheDocument()
     expect(
       within(rows[0] as HTMLElement).getByText("성향·채팅에 추가됨")
     ).toBeInTheDocument()

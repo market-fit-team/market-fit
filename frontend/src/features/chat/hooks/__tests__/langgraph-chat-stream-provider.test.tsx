@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type {
@@ -93,7 +93,8 @@ function ProviderHarness() {
     <div>
       <output aria-label="queue-count">{queuedMessages.length}</output>
       <output aria-label="queue-items">
-        {queuedMessages.map((message) => message.content).join("|") || "(empty)"}
+        {queuedMessages.map((message) => message.content).join("|") ||
+          "(empty)"}
       </output>
       <button
         type="button"

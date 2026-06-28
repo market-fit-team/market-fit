@@ -89,7 +89,15 @@ function ChatWorkspaceThreadStarter({
       .catch(() => {
         hasSubmittedRef.current = false
       })
-  }, [isBusy, isHydrating, router, starterMessage, starterSelections, submitMessage, threadId])
+  }, [
+    isBusy,
+    isHydrating,
+    router,
+    starterMessage,
+    starterSelections,
+    submitMessage,
+    threadId,
+  ])
 
   return null
 }

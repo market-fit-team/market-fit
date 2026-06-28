@@ -194,7 +194,9 @@ const resolveThreadSettingsError = (error: unknown) => {
         ? error.body.detail
         : null
 
-    return detail ?? "실행 설정을 저장하지 못했습니다. 기본 설정으로 시작합니다."
+    return (
+      detail ?? "실행 설정을 저장하지 못했습니다. 기본 설정으로 시작합니다."
+    )
   }
 
   if (error instanceof Error && error.message) {

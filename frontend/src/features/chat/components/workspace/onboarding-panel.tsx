@@ -53,9 +53,7 @@ export function OnboardingPanel({
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-border/20 px-4">
         <div className="flex items-center gap-2">
           <Fingerprint className="size-3.5 text-muted-foreground" />
-          <span className="text-xs font-medium text-foreground">
-            성향분석
-          </span>
+          <span className="text-xs font-medium text-foreground">성향분석</span>
           <Badge variant="outline" className="h-4 px-1.5 py-0 text-[10px]">
             {items.length}
           </Badge>

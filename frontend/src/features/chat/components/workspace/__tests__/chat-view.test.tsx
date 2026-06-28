@@ -353,7 +353,9 @@ describe("ChatView", () => {
       key: "Enter",
     })
 
-    expect((textarea as HTMLTextAreaElement).value).toBe("응답 중에도 초안 작성")
+    expect((textarea as HTMLTextAreaElement).value).toBe(
+      "응답 중에도 초안 작성"
+    )
     expect(sendButton).not.toBeDisabled()
     expect(submitMessage).toHaveBeenCalledWith("응답 중에도 초안 작성", {
       selectedArtifactIds: ["artifact-1"],

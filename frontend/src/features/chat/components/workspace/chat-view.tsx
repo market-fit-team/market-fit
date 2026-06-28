@@ -332,9 +332,7 @@ function QueuedMessageList({
   return (
     <div className="mx-auto mb-3 flex max-w-2xl flex-col gap-1.5">
       <div className="flex items-center justify-between px-1">
-        <span className="text-[11px] text-muted-foreground">
-          대기 메시지
-        </span>
+        <span className="text-[11px] text-muted-foreground">대기 메시지</span>
         <span className="text-[11px] text-muted-foreground">
           {queuedMessages.length}/{queueLimit}
         </span>
