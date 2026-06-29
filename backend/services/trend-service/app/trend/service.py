@@ -38,17 +38,57 @@ def _forecast_phrase(signals: dict[str, float]) -> str:
 
 
 def _forecast_description(signals: dict[str, float]) -> str:
-    """예측 카드에 붙이는 짧은 근거 문구. 수치 대신 흐름만 설명한다."""
+    """예측 카드에 붙이는 짧은 근거 문구. 강한 신호 2개를 골라 자연어로 조합한다."""
     accel = signals.get("accel", 0.0)
     recent = signals.get("recent_vs_win", 0.0)
     vol = signals.get("vol", 0.0)
+    excess = signals.get("excess_slope", 0.0)
+    scale = signals.get("scale_pct", 0.0)
+    vitality = signals.get("comm_night_ratio", 0.0)
+    vitality_trend = signals.get("ratio_trend", 0.0)
+    mom = signals.get("mom4", 0.0)
+
+    clauses: list[tuple[float, str]] = []
     if accel > 0:
-        return "최근 흐름보다 앞으로의 상승 여지가 큽니다."
+        clauses.append((3.0 + accel, "유입 흐름이 전보다 빠르게 좋아지는"))
     if recent < -0.01:
-        return "잠잠했던 유입이 다시 살아나는 구간입니다."
+        clauses.append((2.8 + abs(recent), "잠잠했던 유입이 다시 살아나는"))
     if vol < 0.02:
-        return "흔들림이 작고 완만한 상승세가 예상됩니다."
-    return "다음 8주 유입 증가 가능성을 높게 본 상권입니다."
+        clauses.append((2.6 + (0.02 - vol), "흔들림이 작아 흐름이 안정적인"))
+    if excess > 0:
+        clauses.append((2.4 + excess, "서울 평균보다 흐름이 앞서는"))
+    if vitality >= 1.05:
+        clauses.append((2.2 + vitality / 10, "상업시간대 유입 비중이 강한"))
+    if vitality_trend > 0:
+        clauses.append((2.0 + vitality_trend, "상권성도 함께 개선되는"))
+    if mom > 0:
+        clauses.append((1.8 + mom, "전보다 유입 체력이 붙는"))
+    if 0 < scale < 0.65:
+        clauses.append((1.6 + (0.65 - scale), "현재 규모보다 변화 가능성이 돋보이는"))
+    elif scale >= 0.8:
+        clauses.append((1.6 + scale / 10, "기본 유입 규모도 뒷받침되는"))
+
+    if not clauses:
+        return "유입 증가 가능성을 높게 본 상권입니다."
+
+    selected = [clause for _, clause in sorted(clauses, reverse=True)[:2]]
+    if len(selected) == 1:
+        return f"{selected[0]} 상권입니다."
+    return f"{selected[0]} 상권으로, {selected[1]} 후보입니다."
+
+
+def _popular_description(pick: dict[str, object], index: int) -> str:
+    """인기 카드 설명. 점수는 숨기고 순위와 상권성만 말로 풀어 쓴다."""
+    vitality = float(pick.get("vitality", 0.0))
+    if index == 0 and vitality >= 1.15:
+        return "상업시간대 유입이 가장 두드러지고, 상권 성격도 강하게 나타납니다."
+    if index == 0:
+        return "상업시간대 생활인구가 가장 크게 잡힌 상권입니다."
+    if vitality >= 1.15:
+        return "야간보다 상업시간대 유입이 뚜렷한 상권입니다."
+    if index == 1:
+        return "상업시간대 유입이 꾸준히 높은 상위권 상권입니다."
+    return "생활인구 규모가 안정적으로 상위권에 머무는 상권입니다."
 
 
 def _predicted_metrics(picks: list[dict[str, object]]) -> list[TrendForecastMetric]:
@@ -81,9 +121,9 @@ def _popular_metrics(picks: list[dict[str, object]]) -> list[TrendForecastMetric
         TrendForecastMetric(
             label=str(pick["area_name"]),
             value="",
-            description="최근 상업시간대 생활인구가 많은 상권입니다.",
+            description=_popular_description(pick, index),
         )
-        for pick in picks[:TOP_N]
+        for index, pick in enumerate(picks[:TOP_N])
     ]
 
 
