@@ -21,7 +21,6 @@ FRONTEND_SERVICE := frontend
 BACKEND_RESET_SERVICES := $(GATEWAY_SERVICES) $(DATA_SERVICES) $(APP_SERVICES)
 BACKEND_RESET_VOLUMES := market-fit-backend_authentik_postgres_data market-fit-backend_backend_postgres_data market-fit-backend_community_postgres_data market-fit-backend_onboarding_postgres_data market-fit-backend_agent_postgres_data market-fit-backend_agent_langgraph_api_data market-fit-backend_post_postgres_data market-fit-backend_trend_postgres_data market-fit-backend_redis_data market-fit-backend_minio_data
 BACKEND_RESET_IMAGES := market-fit-backend-postgis:17-3.5-arm64 market-fit-backend-profile-service market-fit-backend-echo-service market-fit-backend-market-service market-fit-backend-franchise-service market-fit-backend-onboarding-service market-fit-backend-agent-service market-fit-backend-community-service market-fit-backend-post-service market-fit-backend-trend-service
-ONBOARDING_CATEGORY_ARTIFACT_DIR := ./.local/onboarding-service-artifacts/onboarding_category_tower
 BUILD_DATA_SERVICES := backend-db
 BUILD_APP_SERVICES := profile-service echo-service franchise-service market-service onboarding-service agent-service community-service post-service trend-service
 
@@ -33,11 +32,10 @@ reset-backend: validate-env
 	@$(COMPOSE) rm -sfv $(BACKEND_RESET_SERVICES)
 	@for volume in $(BACKEND_RESET_VOLUMES); do \
 		docker volume rm -f "$$volume" >/dev/null 2>&1 || true; \
-	done
+		done
 	@for image in $(BACKEND_RESET_IMAGES); do \
 		docker image rm -f "$$image" >/dev/null 2>&1 || true; \
 	done
-	@rm -rf $(ONBOARDING_CATEGORY_ARTIFACT_DIR)
 
 reset-hard: reset-backend
 	@echo "VPS 전체 Docker BuildKit build cache와 dangling image를 정리합니다..."
