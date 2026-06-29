@@ -26,6 +26,13 @@ vi.mock(
   })
 )
 
+vi.mock(
+  "@/features/post/components/public-post-report-bell/public-post-report-bell",
+  () => ({
+    PublicPostReportBell: () => <div data-testid="public-notification-bell" />,
+  })
+)
+
 vi.mock("@/features/post/api/post-api", () => ({
   getPost: vi.fn(),
 }))
@@ -111,5 +118,6 @@ describe("MainPostCarouselWidgetContainer", () => {
     expect(
       screen.queryByRole("button", { name: /AI 칼럼 생성/ })
     ).not.toBeInTheDocument()
+    expect(screen.getByTestId("public-notification-bell")).toBeInTheDocument()
   })
 })

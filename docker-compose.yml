@@ -297,7 +297,7 @@ services:
     image: postgres:17-alpine
     container_name: post-db
     ports:
-      - "5664:5432"
+      - "5665:5432"
     environment:
       POSTGRES_DB: post
       POSTGRES_USER: post
@@ -506,4 +506,3 @@ volumes:
   post_postgres_data:
   redis_data:
   minio_data:
-

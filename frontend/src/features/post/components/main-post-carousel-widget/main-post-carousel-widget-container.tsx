@@ -5,6 +5,7 @@ import { getPost } from "@/features/post/api/post-api"
 import { CommentNotificationBell } from "@/features/post/components/comment-notification-bell/comment-notification-bell"
 import { MainPostCarouselWidget } from "@/features/post/components/main-post-carousel-widget/main-post-carousel-widget"
 import { PostComments } from "@/features/post/components/post-comments/post-comments"
+import { PublicPostReportBell } from "@/features/post/components/public-post-report-bell/public-post-report-bell"
 import { useCommentNotifications } from "@/features/post/hooks/use-comment-notifications"
 import { useMainPosts } from "@/features/post/hooks/use-main-posts"
 import type { PostDetail } from "@/features/post/types/post"
@@ -111,7 +112,10 @@ export function MainPostCarouselWidgetContainer({
         error={error}
         onPostClick={handlePostClick}
         headerActions={
-          <CommentNotificationBell onOpenPost={openPostDetail} />
+          <div className="flex items-center gap-2">
+            <PublicPostReportBell />
+            <CommentNotificationBell onOpenPost={openPostDetail} />
+          </div>
         }
       />
       <Dialog

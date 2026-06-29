@@ -46,8 +46,6 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/posts/*/comments")
                                                 .permitAll()
-                                                .requestMatchers(HttpMethod.GET, "/api/notifications/events")
-                                                .permitAll()
                                                 .requestMatchers("/api/notifications/**")
                                                 .authenticated()
                                                 .requestMatchers(HttpMethod.GET, "/api/posts/me/**").authenticated()
