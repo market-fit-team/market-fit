@@ -68,7 +68,7 @@ ensure_temp_env_file \
 
 echo ">> frontend codegen에 필요한 gateway/auth 라우팅 반영"
 "${COMPOSE[@]}" up -d traefik authentik-server authentik-worker
-"$AUTHENTIK_BLUEPRINT_REFRESH_SCRIPT"
+bash "$AUTHENTIK_BLUEPRINT_REFRESH_SCRIPT"
 
 echo ">> frontend 의존성 설치"
 (

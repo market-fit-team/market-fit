@@ -37,12 +37,12 @@ restore-db:
 services:
 	@echo "백엔드 서비스를 빌드하고 시작합니다..."
 	@$(COMPOSE) up -d --build $(APP_SERVICES)
-	@$(AUTHENTIK_BLUEPRINT_REFRESH_SCRIPT)
+	@bash $(AUTHENTIK_BLUEPRINT_REFRESH_SCRIPT)
 
 # frontend 빌드 전에 현재 backend OpenAPI 기준으로 Orval 산출물을 다시 만든다.
 frontend-codegen:
 	@echo "프론트엔드 API 타입과 클라이언트를 생성합니다..."
-	@$(FRONTEND_API_GEN_SCRIPT)
+	@bash $(FRONTEND_API_GEN_SCRIPT)
 
 frontend: frontend-codegen
 	@echo "프론트엔드 standalone 서비스를 빌드하고 시작합니다..."
@@ -50,11 +50,11 @@ frontend: frontend-codegen
 
 train-onboarding-models:
 	@echo "온보딩 모델 학습을 실행합니다..."
-	@$(ONBOARDING_TRAIN_SCRIPT)
+	@bash $(ONBOARDING_TRAIN_SCRIPT)
 
 train-trend-models:
 	@echo "트렌드 배치를 실행합니다..."
-	@$(TREND_TRAIN_SCRIPT)
+	@bash $(TREND_TRAIN_SCRIPT)
 
 # 배포 기준 모델 후처리는 온보딩 학습과 trend 배치를 함께 묶어 다룬다.
 train-models:
