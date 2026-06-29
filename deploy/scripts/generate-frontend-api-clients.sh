@@ -6,6 +6,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
 FRONTEND_DIR="$REPO_ROOT/frontend"
 COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$ROOT_DIR/.env}"
+STACK_FILE="${STACK_FILE:-$ROOT_DIR/compose/backend-public-stack.yml}"
+COMPOSE=(docker compose --env-file "$COMPOSE_ENV_FILE" -f "$STACK_FILE")
 TEMP_ENV_FILES=()
 
 cleanup_temp_env_files() {
@@ -62,6 +64,9 @@ ensure_temp_env_file "$REPO_ROOT/.env" "$COMPOSE_ENV_FILE"
 ensure_temp_env_file \
   "$REPO_ROOT/backend/services/agent-service/.env" \
   "$REPO_ROOT/backend/services/agent-service/.env.example"
+
+echo ">> frontend codegen에 필요한 gateway/auth 라우팅 반영"
+"${COMPOSE[@]}" up -d traefik authentik-server
 
 echo ">> frontend 의존성 설치"
 (

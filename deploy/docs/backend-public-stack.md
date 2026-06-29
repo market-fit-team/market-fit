@@ -73,6 +73,9 @@ GET /api/market/api/v1/status
 /api/profile/user-profile
 -> profile-service /user-profile
 
+/api/authentik/api/v3/schema/?format=json
+-> authentik-server /api/v3/schema/?format=json
+
 /api/echo/echo
 -> echo-service /echo
 

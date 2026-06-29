@@ -98,6 +98,10 @@ services:
       - traefik.enable=true
       - traefik.http.routers.authentik.rule=Host(`${AUTH_PUBLIC_HOST}`)
       - traefik.http.routers.authentik.entrypoints=public
+      - traefik.http.routers.authentik-api.rule=Host(`${API_PUBLIC_HOST}`) && PathPrefix(`/api/authentik`)
+      - traefik.http.routers.authentik-api.entrypoints=public
+      - traefik.http.routers.authentik-api.middlewares=authentik-strip,api-cors
+      - traefik.http.middlewares.authentik-strip.stripprefix.prefixes=/api/authentik
       - traefik.http.services.authentik.loadbalancer.server.port=9000
 
   authentik-worker:
