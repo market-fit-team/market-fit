@@ -47,6 +47,7 @@ jobs:
       TARGET_ENV_FILE: /home/ubuntu/code-server/volumes/home/project/market-fit-deploy/deploy/.env
       TARGET_DUMP_DIR: /home/ubuntu/code-server/volumes/home/project/market-fit-deploy/deploy/.local/backend-db-market-franchise
       TARGET_POST_DUMP_DIR: /home/ubuntu/code-server/volumes/home/project/market-fit-deploy/deploy/.local/post-db
+      TARGET_ONBOARDING_RAW_DIR: /home/ubuntu/code-server/volumes/home/project/market-fit-deploy/backend/services/onboarding-service/.raw
       TARGET_TREND_ARTIFACTS_DIR: /home/ubuntu/code-server/volumes/home/project/market-fit-deploy/backend/services/trend-service/.artifacts
       TARGET_TREND_RAW_DIR: /home/ubuntu/code-server/volumes/home/project/market-fit-deploy/backend/services/trend-service/.raw
     steps:
@@ -89,6 +90,10 @@ jobs:
               mkdir -p "$preserve_dir/deploy/.local"
               cp -R "$TARGET_POST_DUMP_DIR" "$preserve_dir/deploy/.local/post-db"
             fi
+            if [ -d "$TARGET_ONBOARDING_RAW_DIR" ]; then
+              mkdir -p "$preserve_dir/backend/services/onboarding-service"
+              cp -R "$TARGET_ONBOARDING_RAW_DIR" "$preserve_dir/backend/services/onboarding-service/.raw"
+            fi
             if [ -d "$TARGET_TREND_ARTIFACTS_DIR" ]; then
               mkdir -p "$preserve_dir/backend/services/trend-service"
               cp -R "$TARGET_TREND_ARTIFACTS_DIR" "$preserve_dir/backend/services/trend-service/.artifacts"
@@ -118,6 +123,7 @@ jobs:
           restore_preserved_path "deploy/.env" "$TARGET_ENV_FILE"
           restore_preserved_path "deploy/.local/backend-db-market-franchise" "$TARGET_DUMP_DIR"
           restore_preserved_path "deploy/.local/post-db" "$TARGET_POST_DUMP_DIR"
+          restore_preserved_path "backend/services/onboarding-service/.raw" "$TARGET_ONBOARDING_RAW_DIR"
           restore_preserved_path "backend/services/trend-service/.artifacts" "$TARGET_TREND_ARTIFACTS_DIR"
           restore_preserved_path "backend/services/trend-service/.raw" "$TARGET_TREND_RAW_DIR"
           rm -rf "$preserve_dir"
@@ -149,6 +155,21 @@ jobs:
 
           test -d "$TARGET_TREND_ARTIFACTS_DIR"
           mkdir -p "$TARGET_TREND_RAW_DIR"
+
+      # raw 모드 학습을 쓰는 경우 onboarding-service 원본 CSV가 로컬 clone 디렉터리에 있어야 한다.
+      - name: onboarding raw 자산 확인
+        run: |
+          set -euo pipefail
+
+          set -a
+          # shellcheck disable=SC1090
+          source "$TARGET_ENV_FILE"
+          set +a
+
+          if [[ "${ONBOARDING_CATEGORY_DATA_MODE:-sample}" == "raw" ]]; then
+            test -d "$TARGET_ONBOARDING_RAW_DIR"
+            find "$TARGET_ONBOARDING_RAW_DIR" -maxdepth 1 -type f -name '*.csv' | grep -q .
+          fi
 
       # 개별 워크플로가 넘긴 make 또는 docker compose 명령을 deploy 디렉터리에서 실행한다.
       - name: 배포 명령 실행

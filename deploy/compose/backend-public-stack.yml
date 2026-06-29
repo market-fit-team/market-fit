@@ -368,6 +368,7 @@ services:
       ONBOARDING_SERVICE_JWT_ALGORITHM: RS256
     volumes:
       - ../.local/onboarding-service-artifacts:/app/.artifacts
+      - ../../backend/services/onboarding-service/.raw:/app/.raw
     depends_on:
       onboarding-db:
         condition: service_healthy
