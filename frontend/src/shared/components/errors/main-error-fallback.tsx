@@ -8,6 +8,7 @@ import {
 } from "next/navigation"
 import { type FallbackProps } from "react-error-boundary"
 import { problemDetailSchema } from "@/shared/api/problem-detail-schema"
+import { ErrorFallbackPanel } from "@/shared/components/errors/error-fallback-panel"
 
 const DEFAULT_ERROR_MESSAGE = "알 수 없는 에러가 발생했습니다."
 
@@ -32,25 +33,15 @@ export function MainErrorFallback({
   }
 
   return (
-    <div role="alert">
-      <h2>{message ?? DEFAULT_ERROR_MESSAGE}</h2>
-      <div>
-        <button
-          onClick={() => {
-            resetErrorBoundary()
-            router.refresh()
-          }}
-        >
-          재시도
-        </button>
-        <button
-          onClick={() => {
-            window.location.assign("/")
-          }}
-        >
-          홈으로
-        </button>
-      </div>
-    </div>
+    <ErrorFallbackPanel
+      title={message ?? DEFAULT_ERROR_MESSAGE}
+      onRetry={() => {
+        resetErrorBoundary()
+        router.refresh()
+      }}
+      onHome={() => {
+        window.location.assign("/")
+      }}
+    />
   )
 }

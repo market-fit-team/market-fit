@@ -1,6 +1,7 @@
 import { Suspense } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import { CreateScheduledPost } from "@/features/post/components/create-scheduled-post"
+import { ErrorFallbackPanel } from "@/shared/components/errors/error-fallback-panel"
 
 export default async function CommunityScheduledPostsPage() {
   return (
@@ -9,7 +10,12 @@ export default async function CommunityScheduledPostsPage() {
 
       <section>
         <ErrorBoundary
-          fallback={<div>예약 게시글 작성 폼 로딩 중 에러가 발생했습니다.</div>}
+          fallback={
+            <ErrorFallbackPanel
+              title="예약 게시글 작성 폼을 불러오지 못했습니다."
+              className="min-h-64 py-8"
+            />
+          }
         >
           <Suspense fallback={<div>예약 게시글 작성 폼 로딩 중...</div>}>
             <CreateScheduledPost />

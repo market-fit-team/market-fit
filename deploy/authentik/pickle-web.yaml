@@ -9,6 +9,93 @@ metadata:
     blueprints.goauthentik.io/description: Pickle Web OIDC provider, Google OAuth source, 서비스롤키 부트스트랩
 
 entries:
+  # Google 자동 리다이렉트 중에는 authentik 로고/문구 없이 배경과 스피너만 보이게 합니다.
+  - model: authentik_brands.brand
+    state: present
+    identifiers:
+      domain: authentik-default
+    id: pickle-web-minimal-login-brand
+    attrs:
+      default: true
+      branding_custom_css: |
+        html,
+        body,
+        ak-flow-executor {
+          background: #ffffff !important;
+          background-image: none !important;
+        }
+
+        ak-flow-executor::part(locale-select),
+        ak-flow-executor::part(branding),
+        ak-flow-executor::part(footer),
+        ak-flow-executor::part(challenge) {
+          display: none !important;
+        }
+
+        ak-flow-executor::part(main) {
+          position: fixed !important;
+          inset: 0 !important;
+          display: grid !important;
+          width: 100vw !important;
+          max-width: none !important;
+          min-height: 100dvh !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          place-items: center !important;
+          background: transparent !important;
+          box-shadow: none !important;
+        }
+
+        .pf-c-login,
+        .pf-c-login::before,
+        .pf-c-login::after,
+        .pf-c-login__main {
+          background: transparent !important;
+          background-image: none !important;
+          box-shadow: none !important;
+        }
+
+        body::before {
+          position: fixed !important;
+          inset-block-start: 50% !important;
+          inset-inline-start: 50% !important;
+          z-index: 9999 !important;
+          display: block !important;
+          width: 2rem !important;
+          height: 2rem !important;
+          background: #ffffff !important;
+          background-image: none !important;
+          background-clip: padding-box !important;
+          border: 0.1875rem solid color-mix(in srgb, currentColor 22%, transparent);
+          border-block-start-color: currentColor;
+          border-radius: 9999px;
+          content: "";
+          pointer-events: none;
+          transform: translate(-50%, -50%) rotate(0deg);
+          animation: pickle-web-authentik-spin 0.8s linear infinite;
+        }
+
+        @keyframes pickle-web-authentik-spin {
+          to {
+            transform: translate(-50%, -50%) rotate(360deg);
+          }
+        }
+
+        @media (prefers-color-scheme: dark) {
+          html,
+          body,
+          ak-flow-executor {
+            color: #ffffff !important;
+            background: #000000 !important;
+            background-image: none !important;
+          }
+
+          body::before {
+            background: #000000 !important;
+            background-image: none !important;
+          }
+        }
+
   - model: authentik_rbac.role
     state: present
     identifiers:
@@ -109,6 +196,8 @@ entries:
       name: pickle-web-google-authentication
       title: Continue with Google
       designation: authentication
+      background: ""
+      layout: stacked
 
   - model: authentik_flows.flowstagebinding
     state: absent

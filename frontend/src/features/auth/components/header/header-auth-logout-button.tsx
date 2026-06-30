@@ -69,9 +69,6 @@ export function HeaderAuthLogoutButton({
           <DropdownMenuItem asChild>
             <Link href="/profile">프로필 수정</Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/mypage">내 페이지</Link>
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
