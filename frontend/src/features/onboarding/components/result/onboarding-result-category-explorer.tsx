@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useMemo, useState, useTransition } from "react"
+import { Suspense, useMemo, useState } from "react"
 import { OnboardingResultPredictionPanelQuery } from "@/features/onboarding/components/result/onboarding-result-prediction-panel-query"
 import { OnboardingResultPredictionPanelSkeleton } from "@/features/onboarding/components/result/onboarding-result-prediction-panel-skeleton"
 import type { OnboardingCategoryRecommendation } from "@/features/onboarding/types/onboarding"
@@ -28,7 +28,6 @@ export function OnboardingResultCategoryExplorer({
   const [selectedCategoryCode, setSelectedCategoryCode] = useState(
     categories[0]?.service_category_code ?? ""
   )
-  const [isPending, startTransition] = useTransition()
 
   const selectedCategory = useMemo(() => {
     return (
@@ -76,16 +75,9 @@ export function OnboardingResultCategoryExplorer({
                     <button
                       type="button"
                       onClick={() => {
-                        startTransition(() => {
-                          setSelectedCategoryCode(
-                            category.service_category_code
-                          )
-                        })
+                        setSelectedCategoryCode(category.service_category_code)
                       }}
-                      className={cn(
-                        "w-full text-left",
-                        isPending && isSelected && "opacity-80"
-                      )}
+                      className="w-full text-left"
                     >
                       <Card
                         className={cn(
