@@ -223,6 +223,10 @@ function MapAgentThreadContent({
   }, [resetSelections, thread.id])
 
   useEffect(() => {
+    if (!documentsQuery.data || !artifactsQuery.data) {
+      return
+    }
+
     const nextSelections = pruneWorkspaceSelections({
       documentIds: selectedDocumentIds,
       artifactIds: selectedArtifactIds,
@@ -240,7 +244,9 @@ function MapAgentThreadContent({
     }
   }, [
     artifacts,
+    artifactsQuery.data,
     documents,
+    documentsQuery.data,
     replaceSelections,
     selectedArtifactIds,
     selectedDocumentIds,
@@ -300,6 +306,25 @@ function MapAgentThreadContent({
     )
   }
 
+  const handleSetRightPanel = (panel: ChatRightPanel | null) => {
+    setRightPanel(panel)
+
+    if (panel?.kind === "artifact") {
+      void queryClient.invalidateQueries({
+        queryKey: getListArtifactsApiV1AgentArtifactsGetQueryKey({
+          thread_id: thread.id,
+        }),
+      })
+      return
+    }
+
+    if (panel?.kind === "library" || panel?.kind === "library-document") {
+      void queryClient.invalidateQueries({
+        queryKey: getListDocumentsApiV1AgentDocumentsGetQueryKey(),
+      })
+    }
+  }
+
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-background">
       <MapAgentThreadStarter
@@ -315,20 +340,20 @@ function MapAgentThreadContent({
         isRightPanelOpen={Boolean(resolvedRightPanel)}
         isExpanded={!resolvedRightPanel}
         onRemoveOnboardingContext={handleRemoveOnboardingContext}
-        onSetRightPanel={setRightPanel}
+        onSetRightPanel={handleSetRightPanel}
         onToggleExpand={() =>
-          setRightPanel((current) => (current ? null : { kind: "library" }))
+          handleSetRightPanel(resolvedRightPanel ? null : { kind: "library" })
         }
-        onToggleRightPanel={() => setRightPanel({ kind: "library" })}
+        onToggleRightPanel={() => handleSetRightPanel({ kind: "library" })}
         compact
       />
       <MapChatOverlayPanel
         panel={resolvedRightPanel}
         documents={documents}
         isDocumentsLoading={documentsQuery.isLoading}
-        onClose={() => setRightPanel(null)}
+        onClose={() => handleSetRightPanel(null)}
         onOpenDocument={(document) =>
-          setRightPanel({ kind: "library-document", document })
+          handleSetRightPanel({ kind: "library-document", document })
         }
         onHitlDecide={(decisions) => void resume(decisions)}
       />

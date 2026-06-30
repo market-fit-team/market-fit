@@ -270,11 +270,15 @@ function ChatThreadWorkspace({
   }, [appThreadId, resetSelections])
 
   useEffect(() => {
+    if (!documents || !artifacts) {
+      return
+    }
+
     const nextSelections = pruneWorkspaceSelections({
       documentIds: selectedDocumentIds,
       artifactIds: selectedArtifactIds,
-      documents: documents ?? [],
-      artifacts: artifacts ?? [],
+      documents,
+      artifacts,
     })
 
     if (
@@ -322,13 +326,32 @@ function ChatThreadWorkspace({
     }
   }, [appThreadId, queryClient, toolCalls])
 
+  const handleSetRightPanel = (panel: ChatRightPanel | null) => {
+    setRightPanel(panel)
+
+    if (panel?.kind === "artifact") {
+      void queryClient.invalidateQueries({
+        queryKey: getListArtifactsApiV1AgentArtifactsGetQueryKey({
+          thread_id: appThreadId,
+        }),
+      })
+      return
+    }
+
+    if (panel?.kind === "library" || panel?.kind === "library-document") {
+      void queryClient.invalidateQueries({
+        queryKey: getListDocumentsApiV1AgentDocumentsGetQueryKey(),
+      })
+    }
+  }
+
   const handleToggleExpand = () => {
     if (isExpanded) {
       setIsLeftSidebarOpen(true)
-      setRightPanel({ kind: "library" })
+      handleSetRightPanel({ kind: "library" })
     } else {
       setIsLeftSidebarOpen(false)
-      setRightPanel(null)
+      handleSetRightPanel(null)
     }
   }
 
@@ -360,7 +383,7 @@ function ChatThreadWorkspace({
   return (
     <ChatWorkspaceShell
       panel={resolvedRightPanel}
-      onSetPanel={setRightPanel}
+      onSetPanel={handleSetRightPanel}
       onHitlDecide={(decisions) => void resume(decisions)}
     >
       <ChatWorkspaceThreadStarter
@@ -377,9 +400,9 @@ function ChatThreadWorkspace({
         isRightPanelOpen={Boolean(resolvedRightPanel)}
         isExpanded={isExpanded}
         onRemoveOnboardingContext={handleRemoveOnboardingContext}
-        onSetRightPanel={setRightPanel}
+        onSetRightPanel={handleSetRightPanel}
         onToggleExpand={handleToggleExpand}
-        onToggleRightPanel={() => setRightPanel({ kind: "library" })}
+        onToggleRightPanel={() => handleSetRightPanel({ kind: "library" })}
       />
     </ChatWorkspaceShell>
   )

@@ -79,7 +79,7 @@ export const reconcileWorkspaceRightPanel = ({
     )
 
     if (!nextDocument) {
-      return { kind: "library" }
+      return panel
     }
 
     if (
@@ -101,7 +101,7 @@ export const reconcileWorkspaceRightPanel = ({
     )
 
     if (!nextArtifact) {
-      return null
+      return panel
     }
 
     if (

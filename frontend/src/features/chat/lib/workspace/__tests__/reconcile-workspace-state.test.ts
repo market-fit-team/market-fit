@@ -77,7 +77,7 @@ describe("reconcileWorkspaceState", () => {
     })
   })
 
-  it("현재 query에 없는 아티팩트 상세 패널은 닫는다.", () => {
+  it("현재 query에 없는 아티팩트 상세 패널은 스냅샷으로 유지한다.", () => {
     const stalePanel: ChatRightPanel = {
       kind: "artifact",
       artifact: {
@@ -92,7 +92,25 @@ describe("reconcileWorkspaceState", () => {
       artifacts,
     })
 
-    expect(nextPanel).toBeNull()
+    expect(nextPanel).toBe(stalePanel)
+  })
+
+  it("현재 query에 없는 문서 상세 패널도 스냅샷으로 유지한다.", () => {
+    const stalePanel: ChatRightPanel = {
+      kind: "library-document",
+      document: {
+        ...documents[0],
+        id: "doc-missing",
+      },
+    }
+
+    const nextPanel = reconcileWorkspaceRightPanel({
+      panel: stalePanel,
+      documents,
+      artifacts,
+    })
+
+    expect(nextPanel).toBe(stalePanel)
   })
 
   it("새로 완료된 mutation tool call만 invalidate 대상으로 계산한다.", () => {
