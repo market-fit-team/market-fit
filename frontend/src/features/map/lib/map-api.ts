@@ -26,8 +26,7 @@ import type {
   ApiResponseMarketReportResponse,
 } from "@/shared/api/generated/market/schemas"
 
-// market 엔드포인트는 공개(비로그인 진입 + 서버 prefetch)라 인증 없는 fetchPublicMarketApi를 쓴다.
-// 생성된 fetchWithAuth는 토큰/서버 환경에서 throw하므로 여기서는 URL 빌더만 사용한다.
+// market 엔드포인트는 공개(비로그인 진입 + 서버 prefetch)라 토큰 조회 없는 fetchPublicMarketApi를 쓴다.
 
 export const getAdminAreas = async () =>
   toAdminAreaMapData(

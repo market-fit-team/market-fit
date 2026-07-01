@@ -72,18 +72,25 @@ const parseResponseBody = async (response: Response) => {
 export const fetchWithAuthResponse: typeof fetch = async (input, init) => {
   const headers = new Headers(init?.headers)
 
-  if (!headers.has("authorization")) {
-    if (typeof window === "undefined") {
-      throw new AuthSessionError()
+  if (!headers.has("authorization") && typeof window !== "undefined") {
+    try {
+      const accessToken = await getClientOidcAccessToken()
+      headers.set("authorization", `Bearer ${accessToken}`)
+    } catch (error) {
+      if (!(error instanceof AuthSessionError)) {
+        throw error
+      }
     }
-    const accessToken = await getClientOidcAccessToken()
-    headers.set("authorization", `Bearer ${accessToken}`)
   }
 
   const response = await fetch(input, {
     ...init,
     headers,
   })
+
+  if (response.status === 401 && typeof window !== "undefined") {
+    await authClient.signOut()
+  }
 
   if (!response.ok) {
     throw new HttpStatusError(
@@ -99,8 +106,8 @@ export const fetchWithAuthResponse: typeof fetch = async (input, init) => {
  * 프론트엔드 공용 인증 fetch 래퍼다.
  *
  * 브라우저에서 호출될 때 Authorization 헤더가 비어 있으면 Better Auth를 통해
- * access token을 꺼내 자동 주입한다. 현재 Orval generated API들이 대량으로
- * 의존하는 진입점이라, 인증 헤더 정책을 한 곳에 모아두는 역할을 한다.
+ * access token 주입을 시도한다. 세션이 없으면 Authorization 없이 요청을 보내고,
+ * 인증 필요 여부는 백엔드 응답으로 판단한다.
  */
 export const fetchWithAuth = async <T>(
   input: string,
