@@ -1,5 +1,5 @@
-import Link from "next/link"
 import Image from "next/image"
+import Link from "next/link"
 import { HeaderAuthButton } from "@/features/auth/components/header/header-auth-button"
 import {
   HeaderNavButton,

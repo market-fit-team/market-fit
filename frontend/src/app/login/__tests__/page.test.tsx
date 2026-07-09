@@ -93,9 +93,7 @@ describe("/login page", () => {
           callbackURL: "/chat/thread-1",
         }),
       })
-    ).rejects.toThrow(
-      "NEXT_REDIRECT:/profile?callbackURL=%2Fchat%2Fthread-1"
-    )
+    ).rejects.toThrow("NEXT_REDIRECT:/profile?callbackURL=%2Fchat%2Fthread-1")
 
     expect(redirectMock).toHaveBeenCalledWith(
       "/profile?callbackURL=%2Fchat%2Fthread-1"

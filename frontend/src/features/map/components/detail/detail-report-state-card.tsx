@@ -50,11 +50,7 @@ export function DetailReportStateCard({ state }: DetailReportStateCardProps) {
       <CardContent>
         <Alert
           variant={variant}
-          className={
-            variant
-              ? ""
-              : "border-border bg-muted text-foreground"
-          }
+          className={variant ? "" : "border-border bg-muted text-foreground"}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-background text-muted-foreground">
             <Icon className="h-4 w-4" />

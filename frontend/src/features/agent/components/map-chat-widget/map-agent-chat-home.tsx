@@ -7,13 +7,13 @@ import { HttpStatusError } from "@/features/auth/lib/fetch-with-auth"
 import { ChatWorkspaceEmptyState } from "@/features/chat/components/workspace/chat-workspace-empty-state"
 import { useLocalWorkspaceRuntimeSettings } from "@/features/chat/hooks/workspace/use-local-workspace-runtime-settings"
 import type { ChatReasoningEffort } from "@/features/chat/types/chat-model-selection"
+import { useListDocumentsApiV1AgentDocumentsGet } from "@/shared/api/generated/agent/endpoints/agent-documents/agent-documents"
 import {
   getGetThreadSettingsApiV1AgentThreadsThreadIdSettingsGetQueryKey,
   getListThreadsApiV1AgentThreadsGetQueryKey,
   updateThreadSettingsApiV1AgentThreadsThreadIdSettingsPut,
   useCreateThreadApiV1AgentThreadsPost,
 } from "@/shared/api/generated/agent/endpoints/agent-threads/agent-threads"
-import { useListDocumentsApiV1AgentDocumentsGet } from "@/shared/api/generated/agent/endpoints/agent-documents/agent-documents"
 import {
   useListLlmModelsApiV1LlmModelsGet,
   useListLlmToolsApiV1LlmToolsGet,

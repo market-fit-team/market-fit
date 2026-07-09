@@ -1,7 +1,7 @@
 "use client"
 
-import { ArrowRight, BookOpen, CalendarDays, Sparkles } from "lucide-react"
 import type { ReactNode } from "react"
+import { ArrowRight, BookOpen, CalendarDays, Sparkles } from "lucide-react"
 import type { PostSourceType } from "@/features/post/types/post"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 
@@ -68,7 +68,8 @@ function LoadingState() {
   )
 }
 
-const formatDate = (value: string) => new Date(value).toLocaleDateString("ko-KR")
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString("ko-KR")
 
 function PostBadge({ post }: { post: MainPostCarouselItem }) {
   return (
@@ -86,9 +87,7 @@ function FeaturedPost({
   onPostClick?: (postId: string) => void
 }) {
   return (
-    <article
-      className="flex min-h-[200px] rounded-xl border border-border bg-card shadow-sm"
-    >
+    <article className="flex min-h-[200px] rounded-xl border border-border bg-card shadow-sm">
       <div className="flex min-w-0 flex-1 flex-col p-5">
         <div className="flex flex-wrap items-center gap-2">
           <PostBadge post={post} />
@@ -137,10 +136,7 @@ export function MainPostCarouselWidget({
   const secondaryPosts = visiblePosts.slice(1)
 
   return (
-    <section
-      className="space-y-5"
-      aria-labelledby="main-post-carousel-title"
-    >
+    <section className="space-y-5" aria-labelledby="main-post-carousel-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">

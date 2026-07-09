@@ -199,10 +199,7 @@ export function CompetitionAnalysisSection({
           </div>
         </section>
 
-        <section
-          className="space-y-5"
-          aria-label="개업 및 폐업 비교"
-        >
+        <section className="space-y-5" aria-label="개업 및 폐업 비교">
           <div>
             <p className="text-xs font-medium text-foreground">개·폐업 흐름</p>
             <p className="mt-1 text-[10px] text-muted-foreground">

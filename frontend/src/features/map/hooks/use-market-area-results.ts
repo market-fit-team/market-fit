@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useAdminAreas } from "@/features/map/hooks/use-admin-areas"
 import { getIndustryCode } from "@/features/map/lib/industry-filter-options"
 import { marketAreaSearchQueryOptions } from "@/features/map/lib/map-query-options"

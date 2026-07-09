@@ -1,5 +1,5 @@
-import { renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { renderHook, waitFor } from "@testing-library/react"
 import { useCommentNotifications } from "@/features/post/hooks/use-comment-notifications"
 
 const { toastInfo } = vi.hoisted(() => ({
@@ -51,9 +51,8 @@ describe("useCommentNotifications", () => {
 
   it("Authorization 헤더 기반 SSE를 구독하고 댓글 알림을 처리한다", async () => {
     const onOpenPost = vi.fn()
-    const { fetchWithAuthResponse } = await import(
-      "@/features/auth/lib/fetch-with-auth"
-    )
+    const { fetchWithAuthResponse } =
+      await import("@/features/auth/lib/fetch-with-auth")
     vi.mocked(fetchWithAuthResponse).mockResolvedValue(
       createSseResponse(
         'event: notification.created\ndata: {"id":"notification-1","type":"COMMENT_CREATED","title":"댓글 알림","message":"새 댓글이 등록되었습니다.","targetPostId":"post-1","targetCommentId":"comment-1","read":false,"createdAt":"2026-06-29T00:00:00Z"}\n\n'

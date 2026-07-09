@@ -32,8 +32,9 @@ export function CommentNotificationBell({
 
   if (isPending || !session) return null
 
-  const unreadCount = notifications.filter((notification) => !notification.read)
-    .length
+  const unreadCount = notifications.filter(
+    (notification) => !notification.read
+  ).length
 
   const loadNotifications = async () => {
     setIsLoading(true)

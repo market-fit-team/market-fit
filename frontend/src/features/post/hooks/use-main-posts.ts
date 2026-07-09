@@ -25,18 +25,19 @@ export function useMainPosts(limit = 10) {
   useEffect(() => {
     const controller = new AbortController()
 
-    const loadPosts = () => getMainPosts(limit, controller.signal)
-      .then((posts) => {
-        setResult({ limit, posts, error: null })
-      })
-      .catch((cause: unknown) => {
-        if (controller.signal.aborted) return
-        setResult({
-          limit,
-          posts: [],
-          error: getErrorMessage(cause),
+    const loadPosts = () =>
+      getMainPosts(limit, controller.signal)
+        .then((posts) => {
+          setResult({ limit, posts, error: null })
         })
-      })
+        .catch((cause: unknown) => {
+          if (controller.signal.aborted) return
+          setResult({
+            limit,
+            posts: [],
+            error: getErrorMessage(cause),
+          })
+        })
 
     void loadPosts()
     const handleCreated = () => void loadPosts()

@@ -179,9 +179,10 @@ describe("post-api", () => {
       })
     )
     expect(
-      ((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.headers as Headers).get(
-        "authorization"
-      )
+      (
+        (fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)
+          ?.headers as Headers
+      ).get("authorization")
     ).toBe("Bearer token-1")
   })
 
@@ -227,7 +228,9 @@ describe("post-api", () => {
     )
     expect(fetchWithAuth).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining("/api/post/api/notifications/notification-1/read"),
+      expect.stringContaining(
+        "/api/post/api/notifications/notification-1/read"
+      ),
       expect.objectContaining({ method: "PATCH" })
     )
   })

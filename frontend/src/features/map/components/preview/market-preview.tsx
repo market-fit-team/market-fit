@@ -1,8 +1,8 @@
 import { useRouter } from "next/navigation"
 import { MarketPreviewPanel } from "@/features/map/components/preview/market-preview-panel"
 import { useAdminAreas } from "@/features/map/hooks/use-admin-areas"
-import { useMarketRecommendations } from "@/features/map/hooks/use-market-recommendations"
 import { useMarketPreview } from "@/features/map/hooks/use-market-preview"
+import { useMarketRecommendations } from "@/features/map/hooks/use-market-recommendations"
 import { useMapStore } from "@/features/map/store/map-store"
 
 export function MarketPreview() {
@@ -30,7 +30,9 @@ export function MarketPreview() {
   return (
     <MarketPreviewPanel
       dongName={
-        selectedDong?.name ?? selectedRecommendation?.dongName ?? selectedDongCode
+        selectedDong?.name ??
+        selectedRecommendation?.dongName ??
+        selectedDongCode
       }
       isError={isError}
       isLoading={isLoading}

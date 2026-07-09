@@ -1,5 +1,5 @@
-import { act, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import { PublicPostReportBell } from "@/features/post/components/public-post-report-bell/public-post-report-bell"
 
 vi.mock("sonner", () => ({
