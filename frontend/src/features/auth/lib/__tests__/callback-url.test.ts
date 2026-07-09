@@ -3,9 +3,7 @@ import { normalizeCallbackURL } from "@/features/auth/lib/callback-url"
 
 describe("normalizeCallbackURL", () => {
   it("유효한 상대 경로를 유지한다", () => {
-    expect(normalizeCallbackURL("/example/dashboard")).toBe(
-      "/example/dashboard"
-    )
+    expect(normalizeCallbackURL("/chat/thread-1")).toBe("/chat/thread-1")
   })
 
   it("쿼리 문자열과 해시를 유지한다", () => {
