@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
  * market-service 전역 예외 처리기.
  *
  * <p>모든 오류 응답을 RFC 7807 {@link ProblemDetail}(application/problem+json) 형식으로 통일한다.
- * 성공 응답은 {@code ApiResponse} 래퍼를 유지하고, 오류는 community-service와 동일하게
+ * 성공 응답은 {@code ApiResponse} 래퍼를 유지하고, 오류는 프로젝트 공통 규칙에 맞춰
  * ProblemDetail로 내보낸다. 공통 확장 필드로 {@code code}, {@code timestamp}를 추가한다.
  *
  * <p>{@link ResponseEntityExceptionHandler}를 상속해 Spring MVC 표준 예외(검증 실패,

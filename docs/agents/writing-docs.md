@@ -90,10 +90,10 @@ export const config = {
 ```
 
 ```text
-/api/proxy/community/api/v1/posts
--> http://localhost:8080/api/community/api/v1/posts
--> nginx location /api/community/
--> community-service:8080
+/api/proxy/post/api/posts
+-> http://localhost:8080/api/post/api/posts
+-> nginx location /api/post/
+-> post-service:8080
 ```
 
 ## 섹션 제목

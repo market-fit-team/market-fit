@@ -104,7 +104,6 @@ alter_required_role_password backend-db postgres postgres postgres "$BACKEND_DB_
 alter_existing_role_password backend-db postgres postgres market "$MARKET_DB_PASSWORD"
 alter_existing_role_password backend-db postgres postgres franchise "$FRANCHISE_DB_PASSWORD"
 
-alter_required_role_password community-db "${COMMUNITY_DB_USER:-demo}" "${COMMUNITY_DB_NAME:-demo}" "${COMMUNITY_DB_USER:-demo}" "${COMMUNITY_DB_PASSWORD:-demo}"
 alter_required_role_password onboarding-db "${ONBOARDING_DB_USER:-onboarding}" "${ONBOARDING_DB_NAME:-onboarding}" "${ONBOARDING_DB_USER:-onboarding}" "$ONBOARDING_DB_PASSWORD"
 alter_required_role_password agent-db "${AGENT_DB_USER:-agent}" "${AGENT_DB_NAME:-agent}" "${AGENT_DB_USER:-agent}" "$AGENT_DB_PASSWORD"
 alter_required_role_password post-db "${POST_DB_USER:-post}" "${POST_DB_NAME:-post}" "${POST_DB_USER:-post}" "$POST_DB_PASSWORD"

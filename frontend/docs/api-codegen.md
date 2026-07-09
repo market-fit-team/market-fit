@@ -15,11 +15,11 @@ frontend/scripts/fetch-service-catalog.mjs
 서비스별 Orval metadata는 `docker-compose.yml`의 label에 둔다.
 
 ```yaml
-community-service:
+profile-service:
   labels:
     - app.api.enabled=true
-    - app.api.name=community
-    - app.api.publicPath=/api/community
+    - app.api.name=profile
+    - app.api.publicPath=/api/profile
     - app.api.openapiPath=/v3/api-docs
     - app.api.schemasType=zod
 ```
@@ -30,12 +30,12 @@ community-service:
 {
   "services": [
     {
-      "name": "community",
-      "openapiUrl": "http://localhost:8088/api/community/v3/api-docs",
-      "publicPath": "/api/community",
+      "name": "profile",
+      "openapiUrl": "http://localhost:8088/api/profile/v3/api-docs",
+      "publicPath": "/api/profile",
       "openapiPath": "/v3/api-docs",
       "schemasType": "zod",
-      "composeService": "community-service"
+      "composeService": "profile-service"
     }
   ]
 }
@@ -59,7 +59,7 @@ return Object.fromEntries(
 OpenAPI input은 Traefik public path를 사용한다.
 
 ```text
-input.target = http://localhost:8088/api/community/v3/api-docs
+input.target = http://localhost:8088/api/profile/v3/api-docs
 ```
 
 런타임 base URL도 같은 public path를 사용한다.
@@ -87,9 +87,9 @@ override: {
 
 ```text
 Browser
--> http://localhost:8088/api/community/...
+-> http://localhost:8088/api/profile/...
 -> Traefik
--> community-service
+-> profile-service
 ```
 
 ## npm scripts

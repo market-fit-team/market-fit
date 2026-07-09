@@ -10,10 +10,8 @@ market-fit.jongchoi.com
 api.market-fit.jongchoi.com
 -> Traefik
 -> /api/profile     -> profile-service:3001
--> /api/echo        -> echo-service:3002
 -> /api/market      -> market-service:8080
 -> /api/franchise   -> franchise-service:8080
--> /api/community   -> community-service:8080
 -> /api/onboarding  -> onboarding-service:8000
 -> /api/agent       -> agent-service:2024
 -> /api/post        -> post-service:8080
@@ -76,17 +74,11 @@ GET /api/market/api/v1/status
 /api/authentik/api/v3/schema/?format=json
 -> authentik-server /api/v3/schema/?format=json
 
-/api/echo/echo
--> echo-service /echo
-
 /api/market/api/v1/status
 -> market-service /api/v1/status
 
 /api/franchise/api/v1/franchises
 -> franchise-service /api/v1/franchises
-
-/api/community/api/v1/posts
--> community-service /api/v1/posts
 
 /api/onboarding/health
 -> onboarding-service /health

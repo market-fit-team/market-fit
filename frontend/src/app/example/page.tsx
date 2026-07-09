@@ -44,16 +44,6 @@ const HOME_LINKS = [
     description: "세션, JWT, SSR 프리패치, hydration을 확인하는 실험 페이지",
   },
   {
-    href: "/example/community/posts",
-    label: "/example/community/posts",
-    description: "커뮤니티 게시글 목록 페이지",
-  },
-  {
-    href: "/example/community/scheduled-posts",
-    label: "/example/community/scheduled-posts",
-    description: "예약 게시글 작성 흐름 페이지",
-  },
-  {
     href: "/example/animals",
     label: "/example/animals",
     description: "인터셉트 라우트와 패러렐 라우트를 실험하는 페이지",

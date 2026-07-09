@@ -165,21 +165,6 @@ services:
       timeout: 3s
       retries: 20
 
-  community-db:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${COMMUNITY_DB_NAME:-demo}
-      POSTGRES_USER: ${COMMUNITY_DB_USER:-demo}
-      POSTGRES_PASSWORD: ${COMMUNITY_DB_PASSWORD:-demo}
-    volumes:
-      - community_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "psql -U ${COMMUNITY_DB_USER:-demo} -d ${COMMUNITY_DB_NAME:-demo} -tAc 'SELECT 1' >/dev/null"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
-
   onboarding-db:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -302,20 +287,6 @@ services:
       - traefik.http.routers.profile.middlewares=profile-strip,api-cors
       - traefik.http.middlewares.profile-strip.stripprefix.prefixes=/api/profile
       - traefik.http.services.profile.loadbalancer.server.port=3001
-
-  echo-service:
-    build: ../../backend/services/echo-service
-    restart: unless-stopped
-    environment:
-      PORT: "3002"
-      PROFILE_BASE_URL: http://profile-service:3001
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.echo.rule=Host(`${API_PUBLIC_HOST}`) && PathPrefix(`/api/echo`)
-      - traefik.http.routers.echo.entrypoints=public
-      - traefik.http.routers.echo.middlewares=echo-strip,api-cors
-      - traefik.http.middlewares.echo-strip.stripprefix.prefixes=/api/echo
-      - traefik.http.services.echo.loadbalancer.server.port=3002
 
   market-service:
     build: ../../backend/services/market-service
@@ -445,46 +416,6 @@ services:
       - traefik.http.middlewares.agent-strip.stripprefix.prefixes=/api/agent
       - traefik.http.services.agent.loadbalancer.server.port=2024
 
-  community-service:
-    build: ../../backend/services/community-service
-    restart: unless-stopped
-    environment:
-      DB_HOST: community-db
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      REDIS_PASSWORD: ""
-      RABBITMQ_HOST: rabbitmq
-      S3_ENDPOINT: http://minio:8900
-      S3_REGION: ${S3_REGION:-us-east-1}
-      S3_BUCKET: ${S3_BUCKET:-pickle-post-images}
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-demo}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-demo12345}
-      S3_PATH_STYLE_ACCESS: "true"
-      S3_PRESIGNED_URL_EXPIRATION_SECONDS: ${S3_PRESIGNED_URL_EXPIRATION_SECONDS:-600}
-      JWKS_URL: http://authentik-server:9000/application/o/${AUTHENTIK_CLIENT_ID:-pickle-web}/jwks/
-      JWT_ISSUER: ${AUTH_PUBLIC_ORIGIN}/application/o/${AUTHENTIK_CLIENT_ID:-pickle-web}/
-      JWT_ISSUER_ALIASES: http://${AUTH_PUBLIC_HOST}/application/o/${AUTHENTIK_CLIENT_ID:-pickle-web}/
-      JWT_AUDIENCE: ${AUTHENTIK_CLIENT_ID:-pickle-web}
-      JWT_ALGORITHM: RS256
-    depends_on:
-      community-db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-      rabbitmq:
-        condition: service_started
-      minio-init:
-        condition: service_completed_successfully
-      authentik-server:
-        condition: service_started
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.community.rule=Host(`${API_PUBLIC_HOST}`) && PathPrefix(`/api/community`)
-      - traefik.http.routers.community.entrypoints=public
-      - traefik.http.routers.community.middlewares=community-strip,api-cors
-      - traefik.http.middlewares.community-strip.stripprefix.prefixes=/api/community
-      - traefik.http.services.community.loadbalancer.server.port=8080
-
   post-service:
     build: ../../backend/services/post-service
     restart: unless-stopped
@@ -551,7 +482,6 @@ services:
 volumes:
   authentik_postgres_data:
   backend_postgres_data:
-  community_postgres_data:
   onboarding_postgres_data:
   agent_postgres_data:
   agent_langgraph_api_data:
