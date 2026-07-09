@@ -24,7 +24,7 @@ auth.market-fit.jongchoi.com
 
 ## deploy/compose/backend-public-stack.yml
 
-이 파일은 프론트엔드 standalone, 공개 게이트웨이, DB, 메시징, 스토리지, 애플리케이션 컨테이너를 한 compose에 둔다.
+이 파일은 프론트엔드 standalone, 공개 게이트웨이, DB, 메시징, 애플리케이션 컨테이너를 한 compose에 둔다.
 
 ```yaml
 services:
