@@ -16,11 +16,11 @@ FRONTEND_API_GEN_SCRIPT := ./scripts/generate-frontend-api-clients.sh
 AUTHENTIK_BLUEPRINT_REFRESH_SCRIPT := ./scripts/refresh-authentik-blueprint.sh
 
 GATEWAY_SERVICES := traefik
-DATA_SERVICES := authentik-db backend-db onboarding-db agent-db post-db trend-db redis rabbitmq minio minio-init
+DATA_SERVICES := authentik-db backend-db onboarding-db agent-db post-db trend-db rabbitmq
 APP_SERVICES := authentik-server authentik-worker profile-service franchise-service market-service onboarding-service agent-service post-service trend-service
 FRONTEND_SERVICE := frontend
 BACKEND_RESET_SERVICES := $(GATEWAY_SERVICES) $(DATA_SERVICES) $(APP_SERVICES)
-BACKEND_RESET_VOLUMES := market-fit-backend_authentik_postgres_data market-fit-backend_backend_postgres_data market-fit-backend_onboarding_postgres_data market-fit-backend_agent_postgres_data market-fit-backend_agent_langgraph_api_data market-fit-backend_post_postgres_data market-fit-backend_trend_postgres_data market-fit-backend_redis_data market-fit-backend_minio_data
+BACKEND_RESET_VOLUMES := market-fit-backend_authentik_postgres_data market-fit-backend_backend_postgres_data market-fit-backend_onboarding_postgres_data market-fit-backend_agent_postgres_data market-fit-backend_agent_langgraph_api_data market-fit-backend_post_postgres_data market-fit-backend_trend_postgres_data
 BACKEND_RESET_IMAGES := market-fit-backend-postgis:17-3.5-arm64 market-fit-backend-profile-service market-fit-backend-market-service market-fit-backend-franchise-service market-fit-backend-onboarding-service market-fit-backend-agent-service market-fit-backend-post-service market-fit-backend-trend-service
 BUILD_DATA_SERVICES := backend-db
 BUILD_APP_SERVICES := profile-service franchise-service market-service onboarding-service agent-service post-service trend-service

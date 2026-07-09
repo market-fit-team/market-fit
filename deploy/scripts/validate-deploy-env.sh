@@ -101,7 +101,6 @@ required_non_placeholder_vars=(
   TREND_DB_PASSWORD
   MARKET_DB_PASSWORD
   FRANCHISE_DB_PASSWORD
-  MINIO_ROOT_PASSWORD
 )
 
 for var_name in "${required_non_placeholder_vars[@]}"; do
