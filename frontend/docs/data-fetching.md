@@ -85,7 +85,7 @@ export function useListAgentModelsSuspense() {
 - `src/app/community/posts/page.tsx`
 - `src/app/playground/page.tsx`
 - `src/features/llm-chat/lib/agent-catalog/use-agent-catalog.ts`
-- `src/features/post/components/post-list.tsx`
+- `src/features/post/components/main-post-carousel-widget/main-post-carousel-widget-container.tsx`
 
 ## 참고 문서
 

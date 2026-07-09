@@ -153,44 +153,6 @@ services:
       - app.api.openapiPath=/v3/api-docs
       - app.api.schemasType=zod
 
-  echo-service:
-    build: ./backend/services/echo-service
-    container_name: echo-service
-    environment:
-      PORT: "3002"
-      PROFILE_BASE_URL: "http://profile-service:3001"
-    expose:
-      - "3002"
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.echo.rule=PathPrefix(`/api/echo`)
-      - traefik.http.routers.echo.entrypoints=web
-      - traefik.http.routers.echo.middlewares=echo-strip,api-cors
-      - traefik.http.middlewares.echo-strip.stripprefix.prefixes=/api/echo
-      - traefik.http.services.echo.loadbalancer.server.port=3002
-      - app.api.enabled=true
-      - app.api.name=echo
-      - app.api.publicPath=/api/echo
-      - app.api.openapiPath=/v3/api-docs
-      - app.api.schemasType=zod
-
-  community-db:
-    image: postgres:17-alpine
-    container_name: community-db
-    ports:
-      - "5663:5432"
-    environment:
-      POSTGRES_DB: demo
-      POSTGRES_USER: demo
-      POSTGRES_PASSWORD: demo
-    volumes:
-      - community_postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U demo -d demo"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
-
   backend-db:
     image: postgis/postgis:17-3.5-alpine
     container_name: backend-db
@@ -397,43 +359,6 @@ services:
       onboarding-service:
         condition: service_started
 
-  community-service:
-    build: ./backend/services/community-service
-    container_name: community-service
-    depends_on:
-      community-db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-      rabbitmq:
-        condition: service_started
-      minio-init:
-        condition: service_completed_successfully
-      authentik-server:
-        condition: service_started
-    environment:
-      - DB_HOST=community-db
-      - REDIS_HOST=redis
-      - RABBITMQ_HOST=rabbitmq
-      - S3_ENDPOINT=http://minio:8900
-      - JWKS_URL=http://authentik-server:9000/application/o/pickle-web/jwks/
-      - JWT_ISSUER=http://localhost:9000/application/o/pickle-web/
-      - JWT_AUDIENCE=pickle-web
-    expose:
-      - "8080"
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.community.rule=PathPrefix(`/api/community`)
-      - traefik.http.routers.community.entrypoints=web
-      - traefik.http.routers.community.middlewares=community-strip,api-cors
-      - traefik.http.middlewares.community-strip.stripprefix.prefixes=/api/community
-      - traefik.http.services.community.loadbalancer.server.port=8080
-      - app.api.enabled=true
-      - app.api.name=community
-      - app.api.publicPath=/api/community
-      - app.api.openapiPath=/v3/api-docs
-      - app.api.schemasType=zod
-
   onboarding-service:
     build: ./backend/services/onboarding-service
     container_name: onboarding-service
@@ -545,7 +470,6 @@ services:
 
 volumes:
   authentik_postgres_data:
-  community_postgres_data:
   onboarding_postgres_data:
   backend_postgres_data:
   agent_postgres_data:
