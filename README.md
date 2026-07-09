@@ -2,7 +2,7 @@
 
 ## 🏪 '어디가게' 소개
 
-![main](./docs/assets/어디가게-지도화면.jpg)
+![map-explore](./docs/assets/어디가게-지도1.gif)
 <br />
 
 <span style="color:#FF9393; font-size:18px">어디에 가게를 차릴지 고민하는 사장님들을 위해</span>
