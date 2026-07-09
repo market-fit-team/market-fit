@@ -50,7 +50,7 @@ AI 에이전트와 함께 나의 다음 가게를 찾아보세요. <br />
   - 예측 결과는 전체, 남성, 여성, 20·30대 세그먼트별로 나누어 배너에 표시됩니다.
 - **크롤링 기반 리포트 생성**
   - `post-service`는 뉴스/검색 URL을 입력받아 관련 기사 본문을 수집합니다.
-  - 수집된 내용 중 상권, 창업, 프랜차이즈와 관련된 문단을 선별해 OpenAI Api를 통해 리포트를 생성합니다.
+  - 수집된 내용 중 상권, 창업, 프랜차이즈와 관련된 문단을 선별해 OpenAI API를 통해 리포트를 생성합니다.
 
 ### AI 추천 설문 및 창업 성향 분석
 
@@ -89,19 +89,26 @@ AI 에이전트와 함께 나의 다음 가게를 찾아보세요. <br />
 - **LangGraph 기반 Tool Calling 루프 하네스**
   - `agent-service`는 LangGraph `StateGraph`로 에이전트 실행 흐름을 구성합니다.
   - 에이전트는 `market_*`, `franchise_*`, `onboarding_*` 과 같은 어디가게의 서비스를 30여 개의 도구로 JWT 인증과 함께 호출합니다.
-  - 사용자별 장기 메모리, 사용자가 컨텍스트에 추가한 문서 등을 메시지 배열의 마지막 메시지에 동적으로 추가하여 Prefix Cache를 유지하면서도 LLM이 맥락을 파악하도록 컨텍스트 엔지니어링 하였습니다.
+  - 사용자별 장기 메모리, 사용자가 컨텍스트에 추가한 문서 등을 메시지 배열의 마지막 메시지에 동적으로 추가하여 Prefix Cache를 유지하면서도 LLM이 맥락을 파악하도록 컨텍스트 엔지니어링하였습니다.
 
 - **`@langchain/react` 호환 API 및 Human-in-the-loop**
   - `agent-service`는 `@langchain/react`와의 연동을 위해 LangGraph Agent Server V2와 호환되는 API를 제공합니다.
   - Tool Spec에 기반하여 도구 호출 권한을 설정하고, 승인이 필요한 도구는 사용자의 응답이 올 때까지 interrupt 후 사용자 응답과 함께 checkpoint 기반으로 복원합니다.
   - 에이전트의 응답값은 Recharts를 렌더링할 수 있는 커스텀 마크다운 렌더러와 함께 마크다운으로 렌더링됩니다.
 
+## 🏪 개발환경
+
+- 상당수의 코드를 AI 에이전트와 함께 생성하였습니다. [AGENTS.md](./AGENTS.md)를 진입점으로 두고, AI 에이전트가 각 서비스별 AGENTS.md 및 docs 폴더를 통해 점진적으로 코딩 컨벤션과 프로젝트 구조를 파악하도록 의도하였습니다.
+- 생성된 PR은 AI 에이전트를 통해 코드리뷰를 받을 수 있도록 깃허브 액션을 구성하였습니다. [code-review.yml](./.github/workflows/code-review.yml)에서 Self-Hosted Runner를 통한 Codex 코드 리뷰 액션을 확인하실 수 있습니다.
+- 일정 및 이슈 관리는 GitHub 프로젝트의 칸반 보드를 통해 관리되고 있습니다. [market-fit-team/projects](https://github.com/orgs/market-fit-team/projects/2)에서 확인하실 수 있습니다.
+- 프론트엔드 코드 제너레이터인 Orval을 통해 Zod, React Query를 자동으로 생성합니다. 로컬 환경을 위한 도커 설정은 [docker-compose.yml](./docker-compose.yml), Orval을 통해 OpenAPI Docs를 발견하고 코드를 생성하는 설정은 [frontend/orval.config.ts](./frontend/orval.config.ts)에서 확인하실 수 있습니다.
+
 ## 🏪 아키텍처
 
 ![!architecture](./docs/assets/어디가게-아키텍처.jpg)
 
-**Traefik**을 서비스 디스커버리 및 리버스 프록시로 사용하는 MSA 아키텍처 입니다.
-인증서버 **Authentik**을 이용한 JWT 인증 인가를 사용하며, 서버 간 통신은 REST를 사용합니다.
+**Traefik**을 서비스 디스커버리 및 리버스 프록시로 사용하는 MSA 아키텍처입니다.
+인증서버 **Authentik**을 이용한 JWT 인증/인가를 사용하며, 서버 간 통신은 REST를 사용합니다.
 
 - Docker Compose
 - GitHub Actions
