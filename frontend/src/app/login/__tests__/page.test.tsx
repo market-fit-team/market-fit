@@ -53,12 +53,12 @@ describe("/login page", () => {
       LoginPage({
         params: Promise.resolve({}),
         searchParams: Promise.resolve({
-          callbackURL: "/example/dashboard",
+          callbackURL: "/chat/thread-1",
         }),
       })
-    ).rejects.toThrow("NEXT_REDIRECT:/example/dashboard")
+    ).rejects.toThrow("NEXT_REDIRECT:/chat/thread-1")
 
-    expect(redirectMock).toHaveBeenCalledWith("/example/dashboard")
+    expect(redirectMock).toHaveBeenCalledWith("/chat/thread-1")
   })
 
   it("인증된 사용자를 잘못된 콜백 URL에 대해 루트로 리다이렉트한다", async () => {
@@ -90,15 +90,15 @@ describe("/login page", () => {
       LoginPage({
         params: Promise.resolve({}),
         searchParams: Promise.resolve({
-          callbackURL: "/example/dashboard",
+          callbackURL: "/chat/thread-1",
         }),
       })
     ).rejects.toThrow(
-      "NEXT_REDIRECT:/profile?callbackURL=%2Fexample%2Fdashboard"
+      "NEXT_REDIRECT:/profile?callbackURL=%2Fchat%2Fthread-1"
     )
 
     expect(redirectMock).toHaveBeenCalledWith(
-      "/profile?callbackURL=%2Fexample%2Fdashboard"
+      "/profile?callbackURL=%2Fchat%2Fthread-1"
     )
   })
 
@@ -108,7 +108,7 @@ describe("/login page", () => {
     const page = await LoginPage({
       params: Promise.resolve({}),
       searchParams: Promise.resolve({
-        callbackURL: "/example/dashboard",
+        callbackURL: "/chat/thread-1",
       }),
     })
 

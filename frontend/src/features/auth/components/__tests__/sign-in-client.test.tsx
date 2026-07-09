@@ -25,7 +25,7 @@ describe("SignInClient", () => {
   it("authentik 제공자 페이로드와 함께 Better Auth oauth2 로그인을 호출한다", async () => {
     oauth2Mock.mockResolvedValue(undefined)
 
-    render(<SignInClient callbackURL="/example/dashboard" />)
+    render(<SignInClient callbackURL="/chat/thread-1" />)
 
     await userEvent.click(
       screen.getByRole("button", { name: /google로 계속하기/i })
@@ -33,8 +33,8 @@ describe("SignInClient", () => {
 
     expect(oauth2Mock).toHaveBeenCalledWith({
       providerId: "authentik",
-      callbackURL: "/login?callbackURL=%2Fexample%2Fdashboard",
-      errorCallbackURL: "/login?callbackURL=%2Fexample%2Fdashboard&error=oauth",
+      callbackURL: "/login?callbackURL=%2Fchat%2Fthread-1",
+      errorCallbackURL: "/login?callbackURL=%2Fchat%2Fthread-1&error=oauth",
       scopes: ["openid", "profile", "email", "user_profile", "offline_access"],
     })
   })
@@ -48,7 +48,7 @@ describe("SignInClient", () => {
         })
     )
 
-    render(<SignInClient callbackURL="/example/dashboard" />)
+    render(<SignInClient callbackURL="/chat/thread-1" />)
 
     const user = userEvent.setup()
     const button = screen.getByRole("button", {
