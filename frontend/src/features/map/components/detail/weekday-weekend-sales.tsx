@@ -104,9 +104,7 @@ export function WeekdayWeekendSalesSection({
               </PieChart>
             </ChartContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="text-[10px] text-muted-foreground">
-                총 매출
-              </span>
+              <span className="text-[10px] text-muted-foreground">총 매출</span>
               <span className="text-base font-semibold text-foreground">
                 {formatSalesAmount(totalSales)}
               </span>

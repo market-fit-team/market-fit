@@ -205,7 +205,7 @@ export function PostComments({ postId }: PostCommentsProps) {
                   </div>
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">
+                <p className="text-sm leading-6 whitespace-pre-wrap text-foreground">
                   {comment.content}
                 </p>
               )}

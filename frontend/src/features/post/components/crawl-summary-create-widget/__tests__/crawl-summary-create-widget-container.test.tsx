@@ -22,9 +22,7 @@ describe("CrawlSummaryCreateWidgetContainer", () => {
   it("URL과 원문이 모두 비어 있으면 안내한다", async () => {
     render(<CrawlSummaryCreateWidgetContainer />)
 
-    await userEvent.click(
-      screen.getByRole("button", { name: "AI 칼럼 생성" })
-    )
+    await userEvent.click(screen.getByRole("button", { name: "AI 칼럼 생성" }))
 
     expect(
       screen.getByText("URL 또는 원문 중 하나를 입력해주세요.")
@@ -36,9 +34,7 @@ describe("CrawlSummaryCreateWidgetContainer", () => {
     render(<CrawlSummaryCreateWidgetContainer />)
 
     await userEvent.type(screen.getByLabelText("URL"), "not-a-url")
-    await userEvent.click(
-      screen.getByRole("button", { name: "AI 칼럼 생성" })
-    )
+    await userEvent.click(screen.getByRole("button", { name: "AI 칼럼 생성" }))
 
     expect(
       screen.getByText("올바른 URL 형식을 입력해주세요.")
@@ -49,9 +45,7 @@ describe("CrawlSummaryCreateWidgetContainer", () => {
     render(<CrawlSummaryCreateWidgetContainer />)
 
     await userEvent.type(screen.getByLabelText("원문"), "짧은 원문")
-    await userEvent.click(
-      screen.getByRole("button", { name: "AI 칼럼 생성" })
-    )
+    await userEvent.click(screen.getByRole("button", { name: "AI 칼럼 생성" }))
 
     expect(
       screen.getByText("원문은 최소 20자 이상 입력해주세요.")
@@ -67,9 +61,7 @@ describe("CrawlSummaryCreateWidgetContainer", () => {
       screen.getByLabelText("URL"),
       "https://example.com/article"
     )
-    await userEvent.click(
-      screen.getByRole("button", { name: "AI 칼럼 생성" })
-    )
+    await userEvent.click(screen.getByRole("button", { name: "AI 칼럼 생성" }))
 
     await waitFor(() =>
       expect(createCrawlSummaryPost).toHaveBeenCalledWith({
@@ -134,9 +126,7 @@ describe("CrawlSummaryCreateWidgetContainer", () => {
       "실제 LLM 요약 요청에 전달할 수 있을 만큼 충분히 긴 테스트 원문입니다."
 
     await userEvent.type(screen.getByLabelText("원문"), rawContent)
-    await userEvent.click(
-      screen.getByRole("button", { name: "AI 칼럼 생성" })
-    )
+    await userEvent.click(screen.getByRole("button", { name: "AI 칼럼 생성" }))
 
     await waitFor(() =>
       expect(createCrawlSummaryPost).toHaveBeenCalledWith({
@@ -158,9 +148,7 @@ describe("CrawlSummaryCreateWidgetContainer", () => {
       screen.getByLabelText("URL"),
       "https://example.com/article"
     )
-    await userEvent.click(
-      screen.getByRole("button", { name: "AI 칼럼 생성" })
-    )
+    await userEvent.click(screen.getByRole("button", { name: "AI 칼럼 생성" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "LLM 요약에 실패했습니다."
@@ -200,9 +188,7 @@ describe("CrawlSummaryCreateWidgetContainer", () => {
       "AI 채용 시장의 변화와 개발자 수요를 설명하는 충분히 긴 원문입니다."
     )
     await userEvent.type(screen.getByLabelText("키워드"), "AI 채용")
-    await userEvent.click(
-      screen.getByRole("button", { name: "AI 칼럼 생성" })
-    )
+    await userEvent.click(screen.getByRole("button", { name: "AI 칼럼 생성" }))
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(post))
     expect(screen.getByText(post.title)).toBeInTheDocument()

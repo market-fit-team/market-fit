@@ -1,7 +1,7 @@
 "use client"
 
-import { ArrowRight } from "lucide-react"
 import { useState } from "react"
+import { ArrowRight } from "lucide-react"
 import { authClient } from "@/features/auth/lib/auth-client"
 import { getDefaultLoginOption } from "@/features/auth/lib/login-options"
 import { buildOAuthSignInPayload } from "@/features/auth/lib/oauth-sign-in"
@@ -33,10 +33,12 @@ export default function SignInClient({
     setIsPending(true)
 
     try {
-      await authClient.signIn.oauth2(buildOAuthSignInPayload({
-        loginOption: getDefaultLoginOption(),
-        callbackURL,
-      }))
+      await authClient.signIn.oauth2(
+        buildOAuthSignInPayload({
+          loginOption: getDefaultLoginOption(),
+          callbackURL,
+        })
+      )
     } finally {
       setIsPending(false)
     }
@@ -63,7 +65,7 @@ export default function SignInClient({
             className={[
               "group flex h-12 w-full items-center gap-3 rounded-xl border px-4 text-sm font-bold shadow-sm transition-all",
               "hover:-translate-y-0.5 hover:shadow-md",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/20 focus-visible:ring-offset-2",
+              "focus-visible:ring-2 focus-visible:ring-neutral-900/20 focus-visible:ring-offset-2 focus-visible:outline-none",
               "disabled:cursor-not-allowed disabled:opacity-60",
               className,
             ].join(" ")}

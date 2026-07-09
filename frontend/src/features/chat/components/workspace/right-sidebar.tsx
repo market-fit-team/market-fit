@@ -231,10 +231,7 @@ function ArtifactViewer({ artifact }: { artifact: ArtifactResponse }) {
           </p>
         )}
       </div>
-      <ArtifactActionButtons
-        artifactId={artifact.id}
-        size="icon-sm"
-      />
+      <ArtifactActionButtons artifactId={artifact.id} size="icon-sm" />
       {isMarkdownRenderableType(artifact.type) ? (
         <div className="rounded-lg border border-border/40 bg-muted/10 p-4 text-sm leading-7">
           <MarkdownContentRenderer content={artifact.raw_text} />

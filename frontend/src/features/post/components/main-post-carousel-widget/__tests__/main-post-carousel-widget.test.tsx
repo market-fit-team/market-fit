@@ -40,11 +40,7 @@ describe("MainPostCarouselWidget", () => {
     }))
 
     render(
-      <MainPostCarouselWidget
-        posts={posts}
-        isLoading={false}
-        error={null}
-      />
+      <MainPostCarouselWidget posts={posts} isLoading={false} error={null} />
     )
 
     expect(screen.getAllByRole("article")).toHaveLength(4)
@@ -94,7 +90,9 @@ describe("MainPostCarouselWidget", () => {
       />
     )
 
-    expect(screen.getByText("아직 표시할 AI 칼럼이 없습니다.")).toBeInTheDocument()
+    expect(
+      screen.getByText("아직 표시할 AI 칼럼이 없습니다.")
+    ).toBeInTheDocument()
     expect(
       screen.getByText("새로운 AI 칼럼이 발행되면 여기에 표시됩니다.")
     ).toBeInTheDocument()

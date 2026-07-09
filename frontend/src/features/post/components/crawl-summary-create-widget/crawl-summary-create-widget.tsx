@@ -189,8 +189,7 @@ export function CrawlSummaryCreateWidget({
             </p>
             {createdPost.debug?.notificationEligible && (
               <p className="mt-3 rounded-md bg-primary/10 p-3 text-sm text-primary">
-                프랜차이즈 관련 AI 칼럼이 생성되었습니다. 알림 대상
-                칼럼입니다.
+                프랜차이즈 관련 AI 칼럼이 생성되었습니다. 알림 대상 칼럼입니다.
               </p>
             )}
           </div>

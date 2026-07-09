@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
-  announcePublicPostReportCreated,
   PUBLIC_POST_REPORT_BROWSER_EVENT,
   PUBLIC_POST_REPORT_SSE_EVENT,
   type PublicPostReportBrowserEventDetail,
+  announcePublicPostReportCreated,
   publicPostReportEventsUrl,
 } from "@/features/post/lib/public-post-report-events"
 
@@ -28,18 +28,18 @@ const parsePayload = (event: Event): PublicPostReportSsePayload | null => {
   }
 }
 
-const isFranchiseEvent = (
-  detail?: PublicPostReportBrowserEventDetail | null
-) => detail?.notificationCategory === "FRANCHISE"
+const isFranchiseEvent = (detail?: PublicPostReportBrowserEventDetail | null) =>
+  detail?.notificationCategory === "FRANCHISE"
 
 export function usePublicPostReportNotification() {
   const [hasNewReport, setHasNewReport] = useState(false)
 
   useEffect(() => {
     const handleBrowserEvent = (event: Event) => {
-      const detail = event instanceof CustomEvent
-        ? (event.detail as PublicPostReportBrowserEventDetail | null)
-        : null
+      const detail =
+        event instanceof CustomEvent
+          ? (event.detail as PublicPostReportBrowserEventDetail | null)
+          : null
       if (!isFranchiseEvent(detail)) return
 
       setHasNewReport(true)
@@ -84,10 +84,7 @@ export function usePublicPostReportNotification() {
         representativeTitle: payload.representativeTitle,
       })
     }
-    eventSource.addEventListener(
-      PUBLIC_POST_REPORT_SSE_EVENT,
-      handleSseEvent
-    )
+    eventSource.addEventListener(PUBLIC_POST_REPORT_SSE_EVENT, handleSseEvent)
 
     return () => {
       eventSource.removeEventListener(

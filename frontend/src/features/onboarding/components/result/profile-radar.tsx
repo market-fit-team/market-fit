@@ -121,16 +121,8 @@ export function ProfileRadar({ profile }: ProfileRadarProps) {
             x2="100%"
             y2="100%"
           >
-            <stop
-              offset="0%"
-              stopColor="var(--chart-2)"
-              stopOpacity={0.25}
-            />
-            <stop
-              offset="100%"
-              stopColor="var(--chart-2)"
-              stopOpacity={0.08}
-            />
+            <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.25} />
+            <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0.08} />
           </linearGradient>
         </defs>
 

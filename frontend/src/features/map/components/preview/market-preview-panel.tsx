@@ -63,9 +63,7 @@ export function MarketPreviewPanel({
                 <MapPin className="h-5 w-5" />
               </span>
               <div className="min-w-0">
-                <h2 className="truncate text-xl font-bold">
-                  {dongName}
-                </h2>
+                <h2 className="truncate text-xl font-bold">{dongName}</h2>
                 <p className="mt-1 text-sm text-primary-foreground/60">
                   {sigunguName}
                 </p>
